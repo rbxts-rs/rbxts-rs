@@ -110,7 +110,9 @@ Deliberate, practical only (the user's decision):
   checking, so it reports the type error. The build fails either way.
 - **A reused import's name shadowed at the use site** (`import_named`): when a local (a parameter, a variable, a
   catch clause's variable) shadows the name of a user import Flamework's `addFileImport` reuses, rbxts-rs imports it
-  again under a fresh name (`t_1`) there; TS5 reads the local.
+  again under a fresh name (`t_1`) there; TS5 reads the local. The same for a field initializer shadowed by a
+  constructor parameter, or by a constructor local declared before `super(...)`: rbxts-rs imports again under a fresh
+  name, where TS5 reads that binding.
 
 ## Tests
 
