@@ -3,7 +3,8 @@
 use tsrs_ast::{Kind, Node};
 use tsrs_core::P;
 
-fn get_declared_variables_from_binding_name(node: P<Node>, list: &mut Vec<P<Node>>) {
+/// The identifiers a binding name (an identifier or a binding pattern, nested ones included) declares.
+pub fn get_declared_variables_from_binding_name(node: P<Node>, list: &mut Vec<P<Node>>) {
     match node.kind() {
         Kind::Identifier => list.push(node),
         Kind::ObjectBindingPattern => {

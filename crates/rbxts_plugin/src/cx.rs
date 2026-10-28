@@ -279,7 +279,10 @@ pub trait CxBackend {
     /// (`export_1`), where the TS transformer's printed name would read the local (a stock bug fixed); requests where
     /// the name means the import still reuse it. The name as a property (`o.export`, `{ export: 1 }`, a class
     /// field) or a type shadows nothing. The hook's node stands for where the value goes: use it there or in a scope
-    /// around it.
+    /// around it. Its scope is the Luau one, where roblox-ts moves code: a non-static field initializer goes into
+    /// `function Class:constructor(…)`, so there a constructor parameter of the name (a parameter property or a
+    /// destructured one too), or a local of the constructor's body before its `super(…)`, shadows the import as well,
+    /// though TypeScript resolves the initializer's name to the import.
     ///
     /// **Placement.** Plugin imports go after the `--!` directives, the `-- Compiled with` line and
     /// `local TS = require(...)`, and after every leading comment of the file's first statement, ahead of the user's

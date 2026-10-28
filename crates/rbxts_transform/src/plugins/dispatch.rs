@@ -1884,10 +1884,92 @@ fn plugin_import_statements(state: &mut TransformState<'_>, statements: &mut [St
 /// class declaration, a catch clause's variable or a destructured name, of a scope around `site`). The name as a
 /// property (`o.u`, `{ u: 1 }`, a class field) or a type (a type alias, an interface, a type parameter) is no
 /// shadowing: the printed name reads the import there, as in the TS transformer's output.
+///
+/// Nor is the TypeScript scope all of it where roblox-ts moves code into another Luau scope: an instance field's
+/// initializer goes into `function Class:constructor(…)`, where the constructor's parameters are in scope
+/// ([`shadowed_in_constructor`]).
 fn alias_shadowed(state: &mut TransformState<'_>, alias: P<Node>, site: P<Node>) -> bool {
     let Some(alias_symbol) = alias.symbol() else { return true };
     let Some(name) = alias_name(alias) else { return true };
     state.checker.resolve_name_exported(name, Some(site), SymbolFlags::Value, false) != Some(alias_symbol)
+        || shadowed_in_constructor(site, name)
+}
+
+/// Whether `site` is (in) a non-static field initializer, of this class or of one around it, that roblox-ts moves
+/// into a constructor declaring `name` there (`transformClassConstructor`): the constructor's parameters (binding
+/// patterns and parameter properties included), and its body's declarations up to the first `super(…)` statement,
+/// which go before the initializers. A later declaration of the body counts too when that first part uses the name
+/// (roblox-ts may declare it ahead of the use). TypeScript resolves an initializer's names in the class's scope,
+/// which sees none of these.
+fn shadowed_in_constructor(site: P<Node>, name: &str) -> bool {
+    use crate::util::find_constructor::find_constructor;
+    use crate::util::get_declared_variables::{get_declared_variables, get_declared_variables_from_binding_name};
+    use crate::util::symbols::get_statements;
+
+    fn declares(statement: P<Node>, name: &str) -> bool {
+        match statement.kind() {
+            Kind::VariableStatement => get_declared_variables(statement.as_variable_statement().declaration_list)
+                .iter()
+                .any(|id| id.text() == name),
+            Kind::FunctionDeclaration | Kind::ClassDeclaration | Kind::EnumDeclaration => {
+                statement.name().is_some_and(|n| n.text() == name)
+            }
+            _ => false,
+        }
+    }
+    fn mentions(node: P<Node>, name: &str) -> bool {
+        if node.kind() == Kind::Identifier && node.text() == name {
+            return true;
+        }
+        let mut found = false;
+        node.for_each_child(&mut |child| {
+            found = mentions(child, name);
+            found
+        });
+        found
+    }
+    let constructor_declares = |constructor: P<Node>| {
+        let mut parameters = Vec::new();
+        for &parameter in constructor.parameters() {
+            if let Some(binding) = parameter.name() {
+                get_declared_variables_from_binding_name(binding, &mut parameters);
+            }
+        }
+        if parameters.iter().any(|id| id.text() == name) {
+            return true;
+        }
+        let Some(body) = constructor.body() else { return false };
+        let statements = get_statements(body);
+        let split = statements
+            .iter()
+            .position(|&statement| {
+                statement.kind() == Kind::ExpressionStatement
+                    && statement.expression().is_some_and(|e| {
+                        e.kind() == Kind::CallExpression
+                            && e.expression().is_some_and(|c| c.kind() == Kind::SuperKeyword)
+                    })
+            })
+            .map_or(0, |i| i + 1);
+        let (before, after) = statements.split_at(split);
+        before.iter().any(|&s| declares(s, name))
+            || (after.iter().any(|&s| declares(s, name)) && before.iter().any(|&s| mentions(s, name)))
+    };
+
+    let mut child = site;
+    let mut current = Some(site);
+    while let Some(node) = current {
+        if node.kind() == Kind::PropertyDeclaration
+            && !tsrs_ast::has_static_modifier(node)
+            && (node == child || node.initializer() == Some(child))
+            && let Some(constructor) = node.parent().and_then(find_constructor)
+            && constructor_declares(constructor)
+        {
+            return true;
+        }
+        child = node;
+        current = node.parent();
+    }
+    false
 }
 
 /// A user import of `export` from `specifier` in this file, the one Flamework's TS transformer reuses
@@ -1948,7 +2030,8 @@ fn import_target(
         && !rbxts_project::setup::is_path_descendant_of(&resolved.file_name, &state.services.path_translator.root_dir)
     {
         return Err(format!(
-            "import_named: `{specifier}` resolves to {}, a source file outside the source root that is not in the              program",
+            "import_named: `{specifier}` resolves to {}, a source file outside the source root that is not in the \
+             program",
             resolved.file_name
         ));
     }
