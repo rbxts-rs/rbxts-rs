@@ -108,6 +108,9 @@ Deliberate, practical only (the user's decision):
 - **`noSemanticDiagnostics` with a type error and a plugin error in the same file**: stock runs the transformers over
   every file before checking, so it reports the plugin's error alone; rbxts-rs runs no plugin on a file that fails
   checking, so it reports the type error. The build fails either way.
+- **A reused import's name shadowed at the use site** (`import_named`): when a local (a parameter, a variable, a
+  catch clause's variable) shadows the name of a user import Flamework's `addFileImport` reuses, rbxts-rs imports it
+  again under a fresh name (`t_1`) there; TS5 reads the local.
 
 ## Tests
 

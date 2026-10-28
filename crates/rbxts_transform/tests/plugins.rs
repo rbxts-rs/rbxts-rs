@@ -1409,7 +1409,11 @@ fn fwapi_project(label: &str) -> Option<Project> {
 /// (`objmove.ts`) and `ObjectEdits::drop` of a written member, accessors included (`objdrop.ts`);
 /// `Cx::compile_expr_named` (`exprnamed.ts`); which user imports `import_named` reuses, as Flamework's
 /// `addFileImport`: named ones of the same specifier in the leading run of imports, not a namespace, default,
-/// type-only, later or differently spelled one (`reuse*.ts`).
+/// type-only, later or differently spelled one (`reuse*.ts`), nor where a value binding of its name shadows it at the
+/// hook's node, though the name as a property or a type does not (`shadow*.ts`). `expected/` is stock's output with
+/// the mirror transformer but for the deliberate difference: `shadowparam.ts` and `shadowlocal.ts`, where a parameter
+/// or a local shadows the name, hold rbxts-rs's fresh `u_1` import, where stock reads the local (a stock bug fixed,
+/// the plugin README's "Known differences").
 #[test]
 fn fwapi_fixture_matches_stock_typescript_5() {
     let Some(project) = fwapi_project("fwapi") else { return };

@@ -273,9 +273,13 @@ pub trait CxBackend {
     /// or `import { export as local }` (not a type-only element), in a value import declaration (not `import type`)
     /// of the file's leading run of import declarations, whose module specifier is `specifier` as written (another
     /// spelling of the same module is not reused). A default import, `import * as M` and an import after another
-    /// statement get an import of their own beside them (`local export = …`, not `M.export`). A name the import
-    /// could not mean everywhere in the file (a parameter or local of the same name) is not reused either, where the
-    /// TS transformer's printed name would read that local (a stock bug fixed).
+    /// statement get an import of their own beside them (`local export = …`, not `M.export`). Where a value binding
+    /// of the import's name (a parameter, a variable, a function or class declaration, a catch clause's variable, a
+    /// destructured name) shadows it at the hook's node, that request gets the plugin's own import under a fresh name
+    /// (`export_1`), where the TS transformer's printed name would read the local (a stock bug fixed); requests where
+    /// the name means the import still reuse it. The name as a property (`o.export`, `{ export: 1 }`, a class
+    /// field) or a type shadows nothing. The hook's node stands for where the value goes: use it there or in a scope
+    /// around it.
     ///
     /// **Placement.** Plugin imports go after the `--!` directives, the `-- Compiled with` line and
     /// `local TS = require(...)`, and after every leading comment of the file's first statement, ahead of the user's

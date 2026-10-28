@@ -53,10 +53,16 @@ j += 1
 _object_4[_left_5] = if _original_4 > 0 then g(3) else g(4)
 _object_4.moved = g(2)
 local extraOnly = _object_4
+local computedFirst = {
+	[g(1)] = 1,
+	w = 4,
+	moved = 3,
+}
 return {
 	plain = plain,
 	valueStatements = valueStatements,
 	both = both,
 	nested = nested,
 	extraOnly = extraOnly,
+	computedFirst = computedFirst,
 }

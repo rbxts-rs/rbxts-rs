@@ -614,7 +614,7 @@ impl ProbeInstance {
                 let written = properties.len() as u32;
                 let moved = properties
                     .iter()
-                    .position(|p| p.name().is_some_and(|n| n.text() == "moved"))
+                    .position(|p| plain_member_name(*p) == Some("moved"))
                     .expect("a written `moved`") as u32;
                 let mut order: Vec<u32> = (0..written).filter(|&i| i != moved).collect();
                 order.extend([written, moved]);
@@ -638,7 +638,7 @@ impl ProbeInstance {
                 let written = properties.len() as u32;
                 let dropped = properties
                     .iter()
-                    .position(|p| p.name().is_some_and(|n| n.text() == "attributes"))
+                    .position(|p| plain_member_name(*p) == Some("attributes"))
                     .expect("a written `attributes`");
                 let mut order: Vec<u32> = (0..written).filter(|&i| i != dropped as u32).collect();
                 // the list is written, `append` (`w`), then `append_deferred` (`attributes`)
@@ -1282,4 +1282,10 @@ impl PluginInstance for ProbeInstance {
             late_keys: std::mem::take(&mut *self.late_keys.borrow_mut()),
         })
     }
+}
+
+/// An object literal member's name when it is a plain identifier or a string (`None` for a computed key, a numeric
+/// one, a spread), for the ops that find a member by name.
+fn plain_member_name(member: P<Node>) -> Option<&'static str> {
+    member.name().filter(|n| matches!(n.kind(), Kind::Identifier | Kind::StringLiteral)).map(|n| n.text())
 }

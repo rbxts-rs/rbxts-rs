@@ -8,3 +8,4 @@ export const valueStatements = probeObjMove({ a: g(1), moved: g(2), b: g(3) }, j
 export const both = probeObjMove({ moved: 1, a: g(1), [g(2)]: 3 }, j++ > 0 ? g(4) : g(5), j++ > 1 ? g(7) : g(8));
 export const nested = probeObjMove({ moved: 1, a: g(1) }, { x: j++ > 0 ? g(4) : g(5), y: g(6) }, g(7));
 export const extraOnly = probeObjMove({ a: g(1), moved: 1 }, g(2), j++ > 0 ? g(3) : g(4));
+export const computedFirst = probeObjMove({ [g(1)]: 1, moved: 2 }, 3, 4);

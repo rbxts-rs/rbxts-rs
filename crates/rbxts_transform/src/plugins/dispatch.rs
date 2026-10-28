@@ -8,6 +8,7 @@ use rbxts_plugin::{
     AccessPosition, AccessSite, AssignOp, AssignSite, CallKind, CallSite, Claim, ClassFilter, ClassSite, SymbolRole,
     Tag,
 };
+use rbxts_project::ResolvedModuleInfo;
 use tsrs_ast::{Kind, ModifierFlags, Node, SourceFile, Symbol, SymbolFlags};
 use tsrs_core::P;
 
@@ -1878,24 +1879,15 @@ fn plugin_import_statements(state: &mut TransformState<'_>, statements: &mut [St
     out
 }
 
-/// Whether the local name of an import alias could be shadowed where a plugin uses it: some identifier of the file
-/// with that text resolves to anything but the alias (a parameter, a local, a property), so the name does not mean
-/// the import everywhere. Conservative: a reused import must mean the import at every use.
-fn alias_shadowed(state: &mut TransformState<'_>, alias: P<Node>) -> bool {
+/// Whether the local name of an import alias is shadowed at `site`, the node whose hook uses the plugin's value:
+/// the name, looked up there as a value, finds something else (a parameter, a `let` / `const` / `var`, a function or
+/// class declaration, a catch clause's variable or a destructured name, of a scope around `site`). The name as a
+/// property (`o.u`, `{ u: 1 }`, a class field) or a type (a type alias, an interface, a type parameter) is no
+/// shadowing: the printed name reads the import there, as in the TS transformer's output.
+fn alias_shadowed(state: &mut TransformState<'_>, alias: P<Node>, site: P<Node>) -> bool {
     let Some(alias_symbol) = alias.symbol() else { return true };
     let Some(name) = alias_name(alias) else { return true };
-    fn walk(node: P<Node>, name: &str, out: &mut Vec<P<Node>>) {
-        if node.kind() == Kind::Identifier && node.text() == name {
-            out.push(node);
-        }
-        node.for_each_child(&mut |child| {
-            walk(child, name, out);
-            false
-        });
-    }
-    let mut identifiers = Vec::new();
-    walk(state.source_file.as_node(), name, &mut identifiers);
-    identifiers.into_iter().any(|id| state.checker.get_symbol_at_location_exported(id) != Some(alias_symbol))
+    state.checker.resolve_name_exported(name, Some(site), SymbolFlags::Value, false) != Some(alias_symbol)
 }
 
 /// A user import of `export` from `specifier` in this file, the one Flamework's TS transformer reuses
@@ -1934,9 +1926,41 @@ fn find_user_import(state: &TransformState<'_>, specifier: &str, export: &str) -
     None
 }
 
+/// Where `specifier` resolves from the file (`import_named`): the module and its source file when a program file
+/// imports it; an error for a specifier that does not resolve, or resolves to a source file of no program file
+/// outside the source root.
+fn import_target(
+    state: &TransformState<'_>,
+    host: &PluginHost,
+    specifier: &str,
+) -> Result<(ResolvedModuleInfo, Option<P<SourceFile>>), String> {
+    let file = state.source_file;
+    let resolved = host
+        .resolve_module(specifier, file.get().file_name())
+        .ok_or_else(|| format!("import_named: `{specifier}` cannot be resolved from {}", file.get().file_name()))?;
+    // A module no program file imports is not in the program. TypeScript 5's roblox-ts compiles a TS transformer's
+    // output in a program made again from the printed files, where the transformer's import adds it, so the import
+    // is made from the resolved path (no user import can name it to be reused).
+    let module_file = state.program.get_source_file(&resolved.file_name);
+    if module_file.is_none()
+        && !tsrs_core::tspath::is_declaration_file_name(&resolved.file_name)
+        && !resolved.file_name.ends_with(".json")
+        && !rbxts_project::setup::is_path_descendant_of(&resolved.file_name, &state.services.path_translator.root_dir)
+    {
+        return Err(format!(
+            "import_named: `{specifier}` resolves to {}, a source file outside the source root that is not in the              program",
+            resolved.file_name
+        ));
+    }
+    Ok((resolved, module_file))
+}
+
 /// `import_named`: the value of `export` from `specifier`, imported once per file. A user's named import of the same
-/// export from the same specifier is reused (and kept alive) by Flamework's rule ([`find_user_import`]); otherwise a `local <export> = TS.import(…).<export>` goes with the plugin
-/// imports at the top of the file, named after the export unless a name in the file could shadow it.
+/// export from the same specifier is reused (and kept alive) by Flamework's rule ([`find_user_import`]) wherever its
+/// name means the import at the hook's node; otherwise (no such import, or a local of its name shadows it there: a
+/// stock bug fixed) a `local <export> = TS.import(…).<export>` goes with the plugin imports at the top of the file,
+/// named after the export unless a name in the file could shadow it. The hook's node stands for where its value
+/// goes: a value used in a scope around it reads the same name.
 ///
 /// `at` (`import_named_at`) orders the import as if it were asked for at that node's start instead of the hook's
 /// node: a request of an import already asked for moves it to the earliest position asked, keeping its place in
@@ -1956,7 +1980,20 @@ pub(crate) fn import_named(
     }
     let position_of = |node: P<Node>| if node.kind() == Kind::SourceFile { 0 } else { crate::util::traversal::get_start(node) };
     let key = (specifier.to_owned(), export.to_owned());
-    if let Some(value) = state.plugin_file.import_cache.get(&key) {
+    // the specifier checked on the first request (`Some(None)` in the cache: checked, no import of the plugin's own)
+    let mut target = None;
+    if !state.plugin_file.import_cache.contains_key(&key) {
+        target = Some(import_target(state, host, specifier)?);
+        state.plugin_file.import_cache.insert(key.clone(), None);
+    }
+    // a user import, reused per request: where a local of its name shadows it, the plugin's own import instead
+    let reusable =
+        find_user_import(state, specifier, export).filter(|&(alias, _)| !alias_shadowed(state, alias, anchor));
+    if let Some((alias, value)) = reusable {
+        state.plugin_file.forced_imports.insert(alias);
+        return Ok(value);
+    }
+    if let Some(Some(value)) = state.plugin_file.import_cache.get(&key) {
         let value = value.clone();
         if let Some(at) = at {
             let position = position_of(at);
@@ -1970,61 +2007,39 @@ pub(crate) fn import_named(
         return Ok(value);
     }
     let file = state.source_file;
-    let resolved = host
-        .resolve_module(specifier, file.get().file_name())
-        .ok_or_else(|| format!("import_named: `{specifier}` cannot be resolved from {}", file.get().file_name()))?;
-    // A module no program file imports is not in the program. TypeScript 5's roblox-ts compiles a TS transformer's
-    // output in a program made again from the printed files, where the transformer's import adds it, so the import
-    // is made from the resolved path (no user import can name it to be reused).
-    let module_file = state.program.get_source_file(&resolved.file_name);
-    if module_file.is_none()
-        && !tsrs_core::tspath::is_declaration_file_name(&resolved.file_name)
-        && !resolved.file_name.ends_with(".json")
-        && !rbxts_project::setup::is_path_descendant_of(&resolved.file_name, &state.services.path_translator.root_dir)
-    {
-        return Err(format!(
-            "import_named: `{specifier}` resolves to {}, a source file outside the source root that is not in the \
-             program",
-            resolved.file_name
-        ));
-    }
-
-    let reusable = find_user_import(state, specifier, export).filter(|&(alias, _)| !alias_shadowed(state, alias));
-    let value = if let Some((alias, value)) = reusable {
-        state.plugin_file.forced_imports.insert(alias);
-        value
-    } else {
-        // TypeScript's optimistic unique name for the TS transformer's import: `export`, else `export_1`, …
-        let id: AnyIdentifier = if rbxts_luau::is_valid_identifier(export) {
-            let name = state.plugin_file.unique_plain_name(file, export);
-            state.plugin_file.import_names.insert(name.clone());
-            create::any_id(name)
-        } else {
-            temp_id(state.plugin_file.seam_hint(file, export)).into()
-        };
-        state.plugin_file.import_names.insert(export.to_owned());
-        let import = match module_file {
-            Some(module_file) => create_import_expression_of_file(state, file, module_file, anchor),
-            None => {
-                let virtual_path = host.resolved_original_path(specifier, file.get().file_name());
-                create_import_expression_of_path(state, file, &resolved.file_name, virtual_path, anchor)
-            }
-        };
-        // the import's local, and the module's when a second import from its path shares the declaration
-        let same_path = state.plugin_file.imports.iter().filter(|i| i.specifier == specifier).count();
-        state.plugin_file.main_chunk_locals += if same_path == 1 { 2 } else { 1 };
-        let value: Expr = id.clone().into();
-        let position = position_of(at.unwrap_or(anchor));
-        let order = (position, state.plugin_file.imports.len());
-        state.plugin_file.imports.push(PluginImport {
-            specifier: specifier.to_owned(),
-            export: export.to_owned(),
-            local: id,
-            import: Some(import),
-            order,
-        });
-        value
+    let (resolved, module_file) = match target {
+        Some(target) => target,
+        None => import_target(state, host, specifier)?,
     };
-    state.plugin_file.import_cache.insert(key, value.clone());
+    // TypeScript's optimistic unique name for the TS transformer's import: `export`, else `export_1`, …
+    let id: AnyIdentifier = if rbxts_luau::is_valid_identifier(export) {
+        let name = state.plugin_file.unique_plain_name(file, export);
+        state.plugin_file.import_names.insert(name.clone());
+        create::any_id(name)
+    } else {
+        temp_id(state.plugin_file.seam_hint(file, export)).into()
+    };
+    state.plugin_file.import_names.insert(export.to_owned());
+    let import = match module_file {
+        Some(module_file) => create_import_expression_of_file(state, file, module_file, anchor),
+        None => {
+            let virtual_path = host.resolved_original_path(specifier, file.get().file_name());
+            create_import_expression_of_path(state, file, &resolved.file_name, virtual_path, anchor)
+        }
+    };
+    // the import's local, and the module's when a second import from its path shares the declaration
+    let same_path = state.plugin_file.imports.iter().filter(|i| i.specifier == specifier).count();
+    state.plugin_file.main_chunk_locals += if same_path == 1 { 2 } else { 1 };
+    let value: Expr = id.clone().into();
+    let position = position_of(at.unwrap_or(anchor));
+    let order = (position, state.plugin_file.imports.len());
+    state.plugin_file.imports.push(PluginImport {
+        specifier: specifier.to_owned(),
+        export: export.to_owned(),
+        local: id,
+        import: Some(import),
+        order,
+    });
+    state.plugin_file.import_cache.insert(key, Some(value.clone()));
     Ok(value)
 }

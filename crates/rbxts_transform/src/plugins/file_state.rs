@@ -226,7 +226,9 @@ pub struct PluginFileState {
     /// list, and how many there are. With plugin imports they go above the imports, as Flamework's TS transformer's
     /// `ts.copyComments` moves every leading comment of the first statement onto its first import declaration.
     pub first_leading_comments: (usize, usize),
-    pub(crate) import_cache: FxHashMap<(String, String), Expr>,
+    /// `import_named` requests by (specifier, export): `None` once the specifier is checked, the plugin's own import once
+    /// it is made.
+    pub(crate) import_cache: FxHashMap<(String, String), Option<Expr>>,
     /// Statements for before the current top-level statement (`insert_before_root_statement`, `hoist`).
     pub root_inserts: Vec<Stmt>,
     /// The file's top-level statements, as transformed.
