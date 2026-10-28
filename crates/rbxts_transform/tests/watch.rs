@@ -1316,6 +1316,88 @@ fn an_artifact_may_not_overwrite_an_output_already_on_disk() {
     drop(copy);
 }
 
+/// Outputs reached through a link (`output_keys`): an output subfolder that is a junction to a folder of the project,
+/// an `outDir` that is one, and the project opened through one (the artifact at the output's real path). An artifact
+/// at the real path of an output is that output, whichever side the link is on.
+#[test]
+fn an_artifact_may_not_overwrite_an_output_reached_through_a_link() {
+    let Some(node_modules) = node_modules() else {
+        rbxts_test_support::skip(module_path!(), "no node_modules with the roblox-ts tests' packages");
+        return;
+    };
+    let build = |cwd: &Path, plugins: &[Box<dyn rbxts_plugin::erased::DynPlugin>]| {
+        big_stack(|| {
+            let options = PluginOptions { plugins, ignore_unknown_tsconfig_plugins: true, ..PluginOptions::default() };
+            let mut session = BuildSession::new(
+                CompileOptions {
+                    tsconfig: "tsconfig.json".into(),
+                    cwd: cwd.to_string_lossy().into_owned(),
+                    project_options: ProjectOptionLayer::default(),
+                    out_dir_override: None,
+                    write_partial: false,
+                    no_write: false,
+                    checkers: None,
+                },
+                &options,
+                false,
+            );
+            session.build(&[]).0.fatal
+        })
+    };
+    let refused = |fatal: &[String]| fatal.iter().any(|f| f.contains("artifact-at") && f.contains("is an output of this build"));
+    // a fresh copy of `basic`, built
+    let fresh = |name: &str| {
+        let root = std::env::temp_dir().join(format!("rbxts-rs-watch-artifact-link-{name}-{}", std::process::id()));
+        parity::remove_tree(&root);
+        parity::copy_tree(&fixtures().join("basic"), &root).unwrap();
+        parity::junction(&root.join("node_modules"), &node_modules).unwrap();
+        assert_eq!(build(&root, &[]), Vec::<String>::new(), "{name}: the outputs are written");
+        root
+    };
+
+    // out/shared a junction to a folder of the project
+    let root = fresh("sub");
+    let copy = Copy(root.clone());
+    parity::copy_tree(&root.join("out/shared"), &root.join("alt")).unwrap();
+    parity::remove_tree(&root.join("out/shared"));
+    let _ = std::fs::remove_dir(root.join("out/shared"));
+    parity::junction(&root.join("out/shared"), &root.join("alt")).unwrap();
+    let written = std::fs::read(root.join("alt/b.luau")).unwrap();
+    let fatal = build(&root, &[erase(ArtifactAt("alt/b.luau"))]);
+    assert!(refused(&fatal), "an output subfolder that is a junction: {fatal:?}");
+    assert_eq!(std::fs::read(root.join("alt/b.luau")).unwrap(), written, "the output is not overwritten");
+    let _ = std::fs::remove_dir(root.join("out/shared"));
+    drop(copy);
+
+    // out itself a junction
+    let root = fresh("out");
+    let copy = Copy(root.clone());
+    std::fs::rename(root.join("out"), root.join("outreal")).unwrap();
+    parity::junction(&root.join("out"), &root.join("outreal")).unwrap();
+    let written = std::fs::read(root.join("outreal/shared/b.luau")).unwrap();
+    let fatal = build(&root, &[erase(ArtifactAt("outreal/shared/b.luau"))]);
+    assert!(refused(&fatal), "an outDir that is a junction: {fatal:?}");
+    assert_eq!(std::fs::read(root.join("outreal/shared/b.luau")).unwrap(), written, "the output is not overwritten");
+    let _ = std::fs::remove_dir(root.join("out"));
+    drop(copy);
+
+    // the project opened through a junction, the artifact at the output's real path
+    let root = fresh("via");
+    let copy = Copy(root.clone());
+    let via = std::env::temp_dir().join(format!("rbxts-rs-watch-artifact-link-through-{}", std::process::id()));
+    let _ = std::fs::remove_dir(&via);
+    parity::junction(&via, &root).unwrap();
+    assert_eq!(build(&via, &[]), Vec::<String>::new(), "the outputs are written through the link");
+    let real = root.join("out/shared/b.luau");
+    let written = std::fs::read(&real).unwrap();
+    let at: &'static str = Box::leak(real.to_string_lossy().into_owned().into_boxed_str());
+    let fatal = build(&via, &[erase(ArtifactAt(at))]);
+    assert!(refused(&fatal), "the project opened through a junction: {fatal:?}");
+    assert_eq!(std::fs::read(&real).unwrap(), written, "the output is not overwritten");
+    let _ = std::fs::remove_dir(&via);
+    drop(copy);
+}
+
 #[test]
 fn a_watch_rebuild_load_checks_what_a_plugin_emitted_into() {
     let Some(node_modules) = node_modules() else {
