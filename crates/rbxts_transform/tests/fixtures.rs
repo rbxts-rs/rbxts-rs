@@ -600,6 +600,30 @@ fn stockfix_jsx_entity() {
     assert!(!entity.is_clean() && !entity.written);
 }
 
+/// The JSX ordering's pure datatype constructors (`stockfix/src/shared/jsxConstructors.tsx`) recognised through a
+/// linked `@rbxts/types` without `preserveSymlinks` (a linked `node_modules` or package, as pnpm, bun and linked
+/// installs lay them out): the output is the same as with it (`expected/shared/jsxConstructors.luau`).
+#[test]
+fn stockfix_jsx_constructors_through_a_linked_types_package() {
+    let node_modules = match node_modules() {
+        Ok(path) => path,
+        Err(why) => return skip("stockfix_jsx_constructors_through_a_linked_types_package", &why),
+    };
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stockfix");
+    let mut project = TempProject::copy_of(&fixture, "stockfix_jsx_links");
+    project.link("node_modules", &node_modules);
+    let tsconfig = project.root.join("tsconfig.json");
+    let text = std::fs::read_to_string(&tsconfig).unwrap();
+    let without = text.replace("		\"preserveSymlinks\": true,
+", "");
+    assert_ne!(without, text, "the fixture's tsconfig sets preserveSymlinks");
+    std::fs::write(&tsconfig, without).unwrap();
+    let report = build(&project.root, false, &[]);
+    let file = report.files.iter().find(|f| f.file_name.ends_with("jsxConstructors.tsx")).expect("jsxConstructors.tsx");
+    let expected = std::fs::read_to_string(fixture.join("expected/shared/jsxConstructors.luau")).unwrap();
+    assert_eq!(file.luau.as_deref(), Some(expected.as_str()));
+}
+
 /// The outputs, then `runtime/check.luau` on them with Lune (`lune` on the PATH; skipped and said so without it).
 #[test]
 fn stockfix() {

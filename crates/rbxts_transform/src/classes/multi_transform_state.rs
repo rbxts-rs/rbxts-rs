@@ -46,6 +46,11 @@ pub struct MultiTransformState {
     pub get_module_exports_alias_map_cache: FxHashMap<P<Symbol>, Rc<FxHashMap<P<Symbol>, Expr>>>,
     /// rbxts-rs: whether a declaration file is under `node_modules/@rbxts/types` (`isRobloxType`, `isBuiltinDeclaration`).
     pub is_rbxts_types_file_cache: FxHashMap<P<SourceFile>, bool>,
+    /// rbxts-rs: whether a declaration file is under the real path of `node_modules/@rbxts/types`
+    /// (`is_in_rbxts_types_through_links`).
+    pub is_rbxts_types_real_file_cache: FxHashMap<P<SourceFile>, bool>,
+    /// rbxts-rs: the real path of `node_modules/@rbxts/types`, made on first use.
+    pub rbxts_types_real_path: Option<String>,
     /// rbxts-rs: TypeScript 5's symlinked directories by real path for `guessVirtualPath`, and the program they are
     /// for, made on first use.
     pub symlinked_directories: Option<(&'static tsrs_compiler::Program, Rc<SymlinkedDirectories>)>,
