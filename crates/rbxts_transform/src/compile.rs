@@ -662,7 +662,7 @@ pub(crate) fn transform_file(
 /// The check failed: each plugin that forwards checker diagnostics (`forwards`) may explain those of the failing files
 /// `failing` (`explain_checker_diagnostic`), but for the ones in `skip` (roblox-ts's own, which no TypeScript
 /// transformer sees); an explanation replaces the diagnostic. `env` is the build's environment snapshot. Returns the
-/// explanations.
+/// explanations. Only a file of the program has a checker: a diagnostic of another (the tsconfig's) is not explained.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn explain_failures(
     report: &mut CompileReport,
@@ -677,12 +677,14 @@ pub(crate) fn explain_failures(
     ctx: &Context,
     env: &std::sync::Arc<crate::build::plugin_inputs::EnvSnapshot>,
 ) -> FxHashSet<P<Diagnostic>> {
+    let program = project.program;
+    let failing: Vec<P<SourceFile>> =
+        failing.iter().copied().filter(|&f| program.get_source_file_by_path(f.path()) == Some(f)).collect();
     if failing.is_empty() {
         return FxHashSet::default();
     }
     // each file on the checker that checked it, one checker at a time on this thread (a failing build is not timed);
     // what each file adds is kept in the failing files' order, so the report does not depend on the checker count
-    let program = project.program;
     let count = program.checker_count().max(1);
     let mut by_owner: std::collections::BTreeMap<usize, Vec<(usize, P<SourceFile>)>> = Default::default();
     for (i, &file) in failing.iter().enumerate() {

@@ -254,6 +254,17 @@ fn first_error_cuts_rebuild_as_clean_builds() {
     run_script("plugindiag", "firsterror-s2", "firsterror-s2-plain-inc", &[], true);
 }
 
+/// An error of the program as a whole (`configerror.script.json`: `declarationDir` without `declaration` in the
+/// tsconfig, toggled) fails every file: beside check, plugin and roblox-ts errors and alone, with a plugin that
+/// forwards checker diagnostics, a plain one and none.
+#[test]
+fn a_tsconfig_error_rebuilds_as_clean_builds() {
+    run_script("plugindiag", "configerror", "configerror-fwd", &["stamp", "probe-forward"], false);
+    run_script("plugindiag", "configerror", "configerror-fwd-inc", &["stamp", "probe-forward"], true);
+    run_script("plugindiag", "configerror", "configerror", &["stamp", "probe"], false);
+    run_script("plugindiag", "configerror", "configerror-plain-inc", &[], true);
+}
+
 /// An internal error stops the transform at its file (`stopped.script.json`: a plugin panic in an early file): the
 /// files after it are left out, the ones a rebuild does not transform again too (their cached lists are not replayed),
 /// as a clean build with the same panic leaves them out.

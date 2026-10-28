@@ -1,0 +1,12 @@
+{
+	"steps": [
+		{ "name": "C1 a tsconfig error (declarationDir without declaration)", "do": [{ "patch": { "file": "tsconfig.json", "find": "\"outDir\": \"out\",", "replace": "\"outDir\": \"out\",\n\t\t\"declarationDir\": \"decl\"," } }], "expect": "error" },
+		{ "name": "C2 a3.ts check error beside it", "do": [{ "append": { "file": "src/shared/a3.ts", "text": "export const bad: number = \"x\";\n" } }], "expect": "error" },
+		{ "name": "C3 seamdiag2.ts plugin error and a roblox-ts error beside them", "do": [{ "append": { "file": "src/shared/seamdiag2.ts", "text": "probeFail();\nexport const nul = null;\n" } }], "expect": "error" },
+		{ "name": "C4 the tsconfig error removed, the others stay", "do": [{ "patch": { "file": "tsconfig.json", "find": "\n\t\t\"declarationDir\": \"decl\",", "replace": "" } }], "expect": "error" },
+		{ "name": "C5 the tsconfig error back", "do": [{ "patch": { "file": "tsconfig.json", "find": "\"outDir\": \"out\",", "replace": "\"outDir\": \"out\",\n\t\t\"declarationDir\": \"decl\"," } }], "expect": "error" },
+		{ "name": "C6 a3.ts and seamdiag2.ts fixed, the tsconfig error alone", "do": [{ "patch": { "file": "src/shared/a3.ts", "find": "export const bad: number = \"x\";\n", "replace": "" } }, { "patch": { "file": "src/shared/seamdiag2.ts", "find": "probeFail();\nexport const nul = null;\n", "replace": "" } }], "expect": "error" },
+		{ "name": "C7 seamdiag.ts edited while the tsconfig fails", "do": [{ "patch": { "file": "src/shared/seamdiag.ts", "find": "return 1;", "replace": "return 3;" } }], "expect": "error" },
+		{ "name": "C8 the tsconfig error removed", "do": [{ "patch": { "file": "tsconfig.json", "find": "\n\t\t\"declarationDir\": \"decl\",", "replace": "" } }] }
+	]
+}

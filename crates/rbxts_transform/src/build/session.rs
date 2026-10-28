@@ -1531,6 +1531,11 @@ impl<'p> BuildSession<'p> {
         // A plugin that forwards checker diagnostics (`Plugin::forwards_checker_diagnostics`, as Flamework's TS
         // transformer) reports those of each file the checker failed as its own (`forwarded`): the build reports the
         // plugins' diagnostics alone, these among them.
+        // An error of the program as a whole (`program_error`: the tsconfig's, the options', one without a file, one in a
+        // declaration file) is in every file's `getPreEmitDiagnostics`, roblox-ts's check and the one a forwarding
+        // transformer makes: every file fails roblox-ts's check (from the first, nothing is transformed) and a
+        // forwarding plugin's, which forwards it with each file's own; a plain plugin still transforms the files whose
+        // own check passed (stock's transformers run before any check).
         let checked_to = report.diagnostics.len();
         let mut checked_prefix: Option<u32> = None;
         let mut check_failing: FxHashSet<P<SourceFile>> = FxHashSet::default();
@@ -1539,15 +1544,17 @@ impl<'p> BuildSession<'p> {
         let mut explanations: FxHashSet<P<Diagnostic>> = FxHashSet::default();
         if check_failed {
             let is_error = |d: &P<Diagnostic>| d.category() == Category::Error;
-            // the files the checker failed, in the order of their first error (roblox-ts's own comment-directive
-            // errors aside, which no TypeScript transformer sees)
+            let checked = &report.diagnostics[checked_from..checked_to];
+            let program_error = checked.iter().any(|d| is_error(d) && d.file().is_none_or(|f| !file_indices.contains_key(&f)));
+            // the project files the checker failed, in the order of their first error (roblox-ts's own
+            // comment-directive errors aside, which no TypeScript transformer sees): only these have a checker
             let ts_failing_order: Vec<P<SourceFile>> = {
                 let mut seen = FxHashSet::default();
-                report.diagnostics[checked_from..checked_to]
+                checked
                     .iter()
                     .filter(|d| is_error(d) && !directive_diagnostics.contains(*d))
                     .filter_map(|d| d.file())
-                    .filter(|f| seen.insert(*f))
+                    .filter(|f| file_indices.contains_key(f) && seen.insert(*f))
                     .collect()
             };
             ts_failing = ts_failing_order.iter().copied().collect();
@@ -1558,7 +1565,15 @@ impl<'p> BuildSession<'p> {
                     .zip(&run.shared)
                     .map(|(plugin, shared)| plugin.plugin.forwards_checker_diagnostics(shared))
                     .collect();
-                if forwards.contains(&true) && !ts_failing_order.is_empty() {
+                if forwards.contains(&true) && program_error {
+                    ts_failing.extend(files.iter().copied());
+                }
+                // what such a transformer forwards are the located diagnostics: without a located error, roblox-ts's
+                // own check reports the build's (an error without a file)
+                let located_error = report.diagnostics[checked_from..checked_to]
+                    .iter()
+                    .any(|d| is_error(d) && d.file().is_some() && !directive_diagnostics.contains(d));
+                if forwards.contains(&true) && located_error {
                     forwarded = true;
                     explanations = explain_failures(
                         &mut report,
@@ -1581,12 +1596,14 @@ impl<'p> BuildSession<'p> {
             // stock's transformers see every file before the MacroManager is made: every file is transformed, for the
             // plugins' diagnostics (a file's internal error still stops the transform there)
             if macro_error.is_none() {
-                // an error without a file (the options'): no file is transformed
-                let failing: Option<FxHashSet<P<SourceFile>>> =
-                    report.diagnostics.iter().filter(|d| is_error(d)).map(|d| d.file()).collect();
-                let first = failing
-                    .as_ref()
-                    .and_then(|failing| files.iter().filter(|f| failing.contains(*f)).map(|f| file_indices[f].0).min());
+                // an error of the program as a whole: every file fails, from the first on
+                let first = if program_error {
+                    files.iter().map(|f| file_indices[f].0).min()
+                } else {
+                    let failing: FxHashSet<P<SourceFile>> =
+                        report.diagnostics.iter().filter(|d| is_error(d)).filter_map(|d| d.file()).collect();
+                    files.iter().filter(|f| failing.contains(*f)).map(|f| file_indices[f].0).min()
+                };
                 // without plugins, the files before the first failing one; with plugins, every file the checker passed
                 let transforms = |first: u32| match &run {
                     None => files.iter().any(|f| file_indices[f].0 < first),
