@@ -1298,7 +1298,8 @@ impl<'p> BuildSession<'p> {
                     }
                 }
                 eprintln!(
-                    "[rbxtsc watch] plan {}: setup inputs {files} files, {missing} missing, {env} env, {resolutions}                      resolutions, {globs} globs ({:.1} ms)",
+                    "[rbxtsc watch] plan {}: setup inputs {files} files, {missing} missing, {env} env, \
+                     {resolutions} resolutions, {globs} globs ({:.1} ms)",
                     record.name,
                     report.timings.plan.as_secs_f64() * 1e3
                 );
@@ -2680,7 +2681,6 @@ struct PluginRun<'p> {
     times: Vec<[HookTime; HookKind::ALL.len()]>,
 }
 
-/// A build input changed since `setup` read it.
 /// Whether any of a plugin's recorded setup inputs answers differently now. The files are read again in parallel (a
 /// plugin probing for a file in every program directory, as Flamework's build-info scan does, records hundreds of
 /// missing ones), the rest after them, in order.
@@ -2705,6 +2705,7 @@ fn file_changed(path: &str, version: Option<Version>) -> bool {
     std::fs::read_to_string(path).ok().map(|text| Version::of(&text)) != version
 }
 
+/// Whether a build input reads differently now than when `setup` read it.
 fn input_changed(
     input: &BuildInput,
     program: &'static tsrs_compiler::Program,
