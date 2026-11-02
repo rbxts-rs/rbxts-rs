@@ -191,7 +191,7 @@ pub struct PluginFileState {
     pub(crate) import_names: FxHashSet<String>,
     /// Plain names `hoist_spillable_named` and the `import_named` fallback chose (`name_1`, …): taken for the file.
     pub(crate) plain_names: FxHashSet<String>,
-    identifier_names: OnceCell<FxHashSet<&'static str>>,
+    underscore_identifiers: OnceCell<Vec<&'static str>>,
     /// The id of the first temporary made in the current top-level statement (`hoist` refuses a value using a later
     /// one, unless it is in `top_level_temps`).
     pub root_temp_start: u32,
@@ -311,12 +311,10 @@ impl PluginFileState {
         }
     }
 
-    /// Every identifier text in the file (made on first use), as TypeScript 5's printer counts them
-    /// (`super::identifiers::file_identifiers`: JSDoc identifiers and the literals its parser interns included): a
-    /// name none of them has cannot shadow, or be shadowed by, anything the file declares or refers to, and is the
-    /// name TypeScript's printer would give a TS transformer's unique name.
-    pub fn identifier_names(&self, file: P<SourceFile>) -> &FxHashSet<&'static str> {
-        self.identifier_names.get_or_init(|| super::identifiers::file_identifiers(file))
+    /// The texts of the file's identifier set (`SourceFile::has_identifier`, see `super::identifiers`) that start with
+    /// `_`, made on first use: the ones a seam temporary's name can meet.
+    fn underscore_identifiers(&self, file: P<SourceFile>) -> &[&'static str] {
+        self.underscore_identifiers.get_or_init(|| super::identifiers::underscore_identifiers(file))
     }
 
     /// TypeScript's optimistic unique name (`makeUniqueName` with `Optimistic`) for a plain local: `base` when it is
@@ -362,7 +360,7 @@ impl PluginFileState {
     pub fn seam_hint(&mut self, file: P<SourceFile>, hint: &str) -> String {
         let hint = if hint.is_empty() { "seam" } else { hint };
         let base = {
-            let names = self.identifier_names(file);
+            let names = self.underscore_identifiers(file);
             let approved = self.approved_names.borrow();
             let taken = |base: &str| {
                 let exact = format!("_{base}");
@@ -406,9 +404,12 @@ impl PluginFileState {
         self.approved_names.borrow().len()
     }
 
-    /// `name` is used by the file's source, a plugin import, an approved name or a seam temporary.
+    /// `name` is used by the file's source (TypeScript 7.1's identifier set, `SourceFile::has_identifier`: a name
+    /// outside it cannot shadow, or be shadowed by, anything the file declares or refers to, and is the name
+    /// TypeScript's printer would give a TS transformer's unique name), a plugin import, an approved name or a seam
+    /// temporary.
     pub fn name_taken(&self, file: P<SourceFile>, name: &str) -> bool {
-        self.identifier_names(file).contains(name)
+        file.has_identifier(name)
             || self.import_names.contains(name)
             || self.plain_names.contains(name)
             || self.approved_names.borrow().contains(name)

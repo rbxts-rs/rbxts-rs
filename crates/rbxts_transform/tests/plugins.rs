@@ -298,7 +298,7 @@ fn probe_and_stamp_match_the_expected_luau() {
          {\"file\":\"src/shared/s2locals.ts\",\"claims\":4},{\"file\":\"src/shared/s2objects.ts\",\"claims\":4},\
          {\"file\":\"src/shared/s2spill.ts\",\"claims\":7},{\"file\":\"src/shared/seambefore.ts\",\"claims\":16},\
          {\"file\":\"src/shared/seamdiag.ts\",\"claims\":2},{\"file\":\"src/shared/seamdiag2.ts\",\"claims\":1},\
-         {\"file\":\"src/shared/seamimports.ts\",\"claims\":5},\
+         {\"file\":\"src/shared/seamidents.ts\",\"claims\":2},{\"file\":\"src/shared/seamimports.ts\",\"claims\":5},\
          {\"file\":\"src/shared/seamkeys.ts\",\"claims\":3},{\"file\":\"src/shared/seamnames.ts\",\"claims\":6},\
          {\"file\":\"src/shared/seamorder.ts\",\"claims\":2},{\"file\":\"src/shared/selfcalls.ts\",\"claims\":5}]\n"
     );
@@ -1413,7 +1413,10 @@ fn fwapi_project(label: &str) -> Option<Project> {
 /// constructor by its parameters, not by a later local or outside it (`shadowinit.ts`, `fieldinit.ts`). `expected/` is
 /// stock's output with the mirror transformer but for the deliberate difference: `shadowparam.ts`, `shadowlocal.ts`
 /// and `shadowinit.ts`, where a parameter or a local shadows the name, hold rbxts-rs's fresh `u_1` import, where stock
-/// reads the local (a stock bug fixed, the plugin README's "Known differences").
+/// reads the local (a stock bug fixed, the plugin README's "Known differences"); and an import local whose name a
+/// string literal of the file holds (the probe ops' own `"u"` / `"t"` / `"dA"` arguments: `cmt*.ts`, `importat.ts`,
+/// `notinprog.ts`, `reusens.ts`) is numbered (`u_1`), since seam names avoid TypeScript 7.1's identifier set, which
+/// holds every string literal (TypeScript 5's held only the literals its parser interned).
 #[test]
 fn fwapi_fixture_matches_stock_typescript_5() {
     let Some(project) = fwapi_project("fwapi") else { return };

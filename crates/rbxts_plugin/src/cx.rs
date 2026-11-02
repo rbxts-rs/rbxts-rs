@@ -245,7 +245,7 @@ pub trait CxBackend {
     /// the local is `name` itself when the name is free, else the first free `name_1`, `name_2`, … (`name1`, … when
     /// `name` ends in `_`): TypeScript's printer rule for an optimistic unique name (`createUniqueName(name,
     /// Optimistic)`), which Flamework's TS transformer uses. Free means what
-    /// [`CxBackend::is_usable_local_name`] checks (no identifier text of the file, JSDoc included, no plugin import,
+    /// [`CxBackend::is_usable_local_name`] checks (not in the file's identifier set, no plugin import,
     /// no seam temporary, no approved name, no `luau.globals` name), so the local stays capture-safe; the name
     /// chosen is recorded as taken. A spill makes it the field `_spill.<chosen name>`.
     ///
@@ -343,9 +343,10 @@ pub trait CxBackend {
     fn temp_id(&mut self, hint: &str) -> LuauIdent;
     /// `name` can be declared as a local here: a valid Luau identifier that is not a `luau.globals` name, not any
     /// identifier text in the file's source, not a plugin import's name, not a seam temporary's name, and not
-    /// already approved. The file's identifier texts are TypeScript 5's `sourceFile.identifiers`: every identifier,
-    /// those in JSDoc included, and the literals its parser interns (property names, element access arguments,
-    /// module specifiers, ambient module names).
+    /// already approved. The file's identifier texts are TypeScript 7.1's identifier set (tsrs's
+    /// `SourceFile::has_identifier`, tsgo's `SourceFile.Identifiers`, which its printer checks unique names against):
+    /// the text of every identifier, private identifier, and string, numeric (as its value: `0x10` is `16`),
+    /// big-integer and no-substitution template literal in the tree, wherever it sits. JSDoc is not in it.
     ///
     /// It is not idempotent: a true answer records the name, so a second call for the same name is false.
     /// Temporaries made earlier keep a name from being approved, and later ones avoid approved names.

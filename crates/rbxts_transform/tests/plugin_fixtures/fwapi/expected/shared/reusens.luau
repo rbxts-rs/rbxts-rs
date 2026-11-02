@@ -4,9 +4,9 @@ local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):
 -- reused (the plugin's import is a local of its own beside it)
 local _impa = TS.import(script, game:GetService("ReplicatedStorage"), "shared", "impa")
 local u_1 = _impa.u
-local t = _impa.t
+local t_1 = _impa.t
 local A = TS.import(script, game:GetService("ReplicatedStorage"), "shared", "impa")
-local x = { A.u, u_1, t }
+local x = { A.u, u_1, t_1 }
 return {
 	x = x,
 }

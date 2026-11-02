@@ -5,9 +5,9 @@ local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):
 -- group two
 -- attached
 -- doc
-local t = TS.import(script, game:GetService("ReplicatedStorage"), "shared", "impb").t
+local t_1 = TS.import(script, game:GetService("ReplicatedStorage"), "shared", "impb").t
 local function h()
-	return t
+	return t_1
 end
 return {
 	h = h,
