@@ -78,8 +78,10 @@ machine load moves wall times.
 - `crates/rbxts_bench`: `rbxts-bench`, the measurement and parity harness.
 - `crates/rbxts_probe`: probes of tsrs behaviour the port relies on.
 - `crates/rbxts_test_plugins`, `crates/rbxts_test_support`: test plugins and test helpers.
+- `templates/compiler`: the per-project compiler package and its launcher, which templates copy ("A project's own
+  compiler" below).
 - `docs`: the design and the tsrs notes; `bench`: measurements; `tools`: Node scripts that record stock roblox-ts's
-  answers for the fixtures.
+  answers for the fixtures, the release tool (`release-binary.mjs`) and the launcher's tests (`test-launcher.mjs`).
 
 ## Plugins: writing one and compiling it in
 
@@ -155,6 +157,47 @@ flamework-rs depending on rbxts-rs by rev) reports the pinned rbxts-rs commit; a
 `unknown`. `rbxts-rs-dirty` looks at the workspace `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml` and at `rbxts_cli`
 and the crates it depends on, without their tests (`crates/rbxts_cli/build.rs`); edits elsewhere in the checkout do
 not count.
+
+## A project's own compiler (`templates/compiler`)
+
+A project carries its compiler in a `compiler/` folder: a standalone Cargo package (`Cargo.toml` with its own
+`[workspace]`, `Cargo.lock`, `rust-toolchain.toml`, `src/main.rs` registering its plugins), a `preset.json` and a
+Node launcher, `rbxtsc.mjs` (`node compiler/rbxtsc.mjs build`). The binary is not committed: the launcher keeps it in
+`compiler/bin/<target triple>/` with a stamp of the config hash it was made from, downloads the release's prebuilt
+binary when the config still hashes to the preset, and otherwise offers to build it with Rust. `templates/compiler`
+is the plain one (`rbxtsc`, no plugins), the source the template repositories copy; its README covers running,
+building, adding a plugin and changing versions. `node tools/test-launcher.mjs` tests the launcher (also run by
+`cargo test -p rbxts_cli --test launcher`).
+
+The skeleton's release profile is thin LTO over 16 codegen units, chosen by measuring a clean build of the package
+(rbxts-rs 0.1.0, fresh target folder, one desktop PC) and the binary's clean no-plugin builds of a real project
+(about 600 files) and of roblox-ts's tests project (7 rounds, interleaved, medians):
+
+| Profile | Build | Binary | Real project | Tests project |
+| --- | --- | --- | --- | --- |
+| fat LTO, 1 codegen unit (the workspace `release`) | 5 min 18 s | 21.2 MB | 1436 ms | 548 ms |
+| thin LTO, 16 codegen units (chosen) | 2 min 27 s | 22.7 MB | 1465 ms (+2%) | 577 ms (+5%) |
+| no LTO, 16 codegen units (`measure`) | 1 min 37 s | 22.8 MB | 1602 ms (+12%) | 646 ms (+18%) |
+
+### Release notes: the prebuilt binary
+
+The preset's binary is built from `templates/compiler` itself, so the preset's config hash is the hash of the files it
+was built from: `node tools/release-binary.mjs` builds it (release profile, temporary target folder) and writes
+`rbxts-rs-<version>-windows-x64.zip` and the fixed-name `rbxtsc-windows-x64.zip` (the binary as the only executable,
+LICENSE, THIRD-PARTY-NOTICES.md and this README as git has them at the tag), and prints the preset's `binaries` entry
+and the config hash. It publishes nothing. The skeleton pins `rbxts_cli` by git tag and `Cargo.lock` records that git
+source, so a release binary is built from the pushed tag, never through a `[patch]` (which rewrites the lock and the
+hash). The order:
+
+1. push the tag `v<version>`;
+2. point `templates/compiler` at it (`rbxts_cli`'s `tag`, `cargo update -p rbxts_cli` there, `preset.json`'s
+   `version` and `config`, `binaries` emptied) and commit;
+3. build with `node tools/release-binary.mjs`;
+4. create the GitHub release for the tag with the two zips;
+5. write the printed url and sha256 into `preset.json`'s `binaries` and commit.
+
+The tool's header has the details. Steps 2 and 5 land after the tag, so the skeleton inside a tag's own tree pins the
+previous release.
 
 ## The tsrs fork
 

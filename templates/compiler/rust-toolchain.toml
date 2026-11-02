@@ -1,0 +1,8 @@
+# The one Rust version for builds, tests, Clippy, the bench and releases: tsrs's own pin (docs/design.md, "Consumption").
+# rustup reads this file for commands run inside the repository. `cargo install --git` run elsewhere does not, so the
+# README's install commands name the version (`cargo +1.99.1 install …`). Moving to a new tsrs version takes that
+# version's toolchain: change `channel` here, `rust-version` in `Cargo.toml` and the README's install commands together.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"
