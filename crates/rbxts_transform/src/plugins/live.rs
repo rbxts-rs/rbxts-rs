@@ -194,7 +194,7 @@ fn extra(state: &mut TransformState<'_>, extra: Extra) -> (u32, u32) {
         Extra::None => (0, 0),
         Extra::Main => (main_chunk_top(state), 0),
         Extra::ForOf(node) => crate::nodes::statements::transform_for_of_statement::live_head(state, node),
-        Extra::Switch(node) => (switch_flags(state, node), 0),
+        Extra::Switch(node) => (switch_flags(node), 0),
         Extra::CaseHoists(clause) => (case_clause_hoists(state, clause), 0),
     }
 }
@@ -305,9 +305,9 @@ pub(crate) fn binding_identifiers(name: P<Node>, out: &mut Vec<P<Node>>) {
 /// it continues the loop around it (`create_continue`, through nested `switch` and `try` statements), and
 /// `local _fallthrough = false` first in its block when a clause can fall through
 /// (`transform_switch_statement`).
-fn switch_flags(state: &mut TransformState<'_>, switch: P<Node>) -> u32 {
-    let _ = state;
-    u32::from(continues_through(switch)) + u32::from(crate::nodes::statements::transform_switch_statement::needs_fallthrough_flag(switch))
+fn switch_flags(switch: P<Node>) -> u32 {
+    use crate::nodes::statements::transform_switch_statement::needs_fallthrough_flag;
+    u32::from(continues_through(switch)) + u32::from(needs_fallthrough_flag(switch))
 }
 
 /// A `continue` inside `switch` continues the loop around it through the switch (`create_continue`): its nearest

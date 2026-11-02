@@ -61,11 +61,15 @@ fn build(root: &Path, tsconfig: &str, plugins: &[&str]) -> CompileReport {
         std::thread::Builder::new()
             .stack_size(STACK_SIZE)
             .spawn_scoped(scope, move || {
-                let options = PluginOptions { plugins: &plugins, ignore_unknown_tsconfig_plugins: true, claims_all: false };
+                let options =
+                    PluginOptions { plugins: &plugins, ignore_unknown_tsconfig_plugins: true, claims_all: false };
                 let compile_options = CompileOptions {
                     tsconfig,
                     cwd,
-                    project_options: ProjectOptionLayer { allow_comment_directives: Some(true), ..ProjectOptionLayer::default() },
+                    project_options: ProjectOptionLayer {
+                        allow_comment_directives: Some(true),
+                        ..ProjectOptionLayer::default()
+                    },
                     out_dir_override: None,
                     write_partial: false,
                     no_write: true,

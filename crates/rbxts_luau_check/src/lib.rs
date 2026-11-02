@@ -254,7 +254,8 @@ mod tests {
 
     #[test]
     fn function_stats_reads_each_prototype_in_bytecode_order() {
-        let source = "local a = g()\nlocal function f(x, y)\n\tlocal z = x + y\n\treturn function() return z + a end\nend\n\
+        let source = "local a = g()\nlocal function f(x, y)\n\tlocal z = x + y\n\treturn function() return z + a end\n\
+                      end\n\
                       local t = {}\nfunction t:m(...)\n\treturn self, ...\nend\nreturn f\n";
         for (optimization_level, debug_level) in [(0, 0), (0, 2), (1, 1), (2, 1), (2, 2)] {
             let stats = function_stats(source, optimization_level, debug_level).unwrap();

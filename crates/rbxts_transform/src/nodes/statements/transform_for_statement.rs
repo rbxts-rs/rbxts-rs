@@ -449,7 +449,8 @@ fn transform_for_statement_optimized(state: &mut TransformState<'_>, node: P<Nod
     }
 
     // rbxts-rs: the loop variable and the registers the loop holds, for plugins (`live_before_statement`)
-    let live = crate::plugins::live::push(state, || LiveFrame::looped(&[], 1, crate::plugins::live::NUMERIC_FOR_HIDDEN));
+    let live =
+        crate::plugins::live::push(state, || LiveFrame::looped(&[], 1, crate::plugins::live::NUMERIC_FOR_HIDDEN));
     let statements = transform_body(state, statement);
     crate::plugins::live::pop(state, live);
 

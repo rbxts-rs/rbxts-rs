@@ -239,7 +239,7 @@ Also, from §11.7 (the full signatures are §11.3):
   before the root statement in call order, a named hoist's `local name = value` among the root insertions as asked.
   A spill keeps that order: the declaration becomes `_spill.name = value` in place, `local _spill = {}` goes right
   before the first spilled one, and every use, root insertions' included, becomes `_spill.name`
-  (`tests/plugins.rs`, `hoists_and_root_insertions_keep_call_order`);
+  (`crates/rbxts_transform/tests/live.rs`, `hoists_and_root_insertions_keep_call_order`);
 - `live_before_statement` (`plugins/live.rs`): the locals and registers live at `insert_before_statement`'s point,
   in the innermost Luau function there. The lowering keeps a stack of the Luau blocks it is building (functions,
   blocks a statement's lowering enters, statement lists), only with plugins, and a query sums it, with what is still

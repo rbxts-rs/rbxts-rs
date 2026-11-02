@@ -678,7 +678,11 @@ fn in_line_pattern_locals(state: &mut TransformState<'_>, pattern: P<Node>) -> u
 
 /// The locals `transform_for_initializer` pushes to the loop's initializers.
 fn for_initializer_locals(state: &mut TransformState<'_>, initializer: P<Node>) -> u32 {
-    if is_variable_declaration_list(initializer) { binding_name_locals(state, first_declaration_name(initializer)) } else { 0 }
+    if is_variable_declaration_list(initializer) {
+        binding_name_locals(state, first_declaration_name(initializer))
+    } else {
+        0
+    }
 }
 
 /// The locals binding a loop's value to the initializer (`local left = value`, then what binds `left`): map loops
