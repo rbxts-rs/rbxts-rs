@@ -44,7 +44,8 @@ pub fn text_literal(text: &str) -> LuauExpr {
 /// - TypeScript's printer (`getLiteralText`, `escapeNonAsciiString` with `"`): `\` → `\\`, `"` → `\"`, `\t` `\v` `\f`
 ///   `\b` `\r` `\n` by name, NUL as `\0` (`\x00` before a digit), other control characters, U+2028, U+2029 and U+0085
 ///   as `\uXXXX`, and every non-ASCII UTF-16 unit as `\uXXXX` (upper-case hex; a character past U+FFFF as its two
-///   surrogates). DEL and the rest of ASCII stay as they are;
+///   surrogates). DEL and the rest of ASCII stay as they are. TypeScript 7.1's printer (`EscapeNonAsciiString`) spells
+///   every text the same as TypeScript 5's (typescript 7.1.0-beta's `printNode` on this module's test texts);
 /// - roblox-ts's `createStringFromLiteral` on that text, between double quotes: a surrogate pair becomes one
 ///   `\u{…}` (lower-case hex: `\u{1f600}`), every other `\uXXXX` gets Luau's braces (`\u{00E9}`), the other escapes
 ///   stay.

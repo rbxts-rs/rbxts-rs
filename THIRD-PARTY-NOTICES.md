@@ -170,9 +170,8 @@ A binary built from rbxts-rs includes tsrs, so a distributed binary carries tsrs
 ## TypeScript
 
 - **Source:** <https://github.com/microsoft/TypeScript>, Copyright (c) Microsoft Corporation.
-- **Used in:** `crates/rbxts_transform/src/util/ts5_property_order.rs` and
-  `crates/rbxts_probe/src/property_order.rs` (TypeScript 5's property order), and TypeScript's diagnostic message
-  texts in test fixtures (stock roblox-ts's output, `stock-stdout.txt`, and rbxtsc's, `expected-stdout.txt`).
+- **Used in:** TypeScript's diagnostic message texts in test fixtures (stock roblox-ts's output, `stock-stdout.txt`,
+  and rbxtsc's, `expected-stdout.txt`).
 - **License:** Apache License 2.0: <https://www.apache.org/licenses/LICENSE-2.0> (the `LICENSE.txt` of the
   `typescript` npm package); third-party notices in its `ThirdPartyNoticeText.txt`.
 

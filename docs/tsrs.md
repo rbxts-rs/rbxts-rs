@@ -40,14 +40,13 @@ rbxts-rs used to emulate three TypeScript 5 tsconfig behaviours. They are gone; 
 |---|---|---|
 | `mark_ts5_context_sensitive_functions` (`rbxts_project`), read by `util/is_method.rs` | a function expression's or object literal method's contextual `this`: `function(self)` or `function()` in Luau, and the overload chosen | the Luau calling convention, which must match the Luau a callback slot expects (a stock-compiled package's included) |
 | `util/symlink_cache.rs`, with its type-root order | which link to a package an import goes through: the `require` path | runtime paths |
-| `ts5_property_order` (`Cx::ts5_properties_of_type`) | a type's property order for plugins | plugin API; Flamework's guards and serializer lay fields out in it (a wire format) |
-| `plugins/identifiers.rs` (`rbxts_transform`): TypeScript 5's `sourceFile.identifiers` | the names `Cx::is_usable_local_name` approves and the seam's temporaries and import locals avoid | plugin output: the names match what TypeScript 5's printer gives a stock transformer's unique names |
 | `build/transform_order.rs` | the order files are transformed and reported in (`FileIndex`) | plugin API (Flamework's ids and `flamework.build`); roblox-ts's own algorithm |
 | Export order (`TransformState::get_module_exports`) | the order of export tables | tsrs's own symbol-table order, no code of ours; the insertion order can reach runtime through `pairs` |
 | TypeScript 5.9's `compareDiagnostics` for plugin duplicates (`compile.rs`) | which copy of a duplicated plugin diagnostic is kept | plugin behaviour |
 
 ### TypeScript 5 behaviour dropped
-Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no effect; TypeScript 7.1's stands.
+Each only reproduced TypeScript 5's diagnostic cosmetics, an output with no effect, or (the last two) plugin
+behaviour, which follows TypeScript 7.1 too; TypeScript 7.1's stands.
 - TS2769's elaboration (`overload_errors.rs`): TypeScript 7 elaborates only the last overload (`The last overload gave
   the following error.`) and may put the error on the failing argument or the callee where TypeScript 5 put it on the
   call. The code is TS2769 in both.
@@ -60,9 +59,18 @@ Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no ef
   (docs/design.md §7): related information on one line with its location, an empty span's next character
   underlined, an error summary, plain output when stdout is not a terminal, LF line ends on Windows too.
 - A declaration map's empty `"sourceRoot":""`: TypeScript 7 leaves it out.
+- A type's property order for plugins (`util/ts5_property_order.rs`, `Cx::ts5_properties_of_type`): plugins get
+  TypeScript 7.1's, `Cx::properties_of_type` (below, "Property order for plugins"). Flamework lays its guards and
+  serializer out in it, so their layouts follow TypeScript 7.1 too.
+- The identifier set seam names avoid (`plugins/identifiers.rs`, TypeScript 5's `sourceFile.identifiers`: every
+  identifier, JSDoc's included, and the literals its parser interned): it is TypeScript 7.1's, tsrs's
+  `SourceFile::has_identifier` (every identifier and every string, numeric, big-integer and no-substitution template
+  literal in the tree; no JSDoc). A plugin's local named after a JSDoc-only name keeps it now, and one named after a
+  string literal's text anywhere in the file (`print("x")`) is numbered (`x_1`).
 
 `crates/rbxts_bench/parity/divergences.json`'s `ts7` reasons list the parity-corpus files whose Luau a dropped
-layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau, so it lists none.
+layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau without plugins, so it
+lists none.
 
 ## The fork
 - **Where:** the public fork <https://github.com/rbxts-rs/tsrs>, branch `rbxts-fork-0.20.1`, head
@@ -119,7 +127,7 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
 | 6e2f2997 (31e644fb, 87958da) | `Checker::get_literal_type_from_property` | `tsrs_checker/src/checker_13.rs` | Flamework's macros (`flamework_rs`) |
 | 3f13aed7 (107aad07) | `CallState`'s 11 fields; `Checker::{call_resolution_stack, subtype_relation, assignable_relation}` | `tsrs_checker/src/checker.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
 | 3f13aed7 (107aad07) | `Checker::{regular_true_type, regular_false_type}` | `tsrs_checker/src/checker.rs` | the transform's type queries (`isBooleanLiteralType`, a generator's `done: true`), Flamework's guards |
-| 3f13aed7 (107aad07) | `Checker::mapped_symbol_links`, `LinkStore::try_get`, `MappedSymbolLinks::synthetic_origin`, `MappedType::{declaration, modifiers_type}` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | TS5's property order of mapped types (`util/ts5_property_order.rs`) |
+| 3f13aed7 (107aad07) | `Checker::mapped_symbol_links`, `LinkStore::try_get`, `MappedSymbolLinks::synthetic_origin`, `MappedType::{declaration, modifiers_type}` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | Flamework's serializer order (flamework-rs `serializer/order.rs`); rbxts-rs's TypeScript 5 property order used them too, until it was dropped |
 | 3f13aed7 (107aad07) | `ConditionalType::root`, `ConditionalRoot::{node, check_type}` | `tsrs_checker/src/types.rs` | roblox-ts's `isMethod` (`util/is_method.rs`) |
 | 3f13aed7 (107aad07) | `TupleType::{min_length, combined_flags}`, `CountCell::get` | `tsrs_checker/src/types.rs` | for-of over tuples, Flamework's tuple guards and macros |
 | 3f13aed7 (107aad07) | `Checker::get_emit_resolver` | `tsrs_checker/src/checker_15.rs` | the transform state's emit resolver |
@@ -256,7 +264,7 @@ program (the tests and any other caller). It must run before a checker exists, a
 value, or none, leaves it on. How each part of the preset meets rbxts-rs:
 - **Lazy type members, the canonical history and its caches (union-front, indexed-access, inference-walk):** on.
   Checker internals; tsrs 0.18 had the first two by default, the settings rbxts-rs was validated with. Everything
-  rbxts-rs reads from the checker goes through its public API (`ts5_property_order`, the transform's and
+  rbxts-rs reads from the checker goes through its public API (`Cx::properties_of_type`, the transform's and
   Flamework's type queries), and the `ContainsThis` marks of `mark_ts5_context_sensitive_functions`
   are on the bound tree, before any checker exists. Parity, the 169 diagnostics files and Flamework's output are the
   same with the preset on and off.
@@ -286,13 +294,20 @@ Known, accepted differences from stock roblox-ts on TypeScript 5, each inherent 
 fail where stock's passes, and the entry says how to write it for both; one can change a diagnostic's text. The
 last section lists Luau behaviour that stock's output, and so rbxts-rs's, can meet.
 
-- **Union and mapped key order.** Where an output lists the properties of a union or a mapped type, TypeScript 7's
-  type ids order them, not TypeScript 5's (`util/ts5_property_order.rs` restores TypeScript 5's order where it can be
-  derived from the program). It cannot for a union whose members have the very same symbols (`PXY | PYX`: the first
-  member's order is used), a mapped type whose `as` clause makes several names from one key (`` `get${K}` |
-  `set${K}` ``: TypeScript 7's order), and guards and the plugin facade's `getFields`, which use the raw order (as
-  TypeScript 5's `Record`/`Pick` key order follows its own type ids). Flamework sorts where the order reaches its
-  output.
+- **Property order for plugins.** Plugins get a type's properties in TypeScript 7.1's order (`Cx::properties_of_type`,
+  tsrs's `get_properties_of_type`), not TypeScript 5's. TypeScript 5 listed a class's or interface's inherited
+  members in its bases' order, a symbol's late-bound members last, and a union's or a mapped type's over a union of
+  keys (`Record`, `Pick`) by type ids. TypeScript 7 sorts an object type's members by declaration (a class's or
+  interface's own first; the file in program order, then the position; members with no declaration, such as
+  `Record<"b" | "a", V>`'s, last, by name), and orders a union's constituents by content (`compareTypes`). No type id
+  decides it, so it is the same for any checker count and assignment and in clean, watch and incremental builds
+  (`rbxts_transform/tests/property_order.rs`). Members declared in two files (bases from two files, a global
+  interface declared in two) follow the program's file order, which an edit can change (a new import in an earlier
+  file, a rename). TypeScript 7's own-member test (`isDeclarationContainedBy`) compares offsets without files, so an
+  inherited member declared in another file at offsets inside the class's or interface's declaration is listed with
+  its own members, and an edit that moves those offsets can move it. `tsc` 7.1.0-beta's `getPropertiesOfType` lists
+  the same as rbxts-rs on every case of `rbxts_transform/tests/plugin_fixtures/props`. Flamework lays its guards and
+  serializer out in this order: their layouts are TypeScript 7.1's, not TS5 Flamework's.
 
 - **Projects on a network path.** Stock roblox-ts builds a project in a UNC folder (`\\server\share\…`). tsrs 0.20
   refuses network paths (UNC and `\\?\` / `\\.\` device roots) before any file access, as TypeScript 7.1 does
@@ -335,7 +350,8 @@ last section lists Luau behaviour that stock's output, and so rbxts-rs's, can me
   same files.
 - **Declaration maps.** TypeScript 7 maps some declarations (constructors, a specifier `transformPaths` rewrites)
   differently from TypeScript 5: `.d.ts.map` files are not byte-equal to stock roblox-ts's. The `.d.ts` files are.
-  The maps' other fields are TypeScript 5's, the empty `sourceRoot` included (see "What changed with tsrs 0.20").
+  The maps' other fields are TypeScript 5's, but for the empty `sourceRoot`, which TypeScript 7 leaves out (see "What
+  changed with tsrs 0.20").
 - **A context-sensitive `yield`.** TypeScript 7 takes a generator function for context sensitive when a `yield` in it
   yields a context-sensitive expression (`has_context_sensitive_yield_expression`); TypeScript 5 looks only at
   parameters and returns. After `mark_ts5_context_sensitive_functions` (every function expression without a `this`

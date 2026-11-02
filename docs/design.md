@@ -418,6 +418,10 @@ and file order. For obfuscated builds this holds given the same salt and seed.
     order. Both are deterministic and independent of checker count. They are accepted TS5→TS7 differences, classified
     in parity diffs.
   - **Macro-type cache key:** `(id, P<Type>)` per instance; no `typeToString`.
+  - **Field order** (guards, serializer layouts, component attributes): `Cx::properties_of_type`, TypeScript 7.1's
+    `getPropertiesOfType` order. TypeScript 7 sorts members by declaration (no declaration: by name) and unions by
+    content, never by type id, so it is the same for any checker count and in clean, watch and incremental builds
+    (`rbxts_transform/tests/property_order.rs`). Members declared in two files follow the program's file order.
   - **Networking `packed[0]`:** equivalent by construction.
 - **Positions.**
   - Callsite key: `${package}:${fileId}@${declaration}+${offset}`. The offset is the UTF-16 distance between the
@@ -624,6 +628,7 @@ impl Cx<'_> {
     pub fn options(&self) -> &'static CompilerOptions;
     pub fn file(&self) -> &FileInfo;                    // source: P<SourceFile>, index, path, out_path, rojo path
     pub fn checker(&mut self) -> &mut Checker;           // this instance's checker; cannot be held across compile_*
+    pub fn properties_of_type(&mut self, t: P<Type>) -> Vec<P<Symbol>>;  // TypeScript 7.1's order: a wire format
     pub fn project(&self) -> &ProjectServices;           // dirs, is_package, Rojo resolver, path translator
     pub fn resolve_module(&self, specifier: &str, from: P<SourceFile>) -> Option<ResolvedModule>;
     pub fn declaring_package(&self, symbol: P<Symbol>) -> Option<&PackageInfo>;  // name, dir (package.json)

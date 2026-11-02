@@ -114,6 +114,13 @@ Deliberate, practical only (a design decision):
   constructor parameter, or by a constructor local declared before `super(...)`: rbxts-rs imports again under a fresh
   name, where TS5 reads that binding.
 
+TypeScript 7.1 where it differs from TypeScript 5 (the plugin API follows TypeScript 7.1, as the compiler does):
+- **Property order** (`Cx::properties_of_type`): TypeScript 7.1's `getPropertiesOfType` order, so fields laid out in
+  it (guards, serializer layouts, component attributes) follow it: members by declaration, inherited ones not in
+  their base's order, `Record` and `Pick` keys not by type id (`docs/tsrs.md`, "Property order for plugins").
+- **The names seam locals avoid** (`Cx::is_usable_local_name`, temporaries, `import_named` locals): TypeScript 7.1's
+  identifier set. A name used only in JSDoc is free; the text of any string literal in the file is taken (`name_1`).
+
 ## Tests
 
 `tests/stamp.rs` runs a small plugin (`tests/support/stamp.rs`: JSDoc-tagged calls become string literals or late

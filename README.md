@@ -17,7 +17,8 @@ rev, and change what you need.
   `crates/*/tests`.
 - **The documented differences, and only those:**
   - TypeScript 7.1's rules where they differ from TypeScript 5's (configuration, a few diagnostics, export and union
-    order): "Upgrading a roblox-ts project to rbxts-rs" below and `docs/tsrs.md`, "rbxts-rs follows TypeScript 7.1";
+    order, the property order and identifier set plugins get): "Upgrading a roblox-ts project to rbxts-rs" below and
+    `docs/tsrs.md`, "rbxts-rs follows TypeScript 7.1";
   - roblox-ts bugs fixed on purpose: "Deliberate differences from stock" below and the divergence manifest
     (`crates/rbxts_bench/parity/divergences.json`);
   - watch and project-reference deviations, listed in their sections below.
