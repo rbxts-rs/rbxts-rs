@@ -129,7 +129,8 @@ if (tool === "cargo" || tool === "rustup") {
 function runLauncher(dir, args, { env = {}, input = "" } = {}) {
 	const child = spawn(process.execPath, [path.join(dir, "rbxtsc.mjs"), ...args], {
 		cwd: path.dirname(dir),
-		env: { ...process.env, RBXTSC_INTERACTIVE: "0", RBXTSC_BUILD: "", ...env },
+		// RBXTSC_TEST_HTTP: the fake release is served over plain http
+		env: { ...process.env, RBXTSC_INTERACTIVE: "0", RBXTSC_BUILD: "", RBXTSC_TEST_HTTP: "1", ...env },
 	});
 	let stdout = "";
 	let stderr = "";
@@ -279,6 +280,19 @@ try {
 		const again = await runLauncher(dir, [FAKE, "--exit", "3"]);
 		assert(again.code === 3 && again.stderr === "" && requests === before + 2, "second run is a stamp hit", again.all);
 		console.log(`     sample: ${line.trim()}`);
+	});
+
+	await test("an http: preset URL is refused outside the tests (and anything but https:)", async () => {
+		for (const url of [`${BASE}/dl/release.zip`, "ftp://example.com/release.zip", "not a url"]) {
+			const dir = project("http", (hash) => ({ ...withRelease()(hash), binaries: { [TRIPLE]: { url, sha256: releaseSha } } }));
+			const before = requests;
+			const r = await runLauncher(dir, [FAKE, "--echo"], { env: { RBXTSC_TEST_HTTP: "" } });
+			assert(r.code === 1, `${url}: exit code`, r.all);
+			assert(r.stderr.startsWith(`rbxtsc.mjs: not downloading ${url}: preset.json's binaries must be https: URLs.
+`), `${url}: message`, r.all);
+			assert(requests === before && !fs.existsSync(path.join(dir, "bin")), `${url}: downloaded or wrote something`, r.all);
+			fs.rmSync(path.dirname(dir), { recursive: true });
+		}
 	});
 
 	await test("sha256 mismatch: aborts, installs nothing", async () => {

@@ -114,5 +114,5 @@ Versions are exact everywhere: `rbxts_cli` and each plugin by git tag (or rev), 
 
 `bin` is the binary's name, `version` the release it comes from, `config` the hash of the config the binaries were
 built from, and `binaries` a zip per Rust target triple, holding exactly one file named `bin` (`bin.exe` on
-Windows). A template's preset is written by the release that builds it (rbxts-rs: `tools/release-binary.mjs`, whose
+Windows), at an `https:` URL (the launcher refuses any other; it follows redirects, and the sha256 pins the bytes). A template's preset is written by the release that builds it (rbxts-rs: `tools/release-binary.mjs`, whose
 header gives the release order). An empty `binaries` means every platform builds with Rust.

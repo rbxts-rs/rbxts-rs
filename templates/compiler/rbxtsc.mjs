@@ -189,6 +189,18 @@ function where(s) {
 
 async function download(s) {
 	const { url, sha256 } = s.prebuilt;
+	// https only (redirects are followed: the sha256 pins the bytes); plain http only for the launcher's tests,
+	// whose fake release is a local server (tools/test-launcher.mjs sets RBXTSC_TEST_HTTP=1)
+	let protocol;
+	try {
+		protocol = new URL(url).protocol;
+	} catch {
+		// not a URL
+	}
+	if (protocol !== "https:" && !(protocol === "http:" && process.env.RBXTSC_TEST_HTTP === "1")) {
+		say(`${NAME}: not downloading ${url}: preset.json's binaries must be https: URLs.`);
+		return false;
+	}
 	let zip;
 	try {
 		const response = await fetch(url, { redirect: "follow" });
