@@ -2,7 +2,7 @@
 //! 199) `count` times, then waits three seconds so the process's memory can be read from outside (Task Manager,
 //! `Get-Process`). Luau reports a refusal by throwing a C++ exception through its frames; built without unwind
 //! semantics (MSVC without `/EH`), each refusal leaked about 37 KiB. With them, `fail` and `pass` stay flat.
-//! `cargo run -p rbxts_luau_check --example leak -- fail 8000` (the validators' round-6 probe).
+//! `cargo run -p rbxts_luau_check --example leak -- fail 8000`.
 
 fn main() {
     let mut args = std::env::args().skip(1);

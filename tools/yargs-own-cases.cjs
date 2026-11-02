@@ -14,7 +14,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const RT = process.env.RBXTS_DIR || "E:/Projects/TS/Flamework/roblox-ts-test/roblox-ts";
+const RT = process.env.RBXTS_DIR;
+if (!RT) throw new Error("set RBXTS_DIR to a roblox-ts checkout with out/ built");
 const yargs = require("module").createRequire(`${RT}/out/CLI/cli.js`)("yargs/yargs");
 const build = require(`${RT}/out/CLI/commands/build.js`);
 const KEYS = [

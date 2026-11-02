@@ -1,6 +1,6 @@
 -- Compiled with roblox-ts v3.0.0
 local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):WaitForChild("RuntimeLib"))
--- Hand-written T2 exprs fixture: delete, await, tagged templates, import().
+-- Hand-written exprs fixture: delete, await, tagged templates, import().
 local function deletes(bag)
 	bag.x = nil
 	bag[bagKey()] = nil

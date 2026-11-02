@@ -1,7 +1,8 @@
 //! `rbxts_cli::yargs` against roblox-ts's own yargs: `tests/fixtures/yargs_cases.jsonl` holds 2539 argument vectors
 //! (edge cases and seeded random ones) with what roblox-ts master's CLI setup (yargs 18.2.0, yargs-parser 22.0.0,
 //! `src/CLI/cli.ts` and `commands/build.ts`) made of each: the failure message, the parsed options, or help/version.
-//! The vectors and expectations come from `scratchpad/batch/rbxts-rs/c2/yargs/{gen,probe}.cjs`.
+//! The vectors and expectations were recorded by running roblox-ts's own CLI setup on each (scripts outside this
+//! repository).
 
 use rbxts_cli::yargs::{Parsed, Value, parse};
 use serde_json::Value as Json;

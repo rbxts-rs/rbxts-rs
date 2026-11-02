@@ -9,7 +9,8 @@
 const path = require("path");
 const fs = require("fs");
 
-const RT = process.env.RBXTS_DIR || "E:/Projects/TS/Flamework/roblox-ts-test/roblox-ts";
+const RT = process.env.RBXTS_DIR;
+if (!RT) throw new Error("set RBXTS_DIR to a roblox-ts checkout with out/ built");
 const { RojoResolver, NetworkType, RbxType, FileRelation, RbxPathParent } = require(require.resolve("@roblox-ts/rojo-resolver", { paths: [RT] }));
 
 const fixtures = path.resolve(__dirname, "..", "crates", "rbxts_project", "tests", "fixtures", "rojo");

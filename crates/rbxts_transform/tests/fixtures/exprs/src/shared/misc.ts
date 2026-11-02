@@ -1,4 +1,4 @@
-// Hand-written T2 exprs fixture: delete, await, tagged templates, import().
+// Hand-written exprs fixture: delete, await, tagged templates, import().
 
 interface Bag {
 	x?: number;

@@ -1,4 +1,4 @@
-// Hand-written T2 exprs fixture: yield and yield*.
+// Hand-written exprs fixture: yield and yield*.
 
 export function* counter(n: number) {
 	yield;

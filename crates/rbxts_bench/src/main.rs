@@ -1,5 +1,5 @@
 //! Measurement harness.
-//! - `rbxts-bench load` (milestone 0): load a project through tsrs in-process, type-check its files, and report wall
+//! - `rbxts-bench load`: load a project through tsrs in-process, type-check its files, and report wall
 //!   time per phase and peak memory.
 //! - `rbxts-bench luau-parity`: render Luau trees dumped from roblox-ts (`tools/dump-luau-ast.cjs`) with
 //!   `rbxts_luau` and compare the text byte for byte.

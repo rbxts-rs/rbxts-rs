@@ -176,7 +176,7 @@ fn differences(
 
 /// A project whose diagnostics roblox-ts reports once per compilation (`addDiagnosticWithCache`): an `any` export
 /// used in five modules; an `any` member of a generic interface read through two instantiations from two files in
-/// another folder (the validator's case: whether a checker answers with the declared symbol or an instantiated
+/// another folder (whether a checker answers with the declared symbol or an instantiated
 /// one depends on what it checked before); `any` properties read through a union's synthetic property, a mapped
 /// type's property and a tuple element next to their sources (stock roblox-ts 3.0.0 reports 9 there, `z.ts`); and an
 /// enum and a namespace merged in one file (roblox-ts requires `moduleDetection: force`, so merged declarations never
@@ -205,7 +205,7 @@ fn once_fixture(configs: &Path) -> PathBuf {
         "import { hn, hs } from \"../x/p\";\nexport const one = hs.value.x;\nexport const two = hn.value.x;\n",
     );
     write("y/r.ts", "import { hs } from \"../x/p\";\nexport const three = hs.value.x;\n");
-    // the validator's `single` case (val-s3par2)
+    // a single-checker case
     write(
         "z.ts",
         r#"interface H<T> { r: Record<"a", any>; tup: [any, string]; t: T }

@@ -102,7 +102,7 @@ it; the compiler (`rbxts_transform`) implements the backend traits.
 
 ## Known differences from TS5 Flamework builds
 
-Deliberate, practical only (the user's decision):
+Deliberate, practical only (a design decision):
 - **End-of-file comments** of a file a plugin saw: TS5 drops them (the TS transformer's printed file loses them);
   rbxts-rs keeps them.
 - **`noSemanticDiagnostics` with a type error and a plugin error in the same file**: stock runs the transformers over

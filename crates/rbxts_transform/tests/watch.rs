@@ -1475,7 +1475,7 @@ fn a_late_string_that_makes_a_cached_file_refused_fails_the_watch_rebuild() {
         rbxts_test_support::skip(module_path!(), "no node_modules with the roblox-ts tests' packages");
         return;
     };
-    // round 7's validator case: `a.ts` compares the stamp plugin's build id (a late string) with a constant, and a
+    // `a.ts` compares the stamp plugin's build id (a late string) with a constant, and a
     // branch of 201 locals hangs on it; Luau folds the comparison at optimisation level 1 and drops a dead branch
     let root = std::env::temp_dir().join(format!("rbxts-rs-watch-late-{}", std::process::id()));
     parity::remove_tree(&root);

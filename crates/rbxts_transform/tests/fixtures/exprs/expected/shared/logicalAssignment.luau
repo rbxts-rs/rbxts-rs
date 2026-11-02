@@ -1,5 +1,5 @@
 -- Compiled with roblox-ts v3.0.0
--- Hand-written T2 exprs fixture: `||=`, `&&=`, `??=`.
+-- Hand-written exprs fixture: `||=`, `&&=`, `??=`.
 local function identifiers(x, y, z)
 	if x == nil then
 		x = 5

@@ -1,5 +1,5 @@
 -- Compiled with roblox-ts v3.0.0
--- Hand-written T2 exprs fixture: conditional expressions.
+-- Hand-written exprs fixture: conditional expressions.
 local function plain(flag, a, b)
 	return if flag then a else b
 end

@@ -1,6 +1,6 @@
 -- Compiled with roblox-ts v3.0.0
 local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):WaitForChild("RuntimeLib"))
--- Hand-written T2 exprs fixture: yield and yield*.
+-- Hand-written exprs fixture: yield and yield*.
 local function counter(n)
 	return TS.generator(function()
 		coroutine.yield()

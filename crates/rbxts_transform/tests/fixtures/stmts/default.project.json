@@ -1,5 +1,5 @@
 {
-	"name": "t2-stmts-fixture",
+	"name": "stmts-fixture",
 	"tree": {
 		"$className": "DataModel",
 		"ReplicatedStorage": {

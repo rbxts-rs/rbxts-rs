@@ -274,7 +274,7 @@ fn a_state_file_the_commit_creates_starts_one_more_build_at_once() {
     drop(watcher);
 }
 
-/// `scan` (val-sfile2 `racedel`): the state file deleted, then deleted again as the follow-up build starts (its
+/// `scan` (`racedel`): the state file deleted, then deleted again as the follow-up build starts (its
 /// `build-start` event; the build looks at the disk well after). The follow-up lost the file itself, so it starts one
 /// more build (only an outside change does that: no loop), and the output is the one a build with the file there
 /// makes, not the one of a setup that read it as missing.

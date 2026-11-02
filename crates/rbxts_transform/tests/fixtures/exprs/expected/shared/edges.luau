@@ -1,6 +1,6 @@
 -- Compiled with roblox-ts v3.0.0
 local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):WaitForChild("RuntimeLib"))
--- Hand-written T2 exprs fixture: mixed edge cases.
+-- Hand-written exprs fixture: mixed edge cases.
 -- only one branch has prerequisites
 local function oneSided(flag, bag)
 	local i = 0

@@ -4,7 +4,7 @@
 //   node tools/dump-project-services.cjs <tsconfig.json | project dir> <out.json> [--rojo <path>] [--type <t>]
 //        [--includePath <path>] [--timing-runs N]
 //
-// RBXTS_DIR (default E:/Projects/TS/Flamework/roblox-ts-test/roblox-ts) is a roblox-ts checkout with `out/` built;
+// RBXTS_DIR is a roblox-ts checkout with `out/` built;
 // `@roblox-ts/rojo-resolver` and `@roblox-ts/path-translator` come from its node_modules.
 //
 // For every project of the build graph (the root and its project references): the project data, the path translator,
@@ -17,7 +17,8 @@
 const path = require("path");
 const fs = require("fs");
 
-const RT = process.env.RBXTS_DIR || "E:/Projects/TS/Flamework/roblox-ts-test/roblox-ts";
+const RT = process.env.RBXTS_DIR;
+if (!RT) throw new Error("set RBXTS_DIR to a roblox-ts checkout with out/ built");
 const rtRequire = mod => require(require.resolve(mod, { paths: [RT] }));
 
 const kleur = rtRequire("kleur");

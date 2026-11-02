@@ -1,4 +1,4 @@
-// Hand-written T2 exprs fixture: `||=`, `&&=`, `??=`.
+// Hand-written exprs fixture: `||=`, `&&=`, `??=`.
 
 interface Holder {
 	n?: number;

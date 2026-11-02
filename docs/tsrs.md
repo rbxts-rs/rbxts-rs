@@ -5,7 +5,7 @@ no IPC and no patched tsrs code. Everything roblox-ts-specific lives in rbxts-rs
 
 ## rbxts-rs follows TypeScript 7.1
 Stock roblox-ts runs on TypeScript 5. rbxts-rs reads and checks a project as TypeScript 7.1 does: its tsconfig rules,
-module resolution and diagnostics are TypeScript 7.1's (user decision, 2026-10-28 and 2026-11-02). TypeScript 5
+module resolution and diagnostics are TypeScript 7.1's, by design. TypeScript 5
 behaviour is reproduced only where the emitted Luau or the plugin API needs it: where Luau would run otherwise, where
 it must agree with Luau stock roblox-ts compiled (npm packages ship such Luau), or where a plugin relies on it.
 Projects move their tsconfig to TypeScript 7.1 (the README, "Upgrading a roblox-ts project to rbxts-rs"), and
@@ -168,7 +168,7 @@ Pin the version and update on purpose, never automatically. tsrs is pre-1.0, so 
    - the roblox-ts tests project, 72 files;
    - the real project with Flamework off, 605 files.
 
-   Use `merge\parity.sh` and `merge\parity-{tests,real}-main.txt` in the scratchpad's `batch\rbxts-rs` folder, plus
+   Compare each corpus's `rbxts-bench build --parity <stock reference> --report <file>` with main's report, plus
    `cargo test --workspace` for the fixtures and plugin tests. Some files differ from stock on purpose, where
    rbxts-rs fixes a roblox-ts bug. `rbxts-bench build --parity REF --divergences crates/rbxts_bench/parity/divergences.json
    --corpus {roblox-ts-tests,real-noplugin}` reports those as `known-fix` while their output is unchanged, and files a
@@ -177,7 +177,7 @@ Pin the version and update on purpose, never automatically. tsrs is pre-1.0, so 
    the tsrs commit that caused it, then either adapt rbxts-rs (with a `// rbxts-rs:` note) or report it upstream.
 5. **Re-measure** `rbxts-bench load` and a full build (see `bench/RESULTS.md`), so a performance regression doesn't
    slip in.
-6. **Process:** as with every change, a worker does the update and a fresh validator re-runs parity before it merges.
+6. **Check again before merging:** re-run parity on the result as it will merge.
 
 ## TypeScript 7 behaviour the port depends on
 Re-check these after an update; they are where tsrs's behaviour reaches our output.
@@ -209,7 +209,7 @@ Re-check these after an update; they are where tsrs's behaviour reaches our outp
   512 MiB stack. Set only `checkers`: `single_threaded` also makes parsing and binding serial.
 
 ### What changed with tsrs 0.20 (TypeScript 7.1 beta)
-The move from tsrs 0.18 to 0.20 (rbxts-rs branch `c/ts71`, fork branch `rbxts-fork-0.20`) changed no output: both
+The move from tsrs 0.18 to 0.20 (fork branch `rbxts-fork-0.20`) changed no output: both
 parity corpora, the 169 `src/diagnostics` files built one at a time, and Flamework's output on the real project are
 the same as on 0.18. Two tsrs changes needed rbxts-rs adaptations, both marked `// rbxts-rs:`:
 - **Ad hoc messages live in the arena.** `tsrs_ast::new_ad_hoc_message` (moved from `tsrs_diagnostics`) allocates
@@ -232,7 +232,7 @@ and checker history, eager type members. On 0.18, lazy members, the canonical hi
 defaults; on 0.20 they are, with three extra checker caches and more, the opt-in fast preset (`--fast`, `TSRS_FAST=1`,
 `tsrs_core::fast::set_enabled`; tsrs `docs/COMPATIBILITY.md`, "Performance preset"). With TypeScript's defaults
 rbxts-rs type checked the real project (`rbxts-bench load`) 17-22% slower than on 0.18, with 5-7% more peak memory.
-So rbxts-rs turns the preset on (user decision, 2026-10-28): `rbxts_project::use_tsrs_fast_preset`, called first by
+So rbxts-rs turns the preset on: `rbxts_project::use_tsrs_fast_preset`, called first by
 rbxtsc and rbxtsc-fw (`Cli::run_with`), rbxts-bench and rbxts-probe, and again by `load_cached` before it makes a
 program (the tests and any other caller). It must run before a checker exists, as tsrs reads the preset once.
 `TSRS_FAST=0` turns it off, for debugging against tsrs's reference settings. Only the exact value `0` does; any other
@@ -294,8 +294,8 @@ last section lists Luau behaviour that stock's output, and so rbxts-rs's, can me
   differs.
 - **Diagnostic message text and spans.** Every diagnostic matches stock in its code, file, exit code and the rule
   that a failing build writes nothing. Its message text, related information and some spans follow TypeScript 7.1
-  (above, "TypeScript 5 behaviour dropped": TS2769, TS7011/TS2683, TS1007). Other cases, accepted by the user
-  (2026-10-27):
+  (above, "TypeScript 5 behaviour dropped": TS2769, TS7011/TS2683, TS1007). Other cases, accepted
+  as they are:
   - **Printed type order.** Literal unions print in TypeScript 7's order (`"a" | "b" | "c"`, where TypeScript 5
     gives `"a" | "c" | "b"`), and so do the keys of a mapped or `Record` type and the properties of a JSX attributes
     type (`{ a: number; children: string; }`, where TypeScript 5 gives `{ children: string; a: number; }`).

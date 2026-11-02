@@ -1,5 +1,5 @@
 {
-	"name": "t2-exprs-fixture",
+	"name": "exprs-fixture",
 	"tree": {
 		"$className": "DataModel",
 		"ReplicatedStorage": {

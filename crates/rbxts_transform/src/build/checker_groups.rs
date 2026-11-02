@@ -147,7 +147,7 @@ pub(crate) fn transform_files(
     if transformed.setup_fatal.is_some() {
         transformed.files.iter_mut().for_each(|f| *f = None);
     } else if let Some(first) = first_panic {
-        // rbxts-rs: a group stops at its first panic (its checker may be inconsistent, FOLLOWUPS T1); the other groups
+        // rbxts-rs: a group stops at its first panic (its checker may be inconsistent); the other groups
         // go on. What the report holds is cut at the first panic in transform order, so it is what one checker gives,
         // for any checker count: every file before it, and nothing after it.
         transformed.files.iter_mut().skip(first + 1).for_each(|f| *f = None);
@@ -196,7 +196,7 @@ fn run_group(
         let panicked = transformed.panicked;
         output.files.push((i, transformed));
         if panicked {
-            // rbxts-rs: after a panic this checker may be inconsistent (FOLLOWUPS T1): its group stops here
+            // rbxts-rs: after a panic this checker may be inconsistent: its group stops here
             break;
         }
     }

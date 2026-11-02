@@ -1,4 +1,4 @@
-// Hand-written T2 exprs fixture: conditional expressions.
+// Hand-written exprs fixture: conditional expressions.
 
 declare function sideEffect(): number;
 declare function check(): boolean;

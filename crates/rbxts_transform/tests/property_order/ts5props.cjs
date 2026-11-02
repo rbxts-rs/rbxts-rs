@@ -7,7 +7,7 @@ const path = require("path");
 const args = process.argv.slice(2);
 const tsDir = args.includes("--ts")
 	? args[args.indexOf("--ts") + 1]
-	: "E:/Projects/TS/Flamework/roblox-ts-test/roblox-ts/node_modules/typescript";
+	: process.env.TYPESCRIPT_DIR || "typescript"; // a TypeScript 5 package: --ts, TYPESCRIPT_DIR or resolvable from here
 const ts = require(tsDir);
 const [tsconfig, filter] = args;
 const checkFirst = args.includes("--check-first");

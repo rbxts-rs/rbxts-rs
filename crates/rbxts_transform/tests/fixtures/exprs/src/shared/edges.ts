@@ -1,4 +1,4 @@
-// Hand-written T2 exprs fixture: mixed edge cases.
+// Hand-written exprs fixture: mixed edge cases.
 
 declare function tag(strings: Array<string>, ...values: Array<unknown>): string;
 declare function pick(): typeof tag;

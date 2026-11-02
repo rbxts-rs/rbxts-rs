@@ -1,4 +1,4 @@
-// The stmts area's fixture: enums, namespaces, switch, try / throw, break / continue (T2).
+// The stmts area's fixture: enums, namespaces, switch, try / throw, break / continue.
 //
 // - Run: `cargo test -p rbxts_transform --test fixtures stmts` (tests/fixtures.rs links in a `node_modules` with types,
 //   compiler-types and testez). `allowCommentDirectives` is on below, since enums.ts uses `@ts-expect-error`.

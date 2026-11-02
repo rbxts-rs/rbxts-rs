@@ -1,7 +1,7 @@
 //! `rbxts-probe property-order`: the property order of every class and interface declaration, annotated variable and
 //! `createGuard<T>()` type argument in the matching files, as TypeScript 7 lists it (`--raw`) or as
-//! `rbxts_transform::util::ts5_property_order` rebuilds TypeScript 5's. The lines have the format of the scratchpad's
-//! `ts5props.cjs`, which prints TypeScript 5's own order, so the two diff directly.
+//! `rbxts_transform::util::ts5_property_order` rebuilds TypeScript 5's. The lines have the format of
+//! `crates/rbxts_transform/tests/property_order/ts5props.cjs`, which prints TypeScript 5's own order, so the two diff directly.
 
 use rbxts_project::LoadOptions;
 use rbxts_transform::util::ts5_property_order::ts5_property_order;

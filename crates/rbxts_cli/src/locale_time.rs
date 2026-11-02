@@ -128,7 +128,7 @@ mod tests {
         assert_eq!(count, 912);
     }
 
-    /// The ones the brief names, by hand: Node 23 (ICU 76) prints a plain space before `PM` (V8 replaces ICU's narrow
+    /// Common ones, by hand: Node 23 (ICU 76) prints a plain space before `PM` (V8 replaces ICU's narrow
     /// no-break space).
     #[test]
     fn common_locales() {

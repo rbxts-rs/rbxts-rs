@@ -1,8 +1,8 @@
 # Results
 
 One table over time. Every row: what ran, on what, wall time per phase, peak memory, output parity. Measured on
-the user's Windows 11 machine (12 logical CPUs). "Load" notes what else was using the CPU, because Studio, the
-Roblox player and other sessions' builds share the machine and move wall times by 2-3x.
+a Windows 11 machine (12 logical CPUs). "Load" notes what else was using the CPU, because Studio, the
+Roblox player and other builds share the machine and move wall times by 2-3x.
 
 Peak memory on Windows is the peak working set (`PeakWorkingSetSize`; Node's `process.resourceUsage().maxRSS` reports
 the same counter, via `bench/maxrss.cjs`). Peak commit (private bytes) is given where known.
@@ -14,7 +14,7 @@ the same counter, via `bench/maxrss.cjs`). Peak commit (private bytes) is given 
 | 2026-10-21 | roblox-ts master + Flamework (TS 5.9), driver `--backend ts5` | 29.0 s (earlier, quiet machine); 86.2 s (busy) | 1474.6 MiB | reference (`exp/real-out-D-ts5`) | quiet / busy |
 | 2026-10-21 | `tsc -p tsconfig.json --noEmit` (TS 5.9; also checks declaration files, 14 errors in `@rbxts` d.ts) | 20.5-20.9 s | 1028-1030 MiB | - | busy |
 
-Earlier measurements (scratchpad `tsrs-roblox-ts/REPORT.md`): roblox-ts's own TS5 check of the project files ~6 s;
+Earlier measurements: roblox-ts's own TS5 check of the project files ~6 s;
 the tsrs API server check 1.0 s.
 
 ## M0: load + type-check in-process through tsrs (`rbxts-bench load`)
@@ -127,15 +127,15 @@ from `bench/maxrss.cjs`) on 2026-10-21, machine moderately busy (ms; MiB).
 | the real project without Flamework (605 files) | 9-11 | 75-86 | 50-56 | 637-787 | 203-231 | 1.5-2.0 | 1.7-2.3 | 1019-1162 | 146.5-146.7 | 17 (588 unsupported) | 20.3-21.0 s, 611-618 |
 | roblox-ts tests (`tsconfig.bench.json`, 72 files) | 2.3-2.5 | 39-49 | 3.8-4.7 | 85-103 | 75-81 | 0.8-1.2 | 1.2-2.2 | 216-236 | 62.5-62.8 | 17 (55 unsupported) | 6.5-7.2 s, 450-454 |
 
-References: the tests project against the tsrs-backed roblox-ts build (`exp/out-C-tsrs`, TS 7 semantics), the real
-project against `refs/real-noplugin-tsrs`. Every file that uses only T1 kinds is identical in both corpora, and so
-are the 10 files of a hand-written T1 fixture (scratchpad `rbxts-rs/t1/fixture`) against the same tsrs-backed
+References: the tests project against the tsrs-backed roblox-ts build (TS 7 semantics), the real
+project against the same pipeline's build of it. Every file that uses only T1 kinds is identical in both corpora, and so
+are the 10 files of a hand-written T1 fixture against the same tsrs-backed
 pipeline.
 
 ## S2: incremental and watch rebuilds (`rbxts-bench watch-parity`, `rbxtsc build` with `"incremental": true`)
 
 The real project without Flamework (`tsconfig.noplugin.json`, `--optimizedLoops --allowCommentDirectives`), on a
-scratch copy, profile `measure`, one checker, 2026-10-21, machine busy (another session's builds, ms). A leaf is a
+scratch copy, profile `measure`, one checker, 2026-10-21, machine busy (other builds running, ms). A leaf is a
 file nothing imports; the hub is imported by 76 files, and its closure (the reversed-import closure, docs/design.md §14)
 is 205 of the 605 project files.
 
@@ -153,8 +153,8 @@ is 205 of the 605 project files.
   program again over the source cache (only edited files parsed) and redid the project setup, as roblox-ts does;
   "invalidate" is the file facts of all 886 program files, the closure and the listing of the output directory;
   "write" is the Luau, the asset sync and the clean of stale outputs.
-- 2026-10-27, the same 52-rebuild script (s2w `mem.script.json`: 41 leaf and 11 hub edits, no clean builds), main
-  (477f537) and c/watchperf run back to back twice, quiet machine (ms, medians; working set over the run):
+- 2026-10-27, the same 52-rebuild script (`mem.script.json`: 41 leaf and 11 hub edits, no clean builds), main
+  (477f537) and the watch-performance branch run back to back twice, quiet machine (ms, medians; working set over the run):
 
   | build | main wall | branch wall | main program / setup / invalidate | branch program / setup / invalidate |
   | --- | --- | --- | --- | --- |
@@ -177,10 +177,10 @@ is 205 of the 605 project files.
 
 ## tsrs 0.20 (TypeScript 7.1 beta) against tsrs 0.18 (2026-10-28)
 
-First with tsrs 0.20's default checker settings (c/ts71 at 5c5c8c7), then with the fast preset on, as rbxts-rs
+First with tsrs 0.20's default checker settings (the tsrs 0.20 branch at 5c5c8c7), then with the fast preset on, as rbxts-rs
 runs now (338d603; docs/tsrs.md, "Checker defaults: the fast preset is on").
 
-main (aea93f9, tsrs 0.18) and c/ts71 (tsrs 0.20), `measure` profile, the real project, 4 checkers unless noted, run
+main (aea93f9, tsrs 0.18) and the tsrs 0.20 branch, `measure` profile, the real project, 4 checkers unless noted, run
 back to back and interleaved on a machine with other work open (Studio, browsers; 51-80% idle). Medians, with ranges.
 
 Clean builds (`rbxtsc build`, out and include removed before each; 12 rounds per side, Flamework off with
@@ -218,7 +218,7 @@ runs per side, main ts71 ts71 main main ts71):
 - The slower type check and the extra memory came from tsrs 0.19's new defaults: on 0.18, lazy members, the
   canonical history and locality scheduling were on by default; on 0.20 they are part of the fast preset.
 
-With the fast preset on (c/ts71 at 338d603), the same machine and method, run back to back:
+With the fast preset on (the tsrs 0.20 branch at 338d603), the same machine and method, run back to back:
 
 | build | wall main | wall 0.20 | CPU main | CPU 0.20 | peak WS main | peak WS 0.20 |
 | --- | --- | --- | --- | --- | --- | --- |

@@ -1,8 +1,8 @@
 //! The hand-written transform fixtures (`tests/fixtures/<area>`) against stock roblox-ts's output for them.
 //!
 //! A fixture is a roblox-ts project without `node_modules` (`src`, `tsconfig.json`, `default.project.json`, …) and
-//! `expected/`, the Luau rbxts-rs must produce: stock roblox-ts's output (roblox-ts master through
-//! `roblox-ts-test/probe/rbxts-driver.cjs`), except where a fixture's notes say otherwise. The test copies the
+//! `expected/`, the Luau rbxts-rs must produce: stock roblox-ts's output (roblox-ts master on TypeScript
+//! 5), except where a fixture's notes say otherwise. The test copies the
 //! project (everything but `expected*/`) to a temporary directory, links in a `node_modules`, builds it and checks:
 //! - every output equals its `expected/` file byte for byte, and every `expected/` file is produced;
 //! - the build reports nothing: no diagnostic of any category (checker, setup or transform), no warning, no fatal

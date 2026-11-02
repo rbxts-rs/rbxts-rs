@@ -1,4 +1,4 @@
-//! Probes of tsrs behaviour the design depends on (milestone M0b). Each prints what it found; none changes anything.
+//! Probes of tsrs behaviour the design depends on. Each prints what it found; none changes anything.
 //!
 //! rbxts-probe jsdoc-links [-p tsconfig.json] [--files <path substring>]
 //!   Resolves every JSDoc `{@link name}` in the matching files (default: `@flamework-experimental`) with the checker,
