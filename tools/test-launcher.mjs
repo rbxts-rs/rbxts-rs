@@ -154,13 +154,20 @@ function alive(pid) {
 	}
 }
 
-// the fake release: /dl/<name> redirects to /files/<name>
+// the fake release: /dl/<name> redirects to /files/<name>; /loop redirects to itself; /drop/<name> sends the headers
+// and a few bytes of the file, then drops the connection
 const served = new Map();
 let requests = 0;
 const server = http.createServer((req, res) => {
 	requests++;
 	const [, kind, name] = req.url.split("/");
-	if (kind === "dl") {
+	if (kind === "loop") {
+		res.writeHead(302, { location: "/loop" });
+		res.end();
+	} else if (kind === "drop" && served.has(name)) {
+		res.writeHead(200, { "content-type": "application/zip", "content-length": served.get(name).length });
+		res.write(served.get(name).subarray(0, 3), () => req.socket.destroy());
+	} else if (kind === "dl") {
 		res.writeHead(302, { location: `/files/${name}` });
 		res.end();
 	} else if (kind === "files" && served.has(name)) {
@@ -281,6 +288,22 @@ try {
 		assert(r.stderr.includes(`sha256 mismatch for ${BASE}/dl/release.zip: expected ${"0".repeat(64)}, got ${releaseSha}. Nothing was installed.`), "message", r.all);
 		assert(!fs.existsSync(path.join(dir, "bin", TRIPLE, EXE)), "the exe was written");
 		console.log(`     sample: ${r.stderr.trim().split("\n")[0]}`);
+	});
+
+	await test("a failed download (a redirect loop, a connection dropped in the body) exits 1 cleanly with the build hint", async () => {
+		for (const [label, route] of [["redirect loop", "loop"], ["dropped body", "drop/release.zip"]]) {
+			const dir = project(`fail-${route.split("/")[0]}`, (hash) => ({ ...withRelease()(hash), binaries: { [TRIPLE]: { url: `${BASE}/${route}`, sha256: releaseSha } } }));
+			const start = Date.now();
+			const r = await runLauncher(dir, [FAKE, "--echo"]);
+			const seconds = (Date.now() - start) / 1000;
+			// not Node 23's libuv assertion on Windows (0xC0000409 = 3221226505) after process.exit()
+			assert(r.code === 1, `${label}: exit code ${r.code}`, r.all);
+			assert(r.stderr.startsWith(`rbxtsc.mjs: could not download ${BASE}/${route}: `), `${label}: message`, r.all);
+			assert(r.stderr.includes("(or build it with Rust: node compiler/rbxtsc.mjs --build)"), `${label}: build hint`, r.all);
+			assert(!fs.existsSync(path.join(dir, "bin")), `${label}: something was written`, r.all);
+			assert(seconds < 10, `${label}: took ${seconds} s to end`, r.all);
+			console.log(`     ${label} (${seconds.toFixed(1)} s): ${r.stderr.trim().split("\n")[0]}`);
+		}
 	});
 
 	await test("config changed, not a terminal (CI): explains, prints the build command, exits 1", async () => {

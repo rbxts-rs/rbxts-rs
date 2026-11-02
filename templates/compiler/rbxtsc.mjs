@@ -189,18 +189,19 @@ function where(s) {
 
 async function download(s) {
 	const { url, sha256 } = s.prebuilt;
-	let response;
+	let zip;
 	try {
-		response = await fetch(url, { redirect: "follow" });
+		const response = await fetch(url, { redirect: "follow" });
+		if (!response.ok) {
+			say(`${NAME}: could not download ${url}: HTTP ${response.status}`);
+			return false;
+		}
+		// the body too: a connection dropped halfway fails here
+		zip = Buffer.from(await response.arrayBuffer());
 	} catch (e) {
 		say(`${NAME}: could not download ${url}: ${e.cause?.message ?? e.message}`);
 		return false;
 	}
-	if (!response.ok) {
-		say(`${NAME}: could not download ${url}: HTTP ${response.status}`);
-		return false;
-	}
-	const zip = Buffer.from(await response.arrayBuffer());
 	const actual = createHash("sha256").update(zip).digest("hex");
 	if (actual !== String(sha256).toLowerCase()) {
 		say(`${NAME}: sha256 mismatch for ${url}: expected ${sha256}, got ${actual}. Nothing was installed.`);
@@ -546,14 +547,18 @@ export async function main(argv, dir = HERE) {
 	return run(s.exe, args);
 }
 
+// The launcher ends by setting process.exitCode and returning, never with process.exit(): Node 23 on Windows can
+// fail a libuv assertion (0xC0000409) when process.exit() follows a failed fetch.
 function exitWith(result) {
-	if (typeof result === "number") process.exit(result);
-	const number = os.constants.signals[result.signal] ?? 15;
+	if (typeof result === "number") {
+		process.exitCode = result;
+		return;
+	}
+	process.exitCode = 128 + (os.constants.signals[result.signal] ?? 15);
 	if (process.platform !== "win32") {
-		// end the same way the binary did, so a shell sees the signal
+		// end the same way the binary did, so a shell sees the signal (no handler is left for it)
 		process.kill(process.pid, result.signal);
 	}
-	process.exit(128 + number);
 }
 
 function invokedDirectly() {
@@ -571,6 +576,6 @@ function invokedDirectly() {
 if (invokedDirectly()) {
 	main(process.argv.slice(2)).then(exitWith, (e) => {
 		say(e.message);
-		process.exit(1);
+		process.exitCode = 1;
 	});
 }
