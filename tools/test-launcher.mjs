@@ -212,10 +212,13 @@ try {
 		fs.appendFileSync(path.join(lf, ".cargo", "config.toml"), "# a change\n");
 		assert(launcher.configHash(lf) !== hash, "a change in .cargo/config.toml did not change the hash");
 		fs.copyFileSync(path.join(SKELETON, ".cargo", "config.toml"), path.join(lf, ".cargo", "config.toml"));
-		// files outside the config do not count
+		// files outside the config do not count, nor the file browsers' files in src/
 		fs.writeFileSync(path.join(lf, "README.md"), "notes\n");
 		fs.writeFileSync(path.join(lf, "preset.json"), "{}");
-		assert(launcher.configHash(lf) === hash, "README.md or preset.json changed the hash");
+		fs.writeFileSync(path.join(lf, "src", ".DS_Store"), "Bud1");
+		fs.mkdirSync(path.join(lf, "src", "sub"));
+		fs.writeFileSync(path.join(lf, "src", "sub", "Thumbs.db"), "thumbs");
+		assert(launcher.configHash(lf) === hash, "README.md, preset.json, .DS_Store or Thumbs.db changed the hash");
 	});
 
 	await test("config hash: a known answer (the format is fixed: path, NUL, length, NUL, bytes; sorted by path)", async () => {
@@ -262,6 +265,15 @@ try {
 		assert(r.stdout === 'args: ["build","-p","tsconfig.json","--a b"]\n', "arguments", r.all);
 		assert(r.stderr === "", "launcher output on a stamp hit", r.all);
 		assert(requests === before, "downloaded on a stamp hit");
+	});
+
+	await test("--: the arguments after it go to the binary, launcher flags included", async () => {
+		const dir = project("dashdash", withRelease());
+		installFake(dir);
+		const r = await runLauncher(dir, ["--", FAKE, "--echo", "--where", "--build", "--", "x"]);
+		assert(r.code === 0 && r.stdout === 'args: ["--where","--build","--","x"]\n', "after --", r.all);
+		const where = await runLauncher(dir, ["--where", "--", "--build"]);
+		assert(where.code === 0 && where.stdout.startsWith("binary: "), "a flag before --", where.all);
 	});
 
 	await test("exit code passthrough", async () => {
@@ -398,6 +410,22 @@ try {
 			error = e.message;
 		}
 		assert(error === `the archive has 2 files named ${EXE}, not one`, "two exes", error);
+		// an entry that unzips to more than the limit: by its recorded size, and by what it inflates to when the
+		// recorded size lies
+		const big = makeZip([{ name: EXE, data: Buffer.alloc(5000) }]);
+		const [entry] = launcher.zipEntries(big);
+		const failure = (body) => {
+			try {
+				body();
+			} catch (e) {
+				return e.message;
+			}
+			return "";
+		};
+		assert(failure(() => launcher.zipEntryBytes(big, entry, 1000)) === `${EXE}: 5000 bytes unzipped, more than the 1000 allowed`, "recorded size");
+		const lying = failure(() => launcher.zipEntryBytes(big, { ...entry, size: 10 }, 1000));
+		assert(lying === `${EXE}: cannot unzip it (more than the 1000 bytes allowed)`, "inflated size", lying);
+		assert(launcher.zipEntryBytes(big, entry).length === 5000, "under the default limit");
 	});
 
 	await test("--build: deletes the target folders of builds that are gone, keeps a running build's", async () => {

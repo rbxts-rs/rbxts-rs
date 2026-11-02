@@ -25,7 +25,8 @@ argument goes to `rbxtsc` unchanged, except the launcher's own flags:
 
 - `--where`: prints the binary's path, the state of its stamp, the config hash and the preset, and exits;
 - `--build`: builds the binary with Rust when there is no matching one, without asking;
-- `--rebuild`: builds it with Rust even when it is up to date.
+- `--rebuild`: builds it with Rust even when it is up to date;
+- `--`: everything after it goes to `rbxtsc` (the `--` itself does not), launcher flags included.
 
 The launcher runs `bin/<target triple>/rbxtsc[.exe]` when the stamp beside it holds the current config hash. It
 passes the exit code through and forwards Ctrl+C and SIGTERM to it, waiting for it to end. Otherwise:
@@ -49,7 +50,8 @@ passes the exit code through and forwards Ctrl+C and SIGTERM to it, waiting for 
 The hash is a SHA-256 over `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `.cargo/config.toml` and every file
 under `src/`, sorted by path, each as its path, a NUL, its length, a NUL and its bytes, with CRLF read as LF (so git's `autocrlf` does not
 change it). The same checkout hashes the same on Windows, Linux and macOS. Nothing else in this folder counts:
-editing this README or `preset.json` keeps the binary.
+editing this README or `preset.json` keeps the binary, and the `.DS_Store` and `Thumbs.db` files Finder and
+Explorer leave under `src/` are not part of it.
 
 ## Building with Rust
 

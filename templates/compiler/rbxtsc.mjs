@@ -14,6 +14,7 @@
 //   --where     print the binary's path and the state of its stamp, then exit
 //   --build     build the binary with Rust if it is missing or stale, without asking
 //   --rebuild   build the binary with Rust even if it is up to date
+//   --          the arguments after it all go to the binary (the -- itself does not), launcher flags included
 // A build uses a temporary target folder in the OS temp folder, deleted afterwards (after Ctrl+C too); the next
 // build deletes those that killed builds left.
 // Environment: RBXTSC_BUILD=1 (as --build); RBXTSC_INTERACTIVE=1 or 0 (ask, reading the answer from stdin, or never
@@ -35,6 +36,10 @@ const NAME = "rbxtsc.mjs";
 // A clean build of this package with its release profile, measured on a desktop PC (README.md, "Building").
 const BUILD_MINUTES = 3;
 const LAUNCHER_FLAGS = new Set(["--where", "--build", "--rebuild"]);
+// Files the system's file browser leaves in folders (macOS Finder, Windows Explorer): not part of the config.
+const IGNORED_FILES = new Set([".DS_Store", "Thumbs.db"]);
+// The most bytes an archive entry may unzip to (a binary is some tens of MB).
+const MAX_ENTRY_SIZE = 512 * 1024 * 1024;
 
 /** Rust's target triple for this platform, as the preset's `binaries` keys and the `bin/` folders name it. */
 export function hostTriple(platform = process.platform, arch = process.arch) {
@@ -59,7 +64,7 @@ export function configFiles(dir) {
 		for (const entry of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
 			const child = `${rel}/${entry.name}`;
 			if (entry.isDirectory()) walk(child);
-			else if (entry.isFile()) files.push(child);
+			else if (entry.isFile() && !IGNORED_FILES.has(entry.name)) files.push(child);
 		}
 	};
 	if (fs.existsSync(path.join(dir, "src"))) walk("src");
@@ -120,11 +125,23 @@ export function zipEntries(zip) {
 	return entries;
 }
 
-/** The bytes of a zip entry (stored or deflated). */
-export function zipEntryBytes(zip, entry) {
+/** The bytes of a zip entry (stored or deflated), at most `limit` of them. */
+export function zipEntryBytes(zip, entry, limit = MAX_ENTRY_SIZE) {
+	if (entry.size > limit) throw new Error(`${entry.name}: ${entry.size} bytes unzipped, more than the ${limit} allowed`);
 	const raw = zip.subarray(entry.data, entry.data + entry.compressedSize);
-	const bytes = entry.method === 0 ? raw : entry.method === 8 ? zlib.inflateRawSync(raw) : null;
-	if (!bytes) throw new Error(`${entry.name}: unsupported zip compression method ${entry.method}`);
+	let bytes;
+	if (entry.method === 0) {
+		bytes = raw;
+	} else if (entry.method === 8) {
+		try {
+			bytes = zlib.inflateRawSync(raw, { maxOutputLength: limit });
+		} catch (e) {
+			const why = e.code === "ERR_BUFFER_TOO_LARGE" ? `more than the ${limit} bytes allowed` : (e.code ?? e.message);
+			throw new Error(`${entry.name}: cannot unzip it (${why})`);
+		}
+	} else {
+		throw new Error(`${entry.name}: unsupported zip compression method ${entry.method}`);
+	}
 	if (bytes.length !== entry.size) throw new Error(`${entry.name}: unzipped size does not match the archive`);
 	return bytes;
 }
@@ -522,8 +539,11 @@ function launcherPath(s) {
 
 /** The launcher: returns the exit code, or `{ signal }` for a binary a signal ended. */
 export async function main(argv, dir = HERE) {
-	const flags = new Set(argv.filter((a) => LAUNCHER_FLAGS.has(a)));
-	const args = argv.filter((a) => !LAUNCHER_FLAGS.has(a));
+	// launcher flags before a `--`; everything after it is the binary's
+	const end = argv.indexOf("--");
+	const own = end < 0 ? argv : argv.slice(0, end);
+	const flags = new Set(own.filter((a) => LAUNCHER_FLAGS.has(a)));
+	const args = [...own.filter((a) => !LAUNCHER_FLAGS.has(a)), ...(end < 0 ? [] : argv.slice(end + 1))];
 	const s = inspect(dir);
 	if (flags.has("--where")) {
 		where(s);
