@@ -1,188 +1,193 @@
-//! `util::ts5_property_order` on a synthetic project (`tests/property_order`): inheritance chains with redeclared
-//! members, bases listed against their declaration order, a generic base, computed (late-bound) members, classes, an
-//! intersection, declaration merging with a module augmentation, a base in another file whose members' offsets fall
-//! inside the derived interface's range, type literals (alone, in an intersection, instantiated), object literal
-//! types with a spread (alone and as an interface's base; class instances, falsy and object unions and generic operands
-//! spread, a generic operand between same-named parts, optional and intersected generic operands, union members with
-//! the same names), homomorphic mapped types (filtering and renaming `as` clauses included) and object rests (of a
-//! spread, an interface, a parameter, a nested pattern, an optional source, a class instance, a generic instantiation
-//! and a union).
+//! The property order plugins lay wire formats out in (`Cx::properties_of_type`: TypeScript 7.1's
+//! `getPropertiesOfType`) does not depend on the checker count, on which checker gets which file, on the order a
+//! checker visits its files, or on whether the build is clean, a watch rebuild or an incremental one.
 //!
-//! - The rebuilt order must equal TypeScript 5's, `expected-ts5.txt`, which `tests/property_order/ts5props.cjs`
-//!   writes with TypeScript 5.9.3 (the lines are compared as sorted sets: the two compilers list files in different
-//!   orders).
-//! - TypeScript 7's own order is pinned for the cases where it differs, so a change in tsrs shows up here.
+//! `tests/plugin_fixtures/props` lists, through the `probe` plugin's `props` claim, the properties of the types whose
+//! order TypeScript 5 took from type ids or insertion and TypeScript 7 sorts: unions (of type literals, of interfaces
+//! from two files, of two instantiations, with an index signature), mapped types over unions of keys (`Record` of
+//! string, number, template literal and enum keys, a renaming `as` clause), `Pick`, `Partial`, `Omit`, `Readonly`, an
+//! inheritance chain, bases from two files, a class extending one from another file, a global interface declared in
+//! two files, intersections both ways, a spread, an object rest, unique symbol keys and two functions' return types.
+//! Eight files list them all, each in another order, so that the checkers meet the types in different orders.
+//!
+//! - Clean builds with 1, 4 and 12 checkers under the default assignment, and with 2, 4 and 12 under tsrs's
+//!   `random:<seed>` one (a random checker per file, a random visit order per checker), must write the same bytes;
+//!   the one-checker build must equal `expected/`: TypeScript 7.1's order, which `tsc` 7.1.0-beta's own
+//!   `getPropertiesOfType` gives for every probe (unique symbol keys as `@name`, without the symbol id).
+//! - `props.script.json` (in `tests/plugin_fixtures`) then runs as watch rebuilds and as incremental builds with 1, 4
+//!   and 12 checkers (the W1 harness: after every step the output must equal a clean build's): a new first file that
+//!   imports the late one; a base's members reordered; the global interface's second declaration file renamed to
+//!   come later in the program (which moves its members last); a file saved unchanged; the new file deleted.
+//!
+//! This binary holds this one test, so it may set `TSRS_CHECKER_ASSIGNMENT` between builds: no other thread is
+//! running then. Without a `node_modules` (see `plugins.rs`) it is skipped.
 
-use std::path::Path;
+#![cfg(windows)]
 
-use rbxts_project::{LoadOptions, STACK_SIZE};
-use rbxts_transform::util::ts5_property_order::ts5_property_order;
-use tsrs_ast::{Kind, Node, SourceFile};
-use tsrs_checker::{Checker, Type};
-use tsrs_compiler::Context;
-use tsrs_core::P;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
-fn source_text(file: &SourceFile, node: P<Node>) -> &'static str {
-    let (pos, end) = (node.pos().expect_source("parsed"), node.end().expect_source("parsed"));
-    file.text()[pos as usize..end as usize].trim()
+use rbxts_plugin::erased::DynPlugin;
+use rbxts_project::{ProjectOptionLayer, STACK_SIZE};
+use rbxts_transform::build::parity::{self, ParityOptions};
+use rbxts_transform::{CompileOptions, PluginOptions, compile_project_with};
+
+/// (checkers, `TSRS_CHECKER_ASSIGNMENT`); the first is the reference.
+const CONFIGS: &[(usize, Option<&str>)] = &[
+    (1, None),
+    (4, None),
+    (12, None),
+    (2, Some("random:51")),
+    (4, Some("random:52")),
+    (12, Some("random:53")),
+];
+
+/// The entries a copy of the fixture holds.
+const COPY: &[&str] = &["src", "tsconfig.json", "default.project.json", "package.json"];
+
+fn fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/plugin_fixtures/props")
 }
 
-/// The names, a unique symbol's spelled as `@name` (TypeScript 5: `__@name@<id>`, TypeScript 7: `\x7f@name@<id>`).
-fn names(symbols: &[P<tsrs_ast::Symbol>]) -> String {
-    symbols.iter().map(|s| normalize(s.name())).collect::<Vec<_>>().join(", ")
+fn plugins() -> Vec<Box<dyn DynPlugin>> {
+    vec![rbxts_test_plugins::by_name("probe").expect("the probe plugin")]
 }
 
-/// `__@name@123` / `\x7f@name@123` → `@name`.
-fn normalize(name: &str) -> String {
-    let rest = name.strip_prefix("__@").or_else(|| name.strip_prefix("\u{7f}@"));
-    match rest.and_then(|r| r.rsplit_once('@')) {
-        Some((base, id)) if id.bytes().all(|b| b.is_ascii_digit()) => format!("@{base}"),
-        _ => name.to_owned(),
+fn big_stack<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+    std::thread::scope(|scope| {
+        std::thread::Builder::new().stack_size(STACK_SIZE).spawn_scoped(scope, f).unwrap().join().unwrap()
+    })
+}
+
+/// The `.luau` files under `dir`, by their path relative to `root`.
+fn outputs(root: &Path, dir: &Path, out: &mut BTreeMap<String, String>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            outputs(root, &path, out);
+        } else if path.extension().is_some_and(|e| e == "luau") {
+            let relative = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+            out.insert(relative, std::fs::read_to_string(&path).unwrap().replace("\r\n", "\n"));
+        }
     }
 }
 
-/// One line per interface or class declaration and per variable annotated with a type reference, in
-/// `ts5props.cjs`'s format: (TypeScript 7 order, rebuilt TypeScript 5 order).
-fn visit(checker: &mut Checker, file: &'static SourceFile, rel: &str, node: P<Node>, out: &mut Vec<(String, String)>) {
-    let mut line = |checker: &mut Checker, head: String, t: P<Type>| {
-        let raw = names(checker.get_properties_of_type_exported(t));
-        let ts5 = names(&ts5_property_order(checker, t));
-        out.push((format!("{head}: {raw}"), format!("{head}: {ts5}")));
-    };
-    match node.kind() {
-        Kind::InterfaceDeclaration | Kind::ClassDeclaration => {
-            let name = node.name().expect("a named declaration");
-            let symbol = checker.get_symbol_at_location_exported(name).expect("a declared symbol");
-            let t = checker.get_declared_type_of_symbol_exported(symbol);
-            line(checker, format!("{rel} decl {}", name.text()), t);
+/// A clean build of a fresh copy under `config`: its outputs (relative to `out/`), and its errors.
+fn build(node_modules: &Path, (checkers, assignment): (usize, Option<&str>)) -> (BTreeMap<String, String>, Vec<String>) {
+    let mut copy = rbxts_test_support::TempDir::new("props");
+    for name in COPY {
+        let from = fixture().join(name);
+        if from.is_dir() {
+            rbxts_test_support::copy_dir(&from, &copy.path().join(name));
+        } else {
+            std::fs::copy(&from, copy.path().join(name)).unwrap();
         }
-        Kind::VariableDeclaration if node.type_node().is_some_and(|t| t.kind() == Kind::TypeReference) => {
-            let name = node.name().expect("a named variable");
-            let t = checker.get_type_at_location(name);
-            line(checker, format!("{rel} var {}", source_text(file, name)), t);
-        }
-        _ => {}
     }
-    node.for_each_child(&mut |child| {
-        visit(checker, file, rel, child, out);
-        false
+    copy.link("node_modules", node_modules);
+    // SAFETY: this binary's only test runs here, between builds; no other thread reads the environment now
+    unsafe {
+        match assignment {
+            Some(assignment) => std::env::set_var("TSRS_CHECKER_ASSIGNMENT", assignment),
+            None => std::env::remove_var("TSRS_CHECKER_ASSIGNMENT"),
+        }
+    }
+    let plugins = plugins();
+    let cwd = copy.path().to_string_lossy().into_owned();
+    let report = big_stack(|| {
+        compile_project_with(
+            &CompileOptions {
+                tsconfig: "tsconfig.json".into(),
+                cwd,
+                project_options: ProjectOptionLayer::default(),
+                out_dir_override: None,
+                write_partial: false,
+                no_write: false,
+                checkers: Some(checkers),
+            },
+            &PluginOptions { plugins: &plugins, ..PluginOptions::default() },
+        )
     });
-}
-
-fn collect(check_first: bool) -> Vec<(String, String)> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/property_order");
-    let tsconfig = dir.join("tsconfig.json").to_string_lossy().replace('\\', "/");
-    let cwd = dir.to_string_lossy().replace('\\', "/");
-    let project = rbxts_project::load(&LoadOptions { tsconfig, cwd, checkers: 1, lazy_dts: false, regions: false })
-        .unwrap_or_else(|d| panic!("the fixture's tsconfig: {} diagnostics", d.len()));
-    let ctx = Context::background();
-    project.program.bind_source_files();
-    let mut checker = project.program.get_type_checker(&ctx);
-    if check_first {
-        for &file in project.program.source_files() {
-            let diagnostics = project.program.get_semantic_diagnostics_with_checker(&ctx, &mut checker, file);
-            assert!(diagnostics.is_empty(), "{}: {} diagnostics", file.file_name(), diagnostics.len());
-        }
+    let errors = parity::error_texts(&report, copy.path());
+    let mut files = BTreeMap::new();
+    let out = copy.path().join("out");
+    if out.is_dir() {
+        outputs(&out, &out, &mut files);
     }
-    let mut out = Vec::new();
-    for &file in project.program.source_files() {
-        let name = file.file_name();
-        let Some(index) = name.find("/property_order/src/") else { continue };
-        if name.ends_with("globals.d.ts") {
-            continue;
-        }
-        let rel = name[index + "/property_order/".len()..].to_owned();
-        visit(&mut checker, file.get(), &rel, file.as_node(), &mut out);
-    }
-    out.sort();
-    out
-}
-
-fn run(check_first: bool) {
-    let out = std::thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(move || collect(check_first))
-        .expect("spawn the test thread")
-        .join()
-        .expect("the test thread");
-
-    let expected = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/property_order/expected-ts5.txt"))
-        .expect("expected-ts5.txt");
-    let normalized = |line: &str| {
-        let Some((head, list)) = line.split_once(": ") else { return line.to_owned() };
-        format!("{head}: {}", list.split(", ").map(normalize).collect::<Vec<_>>().join(", "))
-    };
-    let expected: Vec<String> =
-        expected.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).map(normalized).collect();
-    let mut expected: Vec<&str> = expected.iter().map(String::as_str).collect();
-    expected.sort_unstable();
-    let mut ts5: Vec<&str> = out.iter().map(|(_, ts5)| ts5.as_str()).collect();
-    ts5.sort_unstable();
-    assert_eq!(ts5.join("\n"), expected.join("\n"), "ts5_property_order against TypeScript 5");
-
-    // TypeScript 7's own order where it differs from TypeScript 5's (see `util/ts5_property_order.rs`).
-    let raw: Vec<&str> = out.iter().map(|(raw, _)| raw.as_str()).collect();
-    for line in [
-        // Inherited members sorted by position instead of in their base's order.
-        "src/chain.ts decl Leaf: size, kind, label",
-        "src/chain.ts decl Alias: kind, size, label",
-        "src/chain.ts decl Both: a, b",
-        // A late-bound member sorted with the bound ones (TypeScript 5 lists it after them).
-        "src/chain.ts decl WithComputed: dyn, tail, kind, size",
-        "src/chain.ts decl Boxed: value, kind, size, label",
-        "src/chain.ts decl BoxedLeaf: size, kind, label, value",
-        "src/chain.ts var boxedValue: value, kind, size, label",
-        "src/chain.ts decl LeafClass: x, y, z, w",
-        "src/chain.ts var leafValue: size, kind, label",
-        "src/chain.ts var mixedValue: size, kind, label, a, b",
-        // `icon` and `rank` taken for own members: their offsets in display.ts fall inside `Item` in item.ts.
-        "src/item.ts decl Item: icon, rank, a, b, c, title, body",
-        // Computed members of type literals sorted with the others.
-        "src/literals.ts var literalValue: z, @tag, y, late, x",
-        "src/literals.ts var headLiteralValue: head, shared, z, @tag, y, late, x",
-        "src/literals.ts var genericValue: value, late, first",
-        // A spread sorted by declaration instead of right side first.
-        "src/literals.ts var spreadValue: sb, sc, sd, sa",
-        "src/literals.ts decl FromSpread: own, sb, sc, sd, sa",
-        // Homomorphic mapped types sorted by their source's declarations.
-        "src/literals.ts var partialLeafValue: kind, label, size",
-        "src/literals.ts var partialBothValue: a, b",
-        // Spreads: a falsy union part, a union of objects, a generic operand, all sorted by declaration.
-        "src/spreads.ts var andSpreadValue: k1, k3, k2, k0",
-        "src/spreads.ts var emptySpreadValue: t1, t3, t2, t0",
-        "src/spreads.ts var countSpreadValue: n1, n3, n2, n0",
-        "src/spreads.ts var unionFirstValue: u2, u1, q, r",
-        "src/spreads.ts var unionSecondValue: u3, u2, q, r",
-        "src/spreads.ts var madeValue: a1, a2, gz, gy, gx2, gx1, gx",
-        // A filtering `as` clause sorted by declaration.
-        "src/spreads.ts var filteredValue: s2, sd, s1",
-        // Generic and union operands: an optional generic, a generic intersection, union members with the same
-        // names, and a renaming `as` clause.
-        "src/generic_spreads.ts var withOptionsValue: oa, oc, ox, ob",
-        "src/generic_spreads.ts var intersectedValue: tz, rb, ra, rd, rc, re, a",
-        "src/generic_spreads.ts var eitherNumberValue: x2, x1, y2, y1",
-        "src/generic_spreads.ts var evGettersValue: get_onA, get_onY, get_onZ, get_w, get_x, get_y",
-        // Object rests sorted by declaration instead of in their source's order.
-        "src/rests.ts var restOfSpreadValue: a, b",
-        "src/rests.ts var restOfInterfaceValue: x, y",
-        "src/rests.ts var restOfParameterValue: x, y",
-        "src/rests.ts var restOfNestedValue: x, z",
-        "src/rests.ts var restOfOptionalValue: x, y",
-        "src/rests.ts var restOfClassValue: k2, k3, k1",
-        "src/rests.ts var restOfGenericValue: x, y, w",
-        "src/rests.ts var restOfUnionPValue: x, p",
-    ] {
-        assert!(raw.contains(&line), "TypeScript 7 order {line:?} not found in:\n{}", raw.join("\n"));
-    }
+    (files, errors)
 }
 
 #[test]
-fn property_order_on_demand() {
-    run(false);
-}
+fn property_order_does_not_depend_on_checkers_or_rebuilds() {
+    let Some(node_modules) = rbxts_test_support::node_modules_or_skip(module_path!()) else { return };
 
-/// The same with every file checked first, so types are resolved in check order rather than on demand.
-#[test]
-fn property_order_after_check() {
-    run(true);
+    // clean builds
+    let reference = build(&node_modules, CONFIGS[0]);
+    assert!(reference.1.is_empty(), "the reference build failed: {:#?}", reference.1);
+    let mut expected = BTreeMap::new();
+    outputs(&fixture().join("expected"), &fixture().join("expected"), &mut expected);
+    assert_eq!(
+        reference.0.keys().collect::<Vec<_>>(),
+        expected.keys().collect::<Vec<_>>(),
+        "the reference build's files against expected/"
+    );
+    for (path, text) in &expected {
+        assert_eq!(&reference.0[path], text, "{path} against expected/");
+    }
+    let mut failures = Vec::new();
+    for &config in &CONFIGS[1..] {
+        let (files, errors) = build(&node_modules, config);
+        if !errors.is_empty() {
+            failures.push(format!("{config:?}: errors {errors:?}"));
+        }
+        for (path, text) in &reference.0 {
+            match files.get(path) {
+                None => failures.push(format!("{config:?}: no {path}")),
+                Some(theirs) if theirs != text => {
+                    failures.push(format!("{config:?}: {path} differs:\n--- one checker\n{text}\n--- this\n{theirs}"))
+                }
+                Some(_) => {}
+            }
+        }
+    }
+    // SAFETY: as in `build`
+    unsafe { std::env::remove_var("TSRS_CHECKER_ASSIGNMENT") };
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+
+    // watch and incremental rebuilds against clean builds, at each checker count
+    let script_path = fixture().with_file_name("props.script.json");
+    let script = parity::parse_script(&std::fs::read_to_string(&script_path).unwrap()).unwrap();
+    let plugins = plugins();
+    for checkers in [1, 4, 12] {
+        for incremental in [false, true] {
+            let label = format!("{checkers}{}", if incremental { "-inc" } else { "" });
+            let scratch = std::env::temp_dir().join(format!("rbxts-rs-props-watch-{label}-{}", std::process::id()));
+            let results = big_stack(|| {
+                parity::run(
+                    &ParityOptions {
+                        source: fixture(),
+                        tsconfig: "tsconfig.json".into(),
+                        copy: COPY.iter().map(|c| (*c).to_owned()).collect(),
+                        scratch: scratch.clone(),
+                        project_options: ProjectOptionLayer::default(),
+                        plugins: &plugins,
+                        ignore_unknown_plugins: false,
+                        node_modules: Some(node_modules.clone()),
+                        node_modules_mode: parity::NodeModules::LinkPackages,
+                        incremental,
+                        keep_clean_copies: false,
+                        check_clean: true,
+                        memory: None,
+                        checkers: Some(checkers),
+                    },
+                    &script,
+                )
+            })
+            .unwrap();
+            parity::remove_tree(&scratch);
+            assert_eq!(results.len(), script.steps.len() + 1, "{label}: every step ran");
+            for result in &results {
+                assert!(result.problems.is_empty(), "{label}, step `{}`: {:#?}", result.name, result.problems);
+            }
+        }
+    }
 }

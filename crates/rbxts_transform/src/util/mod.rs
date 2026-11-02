@@ -35,7 +35,6 @@ pub mod pointer;
 pub mod symbols;
 pub mod symlink_cache;
 pub mod traversal;
-pub mod ts5_property_order;
 pub mod types;
 pub mod validate_method_assignment;
 pub mod validate_not_any;

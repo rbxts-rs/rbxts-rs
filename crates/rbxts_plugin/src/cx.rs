@@ -69,17 +69,6 @@ pub trait CxBackend {
     fn checker(&mut self) -> &mut Checker;
     /// The project services: directories, project type, Rojo resolver, path translator, package.json cache.
     fn project(&self) -> &ProjectServices;
-    /// `checker.getPropertiesOfType(t)` in TypeScript 5's order: the same symbols as the checker's
-    /// `get_properties_of_type`, in the order TypeScript 5 lists them (TypeScript 7 sorts some types' members by
-    /// declaration instead: inherited members, late-bound names, spreads, homomorphic mapped types). Where TypeScript
-    /// 5's order follows nothing a declaration gives (a mapped type over a union of keys, a union's own property
-    /// list, tuples), it is TypeScript 7's. Flamework's guards and serializer lay out fields in this order, so it is
-    /// part of their wire format.
-    ///
-    /// **Default:** the checker's `get_properties_of_type`, in TypeScript 7's order.
-    fn ts5_properties_of_type(&mut self, t: P<Type>) -> Vec<P<Symbol>> {
-        self.checker().get_properties_of_type_exported(t).to_vec()
-    }
     /// Where `specifier` resolves when imported from `from` (the program's resolution, else a resolver with the
     /// program's options).
     fn resolve_module(&self, specifier: &str, from: P<SourceFile>) -> Option<ResolvedModuleInfo>;
@@ -514,9 +503,29 @@ impl<'a> Cx<'a> {
         self.backend.project()
     }
 
-    /// A type's properties in TypeScript 5's order ([`CxBackend::ts5_properties_of_type`]).
-    pub fn ts5_properties_of_type(&mut self, t: P<Type>) -> Vec<P<Symbol>> {
-        self.backend.ts5_properties_of_type(t)
+    /// `checker.getPropertiesOfType(t)` in TypeScript 7.1's order (tsrs's `get_properties_of_type`). Plugins lay wire
+    /// formats out in this order (Flamework's guards and serializer), so it is deterministic:
+    /// - an object type (class, interface, type literal, mapped type, instantiation) lists its members as
+    ///   TypeScript 7's `getNamedMembers` sorts them: a class's or interface's own members first, then the rest;
+    ///   each group by declaration (its first declaration's file in program order, then its position), and the
+    ///   members without a declaration after those with one, by name (code unit order). So `Record<"b" | "a", V>` is
+    ///   `a, b`, `Pick<T, K>` and `Partial<T>` follow `T`'s declarations, and `C extends B extends A` lists `A`'s
+    ///   members before `B`'s;
+    /// - a union lists its constituents' properties in TypeScript 7's union order (`compareTypes`: by type kind,
+    ///   then name, declaration and type arguments), up to the first constituent without an index signature; an
+    ///   intersection, each part's in turn, as written.
+    ///
+    /// None of it depends on type ids, the checker count, the checker that answers, or whether the build is clean, a
+    /// watch rebuild or an incremental one (`rbxts_transform/tests/property_order.rs`). It does depend on the
+    /// program's file order where a type takes members declared in two files (bases from two files, a global
+    /// interface declared twice): an edit that moves a file in the program (a new import in an earlier file, a
+    /// rename) can move them. And TypeScript 7's test for an own member (`isDeclarationContainedBy`) compares
+    /// offsets without files: an inherited member declared in another file at offsets inside the class's or
+    /// interface's declaration counts as its own, so an edit that moves those offsets can move the member between
+    /// the two groups. TypeScript 7.1 lists the same (`tsc` 7.1.0-beta's `getPropertiesOfType`, checked on
+    /// `rbxts_transform/tests/plugin_fixtures/props`).
+    pub fn properties_of_type(&mut self, t: P<Type>) -> Vec<P<Symbol>> {
+        self.backend.checker().get_properties_of_type_exported(t).to_vec()
     }
 
     /// Module resolution from a file ([`CxBackend::resolve_module`]).

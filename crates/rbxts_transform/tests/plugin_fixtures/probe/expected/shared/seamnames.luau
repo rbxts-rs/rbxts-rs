@@ -30,7 +30,7 @@ local hex = 65535
 local plain = 0xff
 local nums = { 1000.5, 10000000000, 170, 63, 123456789012345680000, 0.000001 }
 local _ = nil
-local props = "c,y,w,x"
+local props = "c,x,y,w"
 return {
 	described = described,
 	e1 = e1,

@@ -17,7 +17,7 @@
 //! `None`), `JsDocLink.text`, `runtime_member`, `synthesized_string`, identical diagnostics kept once,
 //! `insert_before_statement` in every statement position, `hoist_spillable_named` (spilled too), the `import_named`
 //! `name_1` fallback and import order, TS5 numeric literal text, the header comment above
-//! plugin imports, a leading plugin comment above its statement's comments, and `ts5_properties_of_type`
+//! plugin imports, a leading plugin comment above its statement's comments, and `properties_of_type`
 //! (`seam*.ts`). From the seam's last round (`plugin_fixtures/seamrest`, with a Lune runtime check): optional and `super`
 //! calls with their short-circuit and `self`, every link and call of a chain for the expression hooks, asked once,
 //! block bodies, `else if`, static blocks and `declare` statements for the statement hooks, dotted JSX tags; a hoist of

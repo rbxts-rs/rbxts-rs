@@ -308,7 +308,7 @@ declare function probeBefore<T>(a: T): T;
 /** `hoist_spillable_named(a, "constant_22")`. */
 /** @probe named */
 declare function probeNamed<T>(a: T): T;
-/** The argument type's properties in TypeScript 5's order. */
+/** The argument type's properties in TypeScript 7.1's order (`Cx::properties_of_type`). */
 /** @probe props */
 declare function probeProps(a: unknown): string;
 /** The argument, then `import_named("./runtime", "other")`. */

@@ -44,7 +44,7 @@
 //!   with a hint and as the same text without one (one is kept), and with another source (kept), value `nil`;
 //! - `before`: `insert_before_statement([comment, print("before <arg text>")])`, then `compile_expr(arg)`;
 //! - `named`: `hoist_spillable_named(compile_expr(a), "constant_22")`;
-//! - `props`: the names of `ts5_properties_of_type` of the argument's type, joined;
+//! - `props`: the names of `properties_of_type` of the argument's type (a unique symbol's as `@name`), joined;
 //! - `importafter`: `compile_expr(a)`, then `import_named("./runtime", "other")` (plugin imports are ordered by
 //!   where they were asked for, not when);
 //! - `diagsame`: a warning at the call with the text of its second argument, then `compile_expr(a)`; `diagdecl`: a
@@ -825,7 +825,16 @@ impl ProbeInstance {
             "props" => {
                 let a = arg(0).expect("an argument");
                 let t = cx.checker().get_type_at_location(a);
-                let names: Vec<&str> = cx.ts5_properties_of_type(t).iter().map(|p| p.name()).collect();
+                // a unique symbol's key without the symbol id in its name (`\u{7f}@s1@<id>` as `@s1`): the id depends on the
+                // checker that made the symbol, the order does not
+                let names: Vec<&str> = cx
+                    .properties_of_type(t)
+                    .iter()
+                    .map(|p| match p.name().strip_prefix('\u{7f}') {
+                        Some(rest) if rest.starts_with('@') => rest.rsplit_once('@').map_or(rest, |(name, _)| name),
+                        _ => p.name(),
+                    })
+                    .collect();
                 self.claimed(text_literal(&names.join(",")))
             }
             "diagsame" => {

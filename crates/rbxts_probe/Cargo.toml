@@ -13,7 +13,6 @@ tsrs_ast.workspace = true
 tsrs_compiler.workspace = true
 tsrs_checker.workspace = true
 tsrs_scanner.workspace = true
-rbxts_transform.workspace = true
 mimalloc-safe.workspace = true
 
 [[bin]]

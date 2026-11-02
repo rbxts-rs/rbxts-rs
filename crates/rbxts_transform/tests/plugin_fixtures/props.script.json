@@ -1,0 +1,31 @@
+{
+	"steps": [
+		{
+			"name": "a new first file imports the late one (which moves earlier in the program)",
+			"do": [
+				{
+					"write": {
+						"file": "src/shared/aa_first.ts",
+						"text": "import type { Mid, Second } from \"./zz_late\";\nimport type { Cases } from \"./cases\";\n\ndeclare const second: Second;\ndeclare const mid: Mid;\ndeclare const c: Cases;\nexport const lists = [probeProps(second), probeProps(mid), probeProps(c.both), probeProps(c.classes), probeProps(c.interfaceUnion)];\n"
+					}
+				}
+			]
+		},
+		{
+			"name": "a base's members reordered",
+			"do": [{ "patch": { "file": "src/shared/decls.ts", "find": "\tf2: number;\n\tf1: number;", "replace": "\tf1: number;\n\tf2: number;" } }]
+		},
+		{
+			"name": "the global interface's other declaration file renamed to come after props.d.ts (its members move last)",
+			"do": [{ "rename": { "from": "src/shared/merged2.d.ts", "to": "src/shared/zz_merged.d.ts" } }]
+		},
+		{
+			"name": "the late file saved unchanged",
+			"do": [{ "touch": "src/shared/zz_late.ts" }]
+		},
+		{
+			"name": "the new first file deleted",
+			"do": [{ "delete": "src/shared/aa_first.ts" }]
+		}
+	]
+}
