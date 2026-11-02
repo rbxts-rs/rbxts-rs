@@ -35,7 +35,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use rbxts_project::{ProjectServices, nodepath};
 
-use crate::plugins::lifecycle::{commit_staged, remove_file, stage_if_changed_timed};
+use crate::plugins::lifecycle::{commit_staged, remove_file, stage_if_changed_timed, stage_new};
 use crate::project::copy_include::effective_include_path;
 
 /// The outputs of one build.
@@ -294,9 +294,13 @@ pub fn read_assets(
 
 /// Commit step 1 for the Luau outputs and the assets: `(path, bytes, match case)` per file, all or nothing
 /// (docs/design.md §14: a failing build writes nothing).
-/// 1. Every file whose bytes differ (or that is missing) is staged in a temporary file beside it, in parallel
-///    ([`super::parallel::map`]); a directory in the way is an error here. When any staging fails, the temporary
-///    files and the directories staging created are removed and nothing else happens.
+/// 1. The directories of the files `listing` did not find are made, each once ([`make_dirs`]), not per file. Every
+///    file whose bytes differ (or that is missing) is then staged in a temporary file beside it, in parallel
+///    ([`super::parallel::map`]); a directory in the way is an error here. A file in a directory step 1 made is
+///    missing by construction: it is staged without a look at the path or its directory ([`stage_new`]), and there are
+///    no old bytes to keep in step 3 (a clean build's files cost a temporary file and a rename each, nothing more).
+///    When making a directory or any staging fails, the temporary files and the directories made are removed and
+///    nothing else happens.
 /// 2. With `listing`, the case of each output flagged so is matched ([`match_case`]), one file at a time, since a
 ///    case-only rename can rename a directory other outputs share (a temporary file inside moves with it). Every
 ///    file is tried; each failure is reported.
@@ -306,7 +310,7 @@ pub fn read_assets(
 ///
 /// A failure in step 2, 3 or 4 (a rename the file system refuses, a target another process keeps holding past the
 /// retries) rolls the commit back: the outputs replaced so far get their kept bytes again (an atomic rename back),
-/// the new ones are removed, the case renames are undone, the directories staging created are removed. The tree is
+/// the new ones are removed, the case renames are undone, the directories step 1 made are removed. The tree is
 /// then the last build's again, one rename at a time as it was written (no file system renames several files at
 /// once, and Rojo syncs each rename as it sees it). Only a rollback step the file system refuses too leaves a file of
 /// this build in place; the error says which, and the next build repairs it. Per file, in `files` order: what the
@@ -317,27 +321,43 @@ pub fn write_outputs(
     files: &[(&str, &[u8], bool)],
 ) -> Vec<Result<Written, String>> {
     let error = |path: &str, e: io::Error| format!("could not write {path}: {e}");
-    // the directories staging may create, deepest first, to remove again when it fails
-    let mut created: Vec<&Path> = Vec::new();
-    let mut seen: FxHashSet<&Path> = FxHashSet::default();
-    for &(path, _, _) in files {
-        let mut dir = Path::new(path).parent();
-        while let Some(d) = dir
-            && !d.as_os_str().is_empty()
-            && seen.insert(d)
-            && !d.exists()
-        {
-            created.push(d);
-            dir = d.parent();
-        }
-    }
+    // 1. the directories of the files the listing did not find, made once each (a file the listing found has its
+    // directory); the directories made, deepest first, to remove again when the commit fails
+    let unlisted = files.iter().filter(|(path, _, _)| listing.is_none_or(|l| !l.contains(&path_key(services, path))));
+    let (mut created, made) = make_dirs(unlisted.map(|&(path, _, _)| Path::new(path)));
     created.sort_by_key(|d| std::cmp::Reverse(d.components().count()));
-    let staged = super::parallel::map(files, |&(path, bytes, _)| stage_if_changed_timed(Path::new(path), bytes));
     let remove_created = || {
         for dir in &created {
             let _ = std::fs::remove_dir(dir);
         }
     };
+    if let Err((dir, e)) = made {
+        remove_created();
+        let dir_error = format!("could not create {}: {e}", dir.display());
+        return files
+            .iter()
+            .map(|&(path, _, _)| {
+                if Path::new(path).starts_with(&dir) {
+                    Err(format!("could not write {path}: {dir_error}"))
+                } else {
+                    Ok(Written::default())
+                }
+            })
+            .collect();
+    }
+    // a file in a directory this commit made is new: nothing to compare or keep, no directory to make
+    let made: FxHashSet<&Path> = created.iter().map(PathBuf::as_path).collect();
+    let is_new = |path: &str| {
+        let path = Path::new(path);
+        path.parent().is_some_and(|dir| made.contains(dir)) && !made.contains(path)
+    };
+    let staged = super::parallel::map(files, |&(path, bytes, _)| {
+        if is_new(path) {
+            stage_new(Path::new(path), bytes).map(|temp| (Some(temp), 0))
+        } else {
+            stage_if_changed_timed(Path::new(path), bytes)
+        }
+    });
     if staged.iter().any(Result::is_err) {
         for temp in staged.iter().filter_map(|s| s.as_ref().ok().and_then(|(temp, _)| temp.as_ref())) {
             let _ = std::fs::remove_file(temp);
@@ -368,7 +388,9 @@ pub fn write_outputs(
         .filter_map(|(i, (&(path, _, _), temp))| temp.as_ref().map(|temp| (i, path, temp)))
         .collect();
     if failed.is_empty() {
-        let backups = super::parallel::map(&jobs, |&(_, path, _)| keep_old_bytes(Path::new(path)));
+        let backups = super::parallel::map(&jobs, |&(_, path, _)| {
+            if is_new(path) { Ok(None) } else { keep_old_bytes(Path::new(path)) }
+        });
         for (&(i, path, _), backup) in jobs.iter().zip(backups) {
             match backup {
                 Ok(backup) => rollback.backups.push((path.to_owned(), backup)),
@@ -414,6 +436,52 @@ pub fn write_outputs(
         out[i] = Err(message);
     }
     out
+}
+
+/// Makes the missing parent directories of `paths`, each once: the directories of one depth in parallel, shallowest
+/// first, a missing ancestor with them. One `create_dir` per directory both looks and makes (a clean build's outDir
+/// is made in one pass). Returns the directories made and the first failure (the directory, the error). A directory
+/// there already is left alone; a file in its place fails the staging of the files below it.
+fn make_dirs<'a>(paths: impl Iterator<Item = &'a Path>) -> (Vec<PathBuf>, Result<(), (PathBuf, io::Error)>) {
+    let mut by_depth: std::collections::BTreeMap<usize, Vec<&Path>> = Default::default();
+    let mut seen: FxHashSet<&Path> = FxHashSet::default();
+    for dir in paths.filter_map(Path::parent).filter(|d| !d.as_os_str().is_empty()) {
+        if seen.insert(dir) {
+            by_depth.entry(dir.components().count()).or_default().push(dir);
+        }
+    }
+    let made = std::sync::Mutex::new(Vec::new());
+    let mut result = Ok(());
+    for level in by_depth.values() {
+        let results = super::parallel::map(level, |dir| make_dir(dir, &made));
+        if let Some((dir, e)) = level.iter().zip(results).find_map(|(dir, r)| r.err().map(|e| (dir.to_path_buf(), e))) {
+            result = Err((dir, e));
+            break;
+        }
+    }
+    (made.into_inner().unwrap_or_else(std::sync::PoisonError::into_inner), result)
+}
+
+/// Makes `dir` (and its missing ancestors), adding each directory made to `made`; one there already is fine.
+fn make_dir(dir: &Path, made: &std::sync::Mutex<Vec<PathBuf>>) -> io::Result<()> {
+    let create = |dir: &Path| match std::fs::create_dir(dir) {
+        Ok(()) => {
+            made.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(dir.to_path_buf());
+            Ok(())
+        }
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e),
+    };
+    match create(dir) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => match dir.parent().filter(|p| !p.as_os_str().is_empty()) {
+            Some(parent) => {
+                make_dir(parent, made)?;
+                create(dir)
+            }
+            None => Err(e),
+        },
+        other => other,
+    }
 }
 
 /// What [`write_outputs`] did for one file.

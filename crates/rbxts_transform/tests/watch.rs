@@ -1660,6 +1660,45 @@ fn a_failed_rename_into_place_rolls_the_commit_back() {
     drop(copy);
 }
 
+/// A commit that made new folders for new outputs (written there without a look, as a clean build's are) and then
+/// fails at a rename into place removes those outputs and folders again: the output tree is the last build's, entry
+/// for entry. Released, the next build writes them.
+#[test]
+fn a_failed_commit_removes_the_folders_it_made() {
+    let Some((copy, root)) = keeper_copy("rollbackdirs", false) else { return };
+    big_stack(|| {
+        let options = PluginOptions { ignore_unknown_tsconfig_plugins: true, ..PluginOptions::default() };
+        let mut session = keeper_session(&root, &options, true);
+        let (report, _) = session.build(&[]);
+        assert!(!report.has_errors(), "{:?}", report.fatal);
+        let before = entries(&root.join("out"));
+        let shared = root.join("src/shared");
+        std::fs::create_dir_all(shared.join("fresh/deeper")).unwrap();
+        std::fs::write(shared.join("fresh/a.ts"), "export const a = 1;\n").unwrap();
+        std::fs::write(shared.join("fresh/deeper/b.ts"), "export const b = 2;\n").unwrap();
+        let text = std::fs::read_to_string(shared.join("d.ts")).unwrap();
+        std::fs::write(shared.join("d.ts"), format!("{text}\nexport const added = 1;\n")).unwrap();
+        let touched: Vec<String> =
+            ["fresh/a.ts", "fresh/deeper/b.ts", "d.ts"].iter().map(|f| slashed(&shared.join(f))).collect();
+
+        let held = hold(&root.join("out/shared/d.luau"));
+        let (report, summary) = session.build(&touched);
+        let failed: Vec<&String> = report.fatal.iter().filter(|m| m.starts_with("could not write")).collect();
+        assert_eq!(failed.len(), 1, "{:?}", report.fatal);
+        assert!(!failed[0].contains("rolling back left"), "{}", failed[0]);
+        assert!(summary.written.is_empty(), "{:?}", summary.written);
+        assert_eq!(entries(&root.join("out")), before, "no new output, folder or leftover");
+        drop(held);
+
+        let (report, summary) = session.build(&touched);
+        assert!(!report.has_errors(), "{:?}", report.fatal);
+        assert_eq!(summary.written.len(), 3, "{:?}", summary.written);
+        assert!(root.join("out/shared/fresh/deeper/b.luau").is_file());
+        assert_eq!(commit_leftovers(&root.join("out")), Vec::<String>::new());
+    });
+    drop(copy);
+}
+
 /// Case-only renames of two sources whose outputs another process holds: both failures are reported (not only the
 /// first), nothing is written, and the case renames made are undone.
 #[test]

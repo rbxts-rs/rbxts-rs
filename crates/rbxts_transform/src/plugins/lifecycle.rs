@@ -882,12 +882,19 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
 /// [`write_atomic`]'s first half: writes `bytes` to a temporary file next to `path` (creating its directory) and
 /// returns that file. A directory at `path` is an error here already, not only at the rename.
 pub fn stage(path: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
-    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     if std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()) {
         return Err(io::Error::from(io::ErrorKind::IsADirectory));
     }
     let dir = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(dir)?;
+    stage_new(path, bytes)
+}
+
+/// [`stage`] into a directory that is there and holds nothing at `path` (one the commit made itself): the temporary
+/// file is written without a look at the path or its directory.
+pub fn stage_new(path: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let dir = path.parent().unwrap_or(Path::new("."));
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let temp: PathBuf = dir.join(format!(".{name}.rbxts-tmp-{}-{n}", std::process::id()));

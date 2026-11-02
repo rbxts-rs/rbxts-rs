@@ -978,7 +978,10 @@ artifacts included. Order:
 Each file goes to a temp file in the same directory and is renamed over the target (`MoveFileExW` with
 `REPLACE_EXISTING`). A rename blocked by an open handle is retried with backoff and reported, never skipped. A
 batch cannot be atomic for Rojo, so the order keeps every intermediate state loadable. The include folder is in the
-clean step's keep set.
+clean step's keep set. Missing folders are made once each before the files are staged; a file in a folder the commit
+made is new, so it is staged without a look at its path and has no old bytes to keep (a failing commit removes it and
+the folder). On Windows with real-time scanning on, a clean build's write phase is then the file system's own cost of
+a temporary file and a rename per output, which more threads do not lower.
 
 **Watcher.** The compiler owns it: a `notify`-based watcher in `rbxts_cli`, since tsrs's watcher is unix-only.
 - It watches the sources, the build inputs above, and the glob roots plugins declare.
