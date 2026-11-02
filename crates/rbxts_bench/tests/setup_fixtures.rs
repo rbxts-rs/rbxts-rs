@@ -4,8 +4,8 @@
 //!
 //! - `game-basic`: services, network types, an isolated container, ReplicatedFirst, an unsynced file, `init.client.ts`
 //!   (checkFileName), an unsupported `rbxts` option (warning), `.tsx`.
-//! - `rootdirs`: `rootDirs` without `rootDir` (TypeScript 5's computed common source directory) and `incremental`
-//!   (build info path).
+//! - `rootdirs`: `rootDirs` without `rootDir` (TypeScript 7 takes the tsconfig's folder as the common source
+//!   directory) and `incremental` (build info path).
 //! - `composite`: `composite` without `rootDir`, `tsBuildInfoFile`, `rbxts.luau: false` (`.lua` outputs), declarations.
 //! - `package`: a scoped package without a Rojo file (synthetic resolver), `rbxts` options inherited through `extends`
 //!   with a relative include path.

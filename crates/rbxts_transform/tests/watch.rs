@@ -306,8 +306,9 @@ fn root_dirs_rebuild_as_clean_builds() {
     run_fixture("rootdirs", "rootdirs-inc", &[], true);
 }
 
-/// A package linked into the type root under several names, with `"types": ["*"]` (`autolinks.script.json`): the import goes through the first link in the type root's order, and through the next
-/// one when that link goes, through a new one that sorts first, and through the package's own path when none is left.
+/// A package linked into the type root under several names, with `"types": ["*"]` (`autolinks.script.json`): the
+/// import goes through the first link in the type root's order, and through the next one when that link goes, through
+/// a new one that sorts first, and through the package's own path when none is left.
 #[test]
 fn type_root_links_rebuild_as_clean_builds() {
     let copy = &["src", "packages", "tsconfig.json", "default.project.json", "package.json"];
