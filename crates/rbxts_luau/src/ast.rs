@@ -46,8 +46,8 @@ pub enum Expr {
     /// A string literal.
     String(StringLiteral),
     /// A string literal whose value is looked up by key in the [`crate::LateStrings`] given to the renderer
-    /// (DESIGN §4 step 5). It renders and behaves exactly like a [`StringLiteral`] with that value and no quote (a
-    /// [`LateString::synthesized`] one: with the synthesized value and a double quote).
+    /// (docs/design.md §4 step 5). It renders and behaves exactly like a [`StringLiteral`] with that value and no quote
+    /// (a [`LateString::synthesized`] one: with the synthesized value and a double quote).
     LateString(LateString),
     /// `...`
     VarArgs,

@@ -8,7 +8,7 @@
 //! - [`facts`]: the evaluation facts roblox-ts records on nodes (`TSTransformer/util/evaluation/facts.ts`).
 //! - [`evaluation`]: the effect analysis over those facts (`util/evaluation/effects.ts`).
 //! - [`render()`]: `renderAST`, with [`LateStrings`] for string literals whose text is known only after the
-//!   transform (DESIGN §4 step 5).
+//!   transform (docs/design.md §4 step 5).
 //! - name and number rules: [`is_valid_identifier`], [`is_metamethod`], [`is_reserved_identifier`],
 //!   [`is_valid_number_literal`], and JavaScript's number conversions ([`js_number_to_string`]).
 //!

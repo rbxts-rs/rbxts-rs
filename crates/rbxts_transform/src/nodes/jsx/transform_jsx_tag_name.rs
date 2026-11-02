@@ -24,7 +24,7 @@ fn transform_jsx_tag_name_expression(state: &mut TransformState<'_>, prereqs: &m
     match node.kind() {
         Kind::PropertyAccessExpression => {
             // rbxts-rs: a dotted tag is an access roblox-ts lowers itself, so plugins are offered it as any access: the
-            // expression hooks, then `property_key` (DESIGN §11.5)
+            // expression hooks, then `property_key` (docs/design.md §11.5)
             if let Some(claimed) = crate::plugins::dispatch::claim_expression(state, prereqs, node) {
                 return claimed;
             }

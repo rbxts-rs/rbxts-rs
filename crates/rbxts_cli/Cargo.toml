@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
-description = "An rbxtsc-compatible command line over rbxts_transform: `Cli::new().plugin(p).run()` for a user's own binary with compiled-in plugins (DESIGN §11.6), and the plain `rbxtsc` binary."
+description = "An rbxtsc-compatible command line over rbxts_transform: `Cli::new().plugin(p).run()` for a user's own binary with compiled-in plugins (docs/design.md §11.6), and the plain `rbxtsc` binary."
 
 [dependencies]
 rbxts_transform.workspace = true

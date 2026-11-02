@@ -84,7 +84,7 @@ fn transform_member_decorators(
     for (i, &decorator) in decorators.iter().enumerate() {
         let mut expression_prereqs = Prereqs::new();
         let decorator_expression = decorator.expression().expect("a decorator has an expression");
-        // rbxts-rs: a plugin may claim the decorator before its expression is compiled (DESIGN §11.5)
+        // rbxts-rs: a plugin may claim the decorator before its expression is compiled (docs/design.md §11.5)
         let mut expression = match crate::plugins::dispatch::claim_decorator(state, &mut expression_prereqs, decorator)
         {
             Some(claimed) => claimed,

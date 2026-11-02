@@ -1,6 +1,6 @@
 //! A mock compiler: the three backends, implemented just enough to run a plugin's logic without rbxts_transform,
 //! plus a small driver ([`MockCompiler`]) that walks a file's calls the way the compiler's dispatch would and keeps
-//! state across builds the way DESIGN §14 says.
+//! state across builds the way docs/design.md §14 says.
 //!
 //! What is real: the program (parsed and bound by tsrs from `tests/fixture`), nodes, binder symbols, `getStart()`
 //! positions, the Luau renderer. What is mocked: callee resolution (by name among the fixture's declarations, no
@@ -676,7 +676,7 @@ pub struct BuildOutput {
     pub setup_messages: Vec<String>,
 }
 
-/// The compiler across builds: the committed state and the kept `Shared` (DESIGN §14, `Plugin` docs).
+/// The compiler across builds: the committed state and the kept `Shared` (docs/design.md §14, `Plugin` docs).
 #[derive(Default)]
 pub struct MockCompiler {
     pub committed: Option<ErasedState>,

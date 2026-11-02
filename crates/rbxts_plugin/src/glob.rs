@@ -1,4 +1,4 @@
-//! Globs as build inputs (DESIGN §14 "Globs"): what a plugin hands the compiler with `record_glob`, so that the
+//! Globs as build inputs (docs/design.md §14 "Globs"): what a plugin hands the compiler with `record_glob`, so that the
 //! compiler can match the glob again when files are added, deleted or renamed under its root.
 
 use std::path::Path;

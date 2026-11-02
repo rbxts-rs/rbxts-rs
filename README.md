@@ -4,7 +4,7 @@ roblox-ts rewritten in Rust on [tsrs](https://github.com/oxc-project/tsrs) (the 
 compiled-in plugins. Private and local: never pushed or published. Flamework's plugin (`flamework_rs`) and its
 `rbxtsc-fw` binary live in their own repository, flamework-rs, which depends on this one by git rev.
 
-- Design: `E:\Projects\TS\Flamework\scratchpad\batch\rbxts-rs\DESIGN.md`.
+- Design: `docs/design.md` (code comments cite its sections as `docs/design.md §n`).
 - Measurements: `bench/RESULTS.md`.
 - tsrs: the fork branch `rbxts-fork-0.20.1` (tsrs v0.20.1 plus visibility flips), a git dependency pinned by rev (see
   `Cargo.toml` and `docs/tsrs.md`, "The fork").
@@ -112,8 +112,8 @@ change.
 
 ## Building a project (`rbxts_transform`)
 
-`crates/rbxts_transform` is roblox-ts master's `src/TSTransformer` ported module by module (DESIGN §9b), with the
-build pipeline (`compile_project`: load → setup → check → transform → render → write changed outputs). A build with
+`crates/rbxts_transform` is roblox-ts master's `src/TSTransformer` ported module by module (docs/design.md §9b), with
+the build pipeline (`compile_project`: load → setup → check → transform → render → write changed outputs). A build with
 errors reports what roblox-ts reports (up to the first error, see **The first error** below) and writes nothing,
 unless asked to (`--write-partial`: every transformed file's diagnostics, uncut, and the files without errors written).
 
@@ -208,7 +208,7 @@ reads (the folders its include patterns listed included) or plugin inputs, no ou
 `BuildSession::needs_build`) is not built, and its last diagnostics
 are reported again, as roblox-ts does in watch mode. A solution root (no files of its own) only copies the runtime
 include, and only when every project built: roblox-ts copies it whatever the build does, rbxts-rs writes nothing
-for a failing build (DESIGN §14), on purpose. Graph errors (TS6306, TS6310, TS6202) are printed as roblox-ts's
+for a failing build (docs/design.md §14), on purpose. Graph errors (TS6306, TS6310, TS6202) are printed as roblox-ts's
 `DiagnosticError` prints them. The root program reads a referenced project's output
 declarations where module resolution names its sources; the incremental closure and the transform order follow that
 redirect, so an edit in a referenced project reaches its importers. `rbxtsc -w` watches every project of the graph
@@ -235,11 +235,11 @@ stock) and `write_transformed_without_transformers`.
 
 ## Plugins (`rbxts_plugin`, `rbxts_transform::plugins`, `rbxts_cli`)
 
-`crates/rbxts_plugin` is the plugin API (DESIGN §11); `rbxts_transform::plugins` is the compiler side: the backends,
-the dispatch tables built from each instance's `Interest`, and the build lifecycle (activation from the tsconfig's
-`plugins` entries, `setup`, `finish`, the late-string key check, render after finish, the commit with atomic writes,
-`explain_checker_diagnostic` on files that fail checking). The lifecycle across builds (kept `Shared`s, committed
-states, cached file parts and late values) is `rbxts_transform::build` (below).
+`crates/rbxts_plugin` is the plugin API (docs/design.md §11); `rbxts_transform::plugins` is the compiler side: the
+backends, the dispatch tables built from each instance's `Interest`, and the build lifecycle (activation from the
+tsconfig's `plugins` entries, `setup`, `finish`, the late-string key check, render after finish, the commit with atomic
+writes, `explain_checker_diagnostic` on files that fail checking). The lifecycle across builds (kept `Shared`s,
+committed states, cached file parts and late values) is `rbxts_transform::build` (below).
 
 A binary with plugins:
 
@@ -273,8 +273,8 @@ hand-checked `expected/` Luau, and runs their failure modes.
 
 ## Incremental and watch builds (`rbxts_transform::build`, `rbxtsc -w`)
 
-`BuildSession` (DESIGN §14) runs every build: `rbxtsc build` is one session with one build, `rbxtsc -w` one session
-rebuilt on file system events. A build is clean (every file), incremental (a new process for an `incremental` or
+`BuildSession` (docs/design.md §14) runs every build: `rbxtsc build` is one session with one build, `rbxtsc -w` one
+session rebuilt on file system events. A build is clean (every file), incremental (a new process for an `incremental` or
 `composite` project, reading `<base>.rbxts-rs.buildinfo`, which sits beside roblox-ts's build info) or a watch rebuild.
 Every build loads the program (over a cache of parsed files) and the project setup again, as roblox-ts does, so module
 resolution sees packages installed or upgraded since the last build.

@@ -1,5 +1,5 @@
-//! The compiler side of the plugin seam (DESIGN §9, §11, §14): `rbxts_plugin`'s backend traits implemented over the
-//! transform, the dispatch tables built from each instance's `Interest`, and the build lifecycle around them.
+//! The compiler side of the plugin seam (docs/design.md §9, §11, §14): `rbxts_plugin`'s backend traits implemented over
+//! the transform, the dispatch tables built from each instance's `Interest`, and the build lifecycle around them.
 //!
 //! - [`host`]: [`PluginHost`], one per checker: the instances, the dispatch tables, the `(symbol, role)`
 //!   classification memo, the source-fact caches (line maps, JSDoc) and the hook timings.

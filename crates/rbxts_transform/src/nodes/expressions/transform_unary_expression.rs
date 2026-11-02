@@ -30,7 +30,7 @@ pub fn transform_postfix_unary_expression(
     let unary = node.as_postfix_unary_expression();
     validate_not_any_type(state, unary.operand);
 
-    // rbxts-rs: an update of `receiver.key` a plugin claims (DESIGN §11.5)
+    // rbxts-rs: an update of `receiver.key` a plugin claims (docs/design.md §11.5)
     if let Some(claimed) = crate::plugins::dispatch::claim_assignment(state, prereqs, node) {
         return claimed;
     }
@@ -52,7 +52,7 @@ pub fn transform_prefix_unary_expression(state: &mut TransformState<'_>, prereqs
 
     match unary.operator {
         Kind::PlusPlusToken | Kind::MinusMinusToken => {
-            // rbxts-rs: an update of `receiver.key` a plugin claims (DESIGN §11.5)
+            // rbxts-rs: an update of `receiver.key` a plugin claims (docs/design.md §11.5)
             if let Some(claimed) = crate::plugins::dispatch::claim_assignment(state, prereqs, node) {
                 return claimed;
             }

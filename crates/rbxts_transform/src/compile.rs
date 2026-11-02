@@ -1,5 +1,5 @@
-//! The build pipeline (`Project/functions/compileFiles.ts`, DESIGN §4): load, check every project file, set up the
-//! project and the plugins, transform each file in roblox-ts's transform order ([`crate::build::transform_order`]),
+//! The build pipeline (`Project/functions/compileFiles.ts`, docs/design.md §4): load, check every project file, set up
+//! the project and the plugins, transform each file in roblox-ts's transform order ([`crate::build::transform_order`]),
 //! let the plugins finish, render, and commit. The lifecycle itself, with incremental and watch builds, is
 //! [`crate::build::BuildSession`]; this module has the one-build entry points and the per-file pieces.
 //!
@@ -8,10 +8,10 @@
 //! rendering. [`CompileOptions::write_partial`] relaxes the second for parity runs: files that transformed cleanly
 //! are written even when other files failed (plugin artifacts never are).
 //!
-//! **Commit order** (DESIGN §14), only when the build has no errors: Luau outputs, assets and the runtime include
-//! files ([`crate::project::copy_include`]); plugin artifacts (only if changed); deletions (stale outputs, stale
-//! artifacts, removals); plugin state files, then the incremental state. Every file is written to a temporary file
-//! and renamed into place, with retries while another process holds the target
+//! **Commit order** (docs/design.md §14), only when the build has no errors: Luau outputs, assets and the runtime
+//! include files ([`crate::project::copy_include`]); plugin artifacts (only if changed); deletions (stale outputs,
+//! stale artifacts, removals); plugin state files, then the incremental state. Every file is written to a temporary
+//! file and renamed into place, with retries while another process holds the target
 //! ([`crate::plugins::lifecycle::write_atomic`]).
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -796,14 +796,14 @@ pub(crate) fn record_timings(
         .collect();
 }
 
-/// Builds a project without plugins: check → transform → render → write (DESIGN §4). Runs on the calling thread,
-/// which needs a large stack ([`rbxts_project::STACK_SIZE`]).
+/// Builds a project without plugins: check → transform → render → write (docs/design.md §4). Runs on the calling
+/// thread, which needs a large stack ([`rbxts_project::STACK_SIZE`]).
 pub fn compile_project(options: &CompileOptions) -> CompileReport {
     compile_project_with(options, &PluginOptions::default())
 }
 
 /// Builds a project with plugins: check → plugin setup → transform (with the plugins' hooks) → plugin finish →
-/// render → commit (DESIGN §4, §14), as one build of a [`crate::build::BuildSession`]: a clean build, or an
+/// render → commit (docs/design.md §4, §14), as one build of a [`crate::build::BuildSession`]: a clean build, or an
 /// incremental one when the project is `incremental` and its incremental state is current. Runs on the calling
 /// thread, which needs a large stack ([`rbxts_project::STACK_SIZE`]).
 pub fn compile_project_with(options: &CompileOptions, plugin_options: &PluginOptions<'_>) -> CompileReport {

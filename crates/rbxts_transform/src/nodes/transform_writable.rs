@@ -37,7 +37,7 @@ pub fn transform_writable_expression(
             } else {
                 convert_to_indexable_expression(expression)
             };
-            // rbxts-rs: a plugin's `property_key` (DESIGN §11.5)
+            // rbxts-rs: a plugin's `property_key` (docs/design.md §11.5)
             match crate::plugins::dispatch::rewritten_key(state, node, crate::plugins::dispatch::write_position(node)) {
                 Some(key) => keyed_access(base, &key),
                 None => create::property(base, access.name.text()),
@@ -52,7 +52,7 @@ pub fn transform_writable_expression(
             if is_late_read(&expression) && !effects_commute(&get_effects(&expression), &get_effects(&index)) {
                 expression = prereqs.push_to_var(expression, "exp");
             }
-            // rbxts-rs: a plugin's `property_key` for a string literal key (DESIGN §11.5)
+            // rbxts-rs: a plugin's `property_key` for a string literal key (docs/design.md §11.5)
             let position = crate::plugins::dispatch::write_position(node);
             if let Some(key) = crate::plugins::dispatch::rewritten_key(state, node, position) {
                 // a computed argument is still evaluated, after the receiver

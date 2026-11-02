@@ -1,5 +1,5 @@
-//! What a program load read from the file system (watch mode, DESIGN §14 "Watcher"): every path the tsconfig parse
-//! and the program asked about, with what they learned, as tsrs's own watch mode tracks it (`trackingvfs`, Go's
+//! What a program load read from the file system (watch mode, docs/design.md §14 "Watcher"): every path the tsconfig
+//! parse and the program asked about, with what they learned, as tsrs's own watch mode tracks it (`trackingvfs`, Go's
 //! `SeenFiles`). Paths that did not exist count as much as files read: they are the places module resolution
 //! probed (`node_modules/<name>` in every ancestor, `@types`, `typeRoots`, `paths`), where a file appearing changes
 //! the program.

@@ -1,7 +1,7 @@
-//! `FinishCx`: what [`crate::Plugin::finish`] can ask of the compiler (DESIGN §11.3, §14).
+//! `FinishCx`: what [`crate::Plugin::finish`] can ask of the compiler (docs/design.md §11.3, §14).
 //!
 //! Nothing here touches the disk at once: artifacts, removals and state files are queued and written in the
-//! compiler's single write phase, only when the build has no errors (DESIGN §14 "Commit"). (The default
+//! compiler's single write phase, only when the build has no errors (docs/design.md §14 "Commit"). (The default
 //! [`FinishBackend::remove_empty_dir`] is the exception: a compiler that has no queue for it removes the directory at
 //! the call.) The reads (`read_dir`, `exists`, `read_file`) happen at once and are recorded, so that watch runs
 //! `finish` again when an answer changes.

@@ -1,4 +1,4 @@
-//! Test plugins for the compiler side of the plugin seam (DESIGN §11), registered by `rbxts_transform`'s plugin
+//! Test plugins for the compiler side of the plugin seam (docs/design.md §11), registered by `rbxts_transform`'s plugin
 //! tests and by `rbxts-bench build --plugin <name>`.
 //!
 //! - [`stamp`]: the `rbxts_plugin` crate's own test plugin (`crates/rbxts_plugin/tests/support/stamp.rs`, included
@@ -14,7 +14,7 @@
 //! - [`decline`]: `decline-all`, offered everything (every call, access, assignment, class, expression and statement
 //!   kind) and declining it all: its output must equal a build without plugins; `decline-audit` also reports what it
 //!   was not offered; `inert`, active with no interest, the baseline of a plugin build.
-//! - [`inputs`]: `probe-inputs`, every build input and persistence method of DESIGN §14 (environment, globs,
+//! - [`inputs`]: `probe-inputs`, every build input and persistence method of docs/design.md §14 (environment, globs,
 //!   recorded finish reads, `remove_empty_dir`, encoded file parts, a diagnostic source).
 //! - [`transformer`]: claims a tsconfig transform and does nothing (the `--writeTransformedFiles` fixture).
 //! - [`scan`]: a `Shared` that depends on whether the plugin's own state file exists, as Flamework's candidate scan's;

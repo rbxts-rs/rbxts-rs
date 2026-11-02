@@ -1,4 +1,4 @@
-//! [`BuildSession`]: the build lifecycle of DESIGN §14 over one project, for one build (`rbxtsc build`) or many
+//! [`BuildSession`]: the build lifecycle of docs/design.md §14 over one project, for one build (`rbxtsc build`) or many
 //! (watch mode, the parity harness).
 //!
 //! A build is `build(kind, changes)`:

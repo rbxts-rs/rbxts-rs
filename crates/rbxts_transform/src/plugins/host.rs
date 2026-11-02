@@ -1,4 +1,4 @@
-//! [`PluginHost`]: the plugins of one checker (DESIGN §6, §11.1).
+//! [`PluginHost`]: the plugins of one checker (docs/design.md §6, §11.1).
 
 use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;

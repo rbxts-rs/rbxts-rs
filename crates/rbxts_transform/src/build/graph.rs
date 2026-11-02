@@ -1,4 +1,4 @@
-//! Which files a build transforms (DESIGN §14 "Invalidation", census §6.3).
+//! Which files a build transforms (docs/design.md §14 "Invalidation", census §6.3).
 //!
 //! Every program file gets a [`FileFacts`]: its text version, the files it references, the modules it augments and
 //! whether it affects the global scope. Against the facts of the last committed build:

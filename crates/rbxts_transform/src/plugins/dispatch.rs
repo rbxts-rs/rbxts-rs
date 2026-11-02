@@ -1,5 +1,5 @@
-//! The claim points and broadcast hooks the transform calls (DESIGN §9b "Plugin dispatch", §11.5). Each returns at
-//! once when the build has no plugins (`state.plugins` is `None`) or no plugin asked for that kind of node.
+//! The claim points and broadcast hooks the transform calls (docs/design.md §9b "Plugin dispatch", §11.5). Each returns
+//! at once when the build has no plugins (`state.plugins` is `None`) or no plugin asked for that kind of node.
 
 use rustc_hash::{FxHashMap, FxHashSet};
 

@@ -341,7 +341,7 @@ fn get_extended_config_paths(config_path: &str, extends: Option<&Value>) -> Resu
 
 /// The tsconfig's `compilerOptions.plugins` entries (the objects, in order), from the config itself or else from the
 /// last config it extends that sets them: TypeScript replaces an option array from an extended config as a whole.
-/// Compiled-in plugins are activated by these entries' `transform` (DESIGN §11.5).
+/// Compiled-in plugins are activated by these entries' `transform` (docs/design.md §11.5).
 pub fn read_tsconfig_plugins(config_path: &str) -> Result<Vec<Map<String, Value>>, ProjectError> {
     Ok(read_tsconfig_plugins_rec(config_path, 0)?.unwrap_or_default())
 }

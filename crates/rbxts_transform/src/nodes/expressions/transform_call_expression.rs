@@ -183,7 +183,7 @@ pub fn transform_property_call_expression_inner(
 
     if tsrs_ast::is_super_property(expression) {
         let callee_name = expression.as_property_access_expression().name.text();
-        // rbxts-rs: a plugin's `property_key` (DESIGN §11.5)
+        // rbxts-rs: a plugin's `property_key` (docs/design.md §11.5)
         let callee_exp = match crate::plugins::dispatch::rewritten_key(state, expression, AccessPosition::Callee) {
             Some(key) => keyed_access(base_expression, &key),
             None => create::property(convert_to_indexable_expression(base_expression), callee_name),
@@ -219,7 +219,7 @@ pub fn transform_property_call_expression_inner(
     fix_void_arguments_for_roblox_functions(state, exp_type, &mut args, node_arguments);
 
     let method = is_method(state, expression);
-    // rbxts-rs: a plugin's `property_key` (DESIGN §11.5)
+    // rbxts-rs: a plugin's `property_key` (docs/design.md §11.5)
     let key = match crate::plugins::dispatch::rewritten_key(state, expression, AccessPosition::Callee) {
         Some(key) => crate::plugins::dispatch::rewritten_callee_key(state, expression, &key),
         None => PropertyKey::Name(name.to_owned()),
@@ -261,7 +261,7 @@ pub fn transform_element_call_expression_inner(
     validate_not_any_type(state, callee);
 
     if tsrs_ast::is_super_property(expression) {
-        // rbxts-rs: a plugin's `property_key` (DESIGN §11.5)
+        // rbxts-rs: a plugin's `property_key` (docs/design.md §11.5)
         let callee_exp = match crate::plugins::dispatch::rewritten_key(state, expression, AccessPosition::Callee) {
             Some(key) => {
                 // a computed argument is still evaluated (`super` has no effects to order it after)
@@ -300,7 +300,7 @@ pub fn transform_element_call_expression_inner(
         );
     }
 
-    // rbxts-rs: a plugin's `property_key` (DESIGN §11.5)
+    // rbxts-rs: a plugin's `property_key` (docs/design.md §11.5)
     let rewritten = crate::plugins::dispatch::rewritten_key(state, expression, AccessPosition::Callee);
     let mut key_prereqs = Prereqs::new();
     let argument_exp = match &rewritten {

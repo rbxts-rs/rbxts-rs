@@ -1,5 +1,5 @@
-//! What nodes an instance wants (DESIGN §11.2). The compiler builds its dispatch tables from it once per instance,
-//! so it never calls into a plugin for nodes the plugin did not ask for.
+//! What nodes an instance wants (docs/design.md §11.2). The compiler builds its dispatch tables from it once per
+//! instance, so it never calls into a plugin for nodes the plugin did not ask for.
 
 use tsrs_ast::Kind;
 

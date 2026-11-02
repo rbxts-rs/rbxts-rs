@@ -63,7 +63,7 @@ pub struct TransformState<'a> {
     pub multi_transform_state: &'a mut MultiTransformState,
     /// The file transformed.
     pub source_file: P<SourceFile>,
-    /// The emit resolver, for import elision on the original program (DESIGN §9).
+    /// The emit resolver, for import elision on the original program (docs/design.md §9).
     pub resolver: P<EmitResolver>,
     /// The file's diagnostics.
     pub diagnostics: DiagnosticService,
@@ -94,7 +94,7 @@ pub struct TransformState<'a> {
     pub symbol_to_id_map: FxHashMap<P<Symbol>, TemporaryIdentifier>,
     class_element_to_object_key_map: FxHashMap<P<Node>, Expr>,
     is_in_replicated_first: bool,
-    /// rbxts-rs: the plugins of this checker (DESIGN §11); `None` in a build without plugins.
+    /// rbxts-rs: the plugins of this checker (docs/design.md §11); `None` in a build without plugins.
     pub plugins: Option<&'a crate::plugins::PluginHost>,
     /// rbxts-rs: what this file records for its plugins.
     pub plugin_file: crate::plugins::file_state::PluginFileState,

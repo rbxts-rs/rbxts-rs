@@ -1,4 +1,4 @@
-//! Type-erased plugins, for the compiler's plugin list (DESIGN §11.6).
+//! Type-erased plugins, for the compiler's plugin list (docs/design.md §11.6).
 //!
 //! `rbxts_cli::Cli::plugin<P: Plugin>` erases a plugin once, at registration, with [`erase`]. The compiler then
 //! holds `Box<dyn DynPlugin>` and per-checker `Box<dyn DynInstance>`, with `Shared` as [`ErasedShared`], the

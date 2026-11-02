@@ -34,8 +34,8 @@ use super::transform_while_statement::transform_while_statement;
 
 /// `transformStatement`
 pub fn transform_statement(state: &mut TransformState<'_>, node: P<Node>) -> Vec<Stmt> {
-    // rbxts-rs: the plugins' by-kind fallback (DESIGN §11.2), before roblox-ts's own lowering: every statement of a
-    // statement list, those roblox-ts emits nothing for (types, `declare`) included, as a TS transformer sees them
+    // rbxts-rs: the plugins' by-kind fallback (docs/design.md §11.2), before roblox-ts's own lowering: every statement
+    // of a statement list, those roblox-ts emits nothing for (types, `declare`) included, as a TS transformer sees them
     if let Some(claimed) = crate::plugins::dispatch::claim_statement(state, node) {
         return claimed;
     }

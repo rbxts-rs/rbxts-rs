@@ -1,5 +1,5 @@
-//! The plugins' recorded build inputs and file-part persistence (DESIGN §14), with the `probe-inputs` test plugin
-//! (`rbxts_test_plugins::inputs`) on copies of `tests/watch_fixtures/basic`:
+//! The plugins' recorded build inputs and file-part persistence (docs/design.md §14), with the `probe-inputs` test
+//! plugin (`rbxts_test_plugins::inputs`) on copies of `tests/watch_fixtures/basic`:
 //! - watch: a finish glob, listing, existence check and file read answering differently run `finish` again (and an
 //!   equal answer is no change); a file's glob transforms that file again; a setup glob runs setup again;
 //!   `remove_empty_dir` (and its refusals) and the removal of the directories stale artifacts leave empty;

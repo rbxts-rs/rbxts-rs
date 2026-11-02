@@ -183,7 +183,8 @@ pub fn transform_source_file(state: &mut TransformState<'_>, node: P<SourceFile>
     let file_node = node.as_node();
     crate::plugins::dispatch::begin_file(state);
     let mut statements = transform_statement_list(state, Some(file_node), node.get().statements.nodes());
-    // rbxts-rs: plugin end_file, import elision decided on the whole file, plugin imports and header (DESIGN §11)
+    // rbxts-rs: plugin end_file, import elision decided on the whole file, plugin imports and header
+    // (docs/design.md §11)
     crate::plugins::dispatch::end_file(state, &mut statements);
 
     if handle_exports(state, node, symbol, &mut statements) {
@@ -221,7 +222,7 @@ pub fn transform_source_file(state: &mut TransformState<'_>, node: P<SourceFile>
     statements.splice(0..0, header_statements);
     statements.splice(0..0, directives);
 
-    // rbxts-rs: Luau's local limit on the complete main chunk, when a plugin added locals (DESIGN §9)
+    // rbxts-rs: Luau's local limit on the complete main chunk, when a plugin added locals (docs/design.md §9)
     crate::plugins::dispatch::check_main_chunk(state, &mut statements);
 
     statements

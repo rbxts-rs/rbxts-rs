@@ -259,7 +259,7 @@ pub fn transform_binary_expression(state: &mut TransformState<'_>, prereqs: &mut
         return transform_logical(state, prereqs, node);
     }
 
-    // rbxts-rs: an assignment to `receiver.key` a plugin claims (DESIGN §11.5)
+    // rbxts-rs: an assignment to `receiver.key` a plugin claims (docs/design.md §11.5)
     if tsrs_ast::is_assignment_operator(operator_kind)
         && let Some(claimed) = crate::plugins::dispatch::claim_assignment(state, prereqs, node)
     {

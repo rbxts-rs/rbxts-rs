@@ -1,4 +1,4 @@
-//! The two traits a plugin implements (DESIGN §11.1, §11.2, §14).
+//! The two traits a plugin implements (docs/design.md §11.1, §11.2, §14).
 
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::Arc;
@@ -16,7 +16,7 @@ use crate::{
 /// mutable build state: that is [`Plugin::Shared`] (read-only, per build), [`Plugin::State`] (persistent, owned
 /// by the compiler) and [`Plugin::FilePart`] (per file).
 ///
-/// **Lifecycle** (DESIGN §14). Per build: [`Plugin::rebuild_start`] (watch rebuilds that kept a `Shared`) or
+/// **Lifecycle** (docs/design.md §14). Per build: [`Plugin::rebuild_start`] (watch rebuilds that kept a `Shared`) or
 /// [`Plugin::setup`] → [`Plugin::instance`] per checker → the instances' hooks → [`Plugin::finish`]. Then the
 /// compiler renders and, only when the build has no errors, commits outputs, artifacts and state in one write
 /// phase. A plugin never writes files itself.
@@ -173,7 +173,7 @@ pub trait Plugin: Send + Sync + 'static {
     /// phase. A clean build starts from `Default`. To survive across processes, the plugin persists it itself with
     /// [`FinishCx::write_state_file`] and reloads it in `setup` ([`SetupCx::read_persisted`]) when the state is
     /// [`crate::StateOrigin::Fresh`]. In watch mode the committed state is handed on in memory and never re-read
-    /// from disk between rebuilds (DESIGN §14).
+    /// from disk between rebuilds (docs/design.md §14).
     ///
     /// It outlives the program it was made with, so it holds **no handles** (`P<…>`, `&'static` program or
     /// source text) **and no [`FileIndex`]**: key per-file data by the file's path (`cx.file().path`). See "No
@@ -182,8 +182,8 @@ pub trait Plugin: Send + Sync + 'static {
     /// What one file contributes to cross-file results. The compiler keeps each file's part from its last
     /// successful transform (by normalised path) and hands the parts of all current files to `finish`.
     ///
-    /// Cached parts outlive the program that made them (watch rebuilds free replaced programs, DESIGN §14), so a
-    /// part holds **no handles** (`P<Node>`, `P<Symbol>`, `P<Type>`, `&'static` program or source text) **and no
+    /// Cached parts outlive the program that made them (watch rebuilds free replaced programs, docs/design.md §14), so
+    /// a part holds **no handles** (`P<Node>`, `P<Symbol>`, `P<Type>`, `&'static` program or source text) **and no
     /// [`FileIndex`]**, which is renumbered every build. Owned strings, numbers and paths only. See "No program
     /// handles between builds" above.
     type FilePart: Send + UnwindSafe + RefUnwindSafe + 'static;
@@ -323,7 +323,7 @@ pub trait Plugin: Send + Sync + 'static {
 /// **Re-entrancy.** Hooks take `&self`, because `cx.compile_*` dispatches nested nodes, which can reach the same
 /// instance again. Never hold a `RefCell` borrow across a `cx.compile_*` call.
 ///
-/// **Ordering** (DESIGN §11.5). Claim hooks (`call`, `property_key`, `assignment`, `expression`, `statement`)
+/// **Ordering** (docs/design.md §11.5). Claim hooks (`call`, `property_key`, `assignment`, `expression`, `statement`)
 /// ask matching plugins in registration order; the first `Take` wins, and when all decline roblox-ts lowers the
 /// node, its own macros included. Broadcast hooks (`begin_file`, `class`, `end_file`) run for every active plugin
 /// in registration order.

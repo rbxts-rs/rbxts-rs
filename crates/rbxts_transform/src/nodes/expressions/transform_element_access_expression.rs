@@ -92,7 +92,7 @@ pub fn transform_element_access_expression_inner(
     }
 
     let delete = skip_upwards(node).parent().is_some_and(|p| p.kind() == Kind::DeleteExpression);
-    // rbxts-rs: a plugin's `property_key` for a string literal key (DESIGN §11.5)
+    // rbxts-rs: a plugin's `property_key` for a string literal key (docs/design.md §11.5)
     let position = if delete { AccessPosition::Delete } else { AccessPosition::Read };
     if let Some(key) = crate::plugins::dispatch::rewritten_key(state, node, position) {
         // a computed argument is still evaluated, after the receiver

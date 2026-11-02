@@ -117,7 +117,7 @@ resolver per type root and the package mapping (those three in parallel), and `c
 
 `rbxts-bench build --optimizedLoops --allowCommentDirectives --write-partial`, profile `measure`, one checker:
 load, project setup, check of the project files, transform in program order, render, write changed outputs. T1 ports
-only part of the transform (DESIGN §9b): files using a kind not ported yet are reported and not written, so the
+only part of the transform (docs/design.md §9b): files using a kind not ported yet are reported and not written, so the
 transform time covers less than the full work. Parity counts files whose output equals the reference byte for byte.
 Three rounds interleaved with stock roblox-ts master (TS 5.9, `node out/CLI/cli.js build`, same flags; peak memory
 from `bench/maxrss.cjs`) on 2026-10-21, machine moderately busy (ms; MiB).
@@ -136,8 +136,8 @@ pipeline.
 
 The real project without Flamework (`tsconfig.noplugin.json`, `--optimizedLoops --allowCommentDirectives`), on a
 scratch copy, profile `measure`, one checker, 2026-10-21, machine busy (another session's builds, ms). A leaf is a
-file nothing imports; the hub is imported by 76 files, and its closure (the reversed-import closure, DESIGN §14) is
-205 of the 605 project files.
+file nothing imports; the hub is imported by 76 files, and its closure (the reversed-import closure, docs/design.md §14)
+is 205 of the 605 project files.
 
 | build | wall | program | setup | invalidate | check | transform | render | write | working set |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

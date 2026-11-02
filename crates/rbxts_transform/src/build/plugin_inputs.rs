@@ -1,5 +1,5 @@
-//! The build inputs plugins record besides `setup`'s file reads (DESIGN §14): the environment (`Cx::env`), globs
-//! (`Cx::record_glob`, `SetupCx::record_glob`, `FinishCx::record_glob`) and the recorded finish reads
+//! The build inputs plugins record besides `setup`'s file reads (docs/design.md §14): the environment (`Cx::env`),
+//! globs (`Cx::record_glob`, `SetupCx::record_glob`, `FinishCx::record_glob`) and the recorded finish reads
 //! (`FinishCx::read_dir` / `exists` / `read_file`); how a build or a watcher asks them again; and the directory rules
 //! of `FinishCx::remove_empty_dir` with the removal of the directories the artifact diff empties.
 //!

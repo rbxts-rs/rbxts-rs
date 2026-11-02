@@ -23,7 +23,7 @@
 //! - what makes a project dirty is a superset of roblox-ts's (see [`BuildSession::needs_build`]);
 //! - the runtime files are copied by each runtime project's commit (a successful build), as in a build without
 //!   references, not before the build; a solution root of one deployment, which builds nothing, copies them after
-//!   its projects' builds, and only when they all built: a failing build writes nothing (DESIGN §14), where
+//!   its projects' builds, and only when they all built: a failing build writes nothing (docs/design.md §14), where
 //!   roblox-ts copies them whatever the build does.
 
 use std::collections::{HashMap, HashSet};
@@ -196,7 +196,7 @@ pub(super) fn build_graph(root: &mut BuildSession<'_>, touched: &[String]) -> (C
     {
         // a solution root of one deployment builds nothing, yet its include folder is the one its projects use. roblox-ts
         // copies the runtime files before building, whatever the build does; rbxts-rs copies them only when every
-        // project built (a failing build writes nothing, DESIGN §14)
+        // project built (a failing build writes nothing, docs/design.md §14)
         let copied = crate::project::copy_include::prepare_copy_include_of(&node.data)
             .and_then(|copy| copy.map_or_else(|| Ok(Vec::new()), |copy| copy.commit()));
         match copied {

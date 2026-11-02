@@ -1,4 +1,4 @@
-//! `SetupCx`: what [`crate::Plugin::setup`] can ask of the compiler (DESIGN §11.3, §14).
+//! `SetupCx`: what [`crate::Plugin::setup`] can ask of the compiler (docs/design.md §11.3, §14).
 
 use std::cell::OnceCell;
 use std::io;
@@ -55,7 +55,7 @@ pub trait SetupBackend {
     ///
     /// What it holds goes into `State`, never into `Shared` ([`crate::Plugin::Shared`]), and is read when the
     /// state is [`StateOrigin::Fresh`]. A watch rebuild hands the committed state on in memory
-    /// ([`StateOrigin::Memory`]): the file is not re-read from disk between rebuilds (DESIGN §14).
+    /// ([`StateOrigin::Memory`]): the file is not re-read from disk between rebuilds (docs/design.md §14).
     fn read_persisted(&mut self, path: &Path) -> io::Result<Option<Vec<u8>>>;
     /// An informational message, shown with `--verbose`.
     fn info(&mut self, message: &str);

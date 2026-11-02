@@ -1,4 +1,4 @@
-//! `rbxts-bench watch-parity`: the W1 harness (DESIGN §14) over a project and a JSON edit script
+//! `rbxts-bench watch-parity`: the W1 harness (docs/design.md §14) over a project and a JSON edit script
 //! (`rbxts_transform::build::parity`). After every step the in-process watcher's tree must equal a clean build of
 //! the same sources, seeded with the watcher's plugin states; a failing step must write nothing and report the clean
 //! build's errors. Prints one line per step with the watcher's and the clean build's times.

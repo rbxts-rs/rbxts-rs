@@ -1,4 +1,4 @@
-//! Incremental and watch builds (DESIGN §14) on `tests/watch_fixtures/basic`:
+//! Incremental and watch builds (docs/design.md §14) on `tests/watch_fixtures/basic`:
 //! - the W1 harness (`rbxts_transform::build::parity`) runs `basic.script.json` as watch rebuilds with the `stamp`
 //!   plugin (artifacts, a state file, late strings re-rendered in cached files), without plugins, and as
 //!   incremental builds in new sessions; after every step the output must equal a clean build's (JSON modules
@@ -1561,9 +1561,9 @@ fn entries(dir: &Path) -> Vec<String> {
     out
 }
 
-/// The Luau outputs are written all or nothing (DESIGN §14: a failing build writes nothing): with two outputs blocked
-/// by directories, the build fails naming both, and no other output is written, no temporary file is left, and no
-/// directory the staging created stays. With the paths free again, the next build writes them.
+/// The Luau outputs are written all or nothing (docs/design.md §14: a failing build writes nothing): with two outputs
+/// blocked by directories, the build fails naming both, and no other output is written, no temporary file is left, and
+/// no directory the staging created stays. With the paths free again, the next build writes them.
 #[test]
 fn a_luau_write_error_writes_no_other_output() {
     let Some((copy, root)) = keeper_copy("blocked", false) else { return };

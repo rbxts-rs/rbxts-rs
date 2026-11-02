@@ -1,6 +1,6 @@
-//! `probe-inputs`: a plugin that uses every build input and persistence method of DESIGN §14, for the compiler's
-//! watch, incremental and commit tests. It claims nothing; what it reads shows in a header of the files that ask
-//! for it and in its artifacts. Paths are relative to the project directory.
+//! `probe-inputs`: a plugin that uses every build input and persistence method of docs/design.md §14, for the
+//! compiler's watch, incremental and commit tests. It claims nothing; what it reads shows in a header of the files that
+//! ask for it and in its artifacts. Paths are relative to the project directory.
 //!
 //! - **setup:** `SetupCx::env("PROBE_SETUP")` and `SetupCx::record_glob(setup-glob, *.txt)`.
 //! - **files** containing the text `probe-inputs` (marked): `Cx::env("PROBE_FILE")` and the late string `marked`,

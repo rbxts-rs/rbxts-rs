@@ -1,5 +1,5 @@
 //! `rbxtsc`: the command line without plugins. A binary with plugins is the same three lines with `.plugin(…)`
-//! calls (DESIGN §11.6).
+//! calls (docs/design.md §11.6).
 
 #[global_allocator]
 static GLOBAL: mimalloc_safe::MiMalloc = mimalloc_safe::MiMalloc;

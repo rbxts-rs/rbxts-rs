@@ -1,6 +1,6 @@
 //! `classes/MacroManager.ts`: the compiler-types symbols the transformer recognises, and the macros by symbol.
 //!
-//! Built once per checker: merged global symbols are per checker (DESIGN §5), so the tables are too.
+//! Built once per checker: merged global symbols are per checker (docs/design.md §5), so the tables are too.
 
 use rustc_hash::{FxHashMap, FxHashSet};
 

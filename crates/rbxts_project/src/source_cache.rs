@@ -1,8 +1,8 @@
-//! Parsed source files kept across the builds of one process (watch mode, DESIGN §14): a compiler host that hands
-//! out the same `SourceFile` for a file whose stamp ([`crate::stamp`]: modification and change times and size, asked of
-//! the file) and parse options are unchanged, as roblox-ts's program factory does (an unchanged file is the same object
-//! in the next program) and as tsrs's own watcher does. A stamp taken too soon after the file changed to tell a later
-//! edit apart (not settled) serves the file only when its text is the same.
+//! Parsed source files kept across the builds of one process (watch mode, docs/design.md §14): a compiler host that
+//! hands out the same `SourceFile` for a file whose stamp ([`crate::stamp`]: modification and change times and size,
+//! asked of the file) and parse options are unchanged, as roblox-ts's program factory does (an unchanged file is the
+//! same object in the next program) and as tsrs's own watcher does. A stamp taken too soon after the file changed to
+//! tell a later edit apart (not settled) serves the file only when its text is the same.
 //!
 //! The files outlive the programs that use them: a watch session frees each program once a later one replaces it
 //! ([`crate::Project::free`]), and the files, bound before any checker existed, go on in the next program. A file's

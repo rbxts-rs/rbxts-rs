@@ -50,7 +50,7 @@ pub fn kind_name(kind: Kind) -> String {
 
 /// `transformExpression`
 pub fn transform_expression(state: &mut TransformState<'_>, prereqs: &mut Prereqs, node: P<Node>) -> Expr {
-    // rbxts-rs: the plugins' by-kind fallback (DESIGN §11.2)
+    // rbxts-rs: the plugins' by-kind fallback (docs/design.md §11.2)
     if let Some(claimed) = crate::plugins::dispatch::claim_expression(state, prereqs, node) {
         return claimed;
     }

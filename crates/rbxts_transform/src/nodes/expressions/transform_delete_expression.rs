@@ -12,7 +12,7 @@ use crate::util::symbols::is_used_as_statement;
 /// `delete x.y`: the property and element access transforms do the deleting (they see the `delete` parent); here
 /// only their prerequisites are kept, and the value is `true`.
 pub fn transform_delete_expression(state: &mut TransformState<'_>, prereqs: &mut Prereqs, node: P<Node>) -> Expr {
-    // rbxts-rs: a `delete receiver.key` a plugin claims (DESIGN §11.5)
+    // rbxts-rs: a `delete receiver.key` a plugin claims (docs/design.md §11.5)
     if let Some(claimed) = crate::plugins::dispatch::claim_assignment(state, prereqs, node) {
         return claimed;
     }

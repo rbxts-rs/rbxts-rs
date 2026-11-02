@@ -171,7 +171,7 @@ pub fn flatten_optional_chain(mut expression: P<Node>) -> (Vec<ChainItem>, P<Nod
     (chain, expression)
 }
 
-/// One chain link on its compiled base. The link is offered to plugins first (rbxts-rs: DESIGN §11.5): the
+/// One chain link on its compiled base. The link is offered to plugins first (rbxts-rs: docs/design.md §11.5): the
 /// expression hooks of its kind, then, for a call, the call plugins.
 pub(crate) fn transform_chain_item(
     state: &mut TransformState<'_>,
@@ -411,7 +411,7 @@ fn transform_optional_chain_inner(
                     (false, None) => OptionalReceiver::Unbound(receiver.clone()),
                 },
             };
-            // rbxts-rs: offered to plugins inside the nil check on the callee (DESIGN §11.5)
+            // rbxts-rs: offered to plugins inside the nil check on the callee (docs/design.md §11.5)
             crate::plugins::dispatch::lower_optional_call(state, &mut branch_prereqs, item, &call)
         } else {
             Some(transform_chain_item(state, &mut branch_prereqs, temp.clone(), item))
@@ -467,8 +467,8 @@ pub fn transform_optional_chain(state: &mut TransformState<'_>, prereqs: &mut Pr
     if let Some(value) = crate::plugins::dispatch::claim_chain_outer(state, prereqs, &chain) {
         return value;
     }
-    // rbxts-rs: plugins may claim a link before anything of the chain is compiled (DESIGN §11.5): the expression
-    // hooks any link before the first `?.`, the call plugins the chain's first call
+    // rbxts-rs: plugins may claim a link before anything of the chain is compiled (docs/design.md §11.5): the
+    // expression hooks any link before the first `?.`, the call plugins the chain's first call
     if let Some((index, value)) = crate::plugins::dispatch::claim_chain_lazy(state, prereqs, &chain) {
         return transform_optional_chain_inner(state, prereqs, &chain, value, None, index);
     }

@@ -1,5 +1,5 @@
-//! `CxBackend` over the transform state (DESIGN §9, §11.3): one [`HookBackend`] per hook call, anchored at the node
-//! being dispatched, with the phase table of `rbxts_plugin::CxBackend` enforced.
+//! `CxBackend` over the transform state (docs/design.md §9, §11.3): one [`HookBackend`] per hook call, anchored at the
+//! node being dispatched, with the phase table of `rbxts_plugin::CxBackend` enforced.
 
 use std::path::Path;
 use std::rc::Rc;

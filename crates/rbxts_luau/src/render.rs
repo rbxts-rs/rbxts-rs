@@ -20,8 +20,8 @@ use crate::util::{
     is_js_whitespace, is_valid_identifier, is_valid_number_literal, js_number_to_string, js_string_to_number,
 };
 
-/// Values of [`Expr::LateString`]s by key, filled in after the transform (DESIGN §4 step 5). A value is used as a
-/// [`StringLiteral::value`]: text between the quotes, already escaped.
+/// Values of [`Expr::LateString`]s by key, filled in after the transform (docs/design.md §4 step 5). A value is used as
+/// a [`StringLiteral::value`]: text between the quotes, already escaped.
 #[derive(Clone, Debug, Default)]
 pub struct LateStrings {
     values: HashMap<String, String>,

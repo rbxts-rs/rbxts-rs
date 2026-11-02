@@ -56,7 +56,7 @@ fn last_token_pos(node: P<Node>, last_statement: Option<P<Node>>) -> Option<u32>
 /// rbxts-rs: the body of an `if`, a loop or a `case` clause (`statement`: a block, or a single statement), as roblox-ts
 /// lowers it: `transformStatementList(state, statement, getStatements(statement))`. A block body is a statement that a
 /// TS transformer sees (TypeScript's `isStatement`) but roblox-ts lowers as its statement list, so it is offered to
-/// the plugins' statement hooks first (DESIGN §11.5); a claim is the body.
+/// the plugins' statement hooks first (docs/design.md §11.5); a claim is the body.
 pub fn transform_body(state: &mut TransformState<'_>, statement: P<Node>) -> Vec<Stmt> {
     if statement.kind() == Kind::Block
         && let Some(claimed) = crate::plugins::dispatch::claim_statement(state, statement)

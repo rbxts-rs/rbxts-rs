@@ -1,6 +1,6 @@
-//! Luau's own compiler, to ask whether Luau accepts a rendered file (DESIGN §9: the compiler owns Luau's limits for
-//! all code). Some limits can't be predicted from the syntax tree without re-implementing Luau's compiler: whether a
-//! `local` takes a register depends on Luau's constant folding, dead-branch elimination and inlining, which change
+//! Luau's own compiler, to ask whether Luau accepts a rendered file (docs/design.md §9: the compiler owns Luau's limits
+//! for all code). Some limits can't be predicted from the syntax tree without re-implementing Luau's compiler: whether
+//! a `local` takes a register depends on Luau's constant folding, dead-branch elimination and inlining, which change
 //! with the optimisation and debug levels and between Luau releases. So the plugin seam compiles every file a plugin
 //! emitted into (`rbxts_transform::plugins::spill`) with this compiler at the levels Roblox uses.
 //!

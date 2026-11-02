@@ -1,5 +1,5 @@
-//! The TypeScript → Luau transform: a port of roblox-ts master's `src/TSTransformer` (DESIGN §9b), plus the build
-//! pipeline of `compileFiles` ([`compile`]).
+//! The TypeScript → Luau transform: a port of roblox-ts master's `src/TSTransformer` (docs/design.md §9b), plus the
+//! build pipeline of `compileFiles` ([`compile`]).
 //!
 //! The module layout follows roblox-ts's folders, one Rust module per TypeScript file, and ported functions keep
 //! their TypeScript names in snake_case, so the two can be read side by side. Deliberate differences are marked
@@ -11,7 +11,7 @@
 //! - [`macros`]: the macro tables (names only in T1; each transform is `None` until ported).
 //! - [`util`]: helpers, including the evaluation-order analysis (`util::evaluation`).
 //! - [`shared`]: roblox-ts's diagnostics table and constants.
-//! - [`build`]: clean, incremental and watch builds ([`build::BuildSession`], DESIGN §14).
+//! - [`build`]: clean, incremental and watch builds ([`build::BuildSession`], docs/design.md §14).
 //! - [`plugins`]: the compiler side of the plugin seam (`rbxts_plugin`'s backends, dispatch, build lifecycle).
 //! - [`project`]: roblox-ts's project build steps around the transform (the include copy).
 //!

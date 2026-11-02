@@ -34,7 +34,7 @@ pub fn transform_property_access_expression_inner(
     add_index_diagnostics(state, node, member_type, receiver_type);
 
     let delete = skip_upwards(node).parent().is_some_and(|p| p.kind() == Kind::DeleteExpression);
-    // rbxts-rs: a plugin's `property_key` (DESIGN §11.5)
+    // rbxts-rs: a plugin's `property_key` (docs/design.md §11.5)
     let position = if delete { AccessPosition::Delete } else { AccessPosition::Read };
     let rewritten = crate::plugins::dispatch::rewritten_key(state, node, position);
 

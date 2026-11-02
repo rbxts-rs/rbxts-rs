@@ -27,7 +27,7 @@ pub fn transform_if_statement_inner(
         None => ElseBody::default(),
         Some(else_statement) if else_statement.kind() == Kind::IfStatement => {
             // rbxts-rs: the `else if` is a statement a TS transformer sees, which roblox-ts lowers into this `if`: it is
-            // offered to the plugins' statement hooks first (DESIGN §11.5), and a claim is the `else` block
+            // offered to the plugins' statement hooks first (docs/design.md §11.5), and a claim is the `else` block
             if let Some(claimed) = crate::plugins::dispatch::claim_statement(state, else_statement) {
                 let mut else_statements = Vec::new();
                 crate::plugins::dispatch::else_if_before_statement(state, else_statement, &mut else_statements);
@@ -36,7 +36,7 @@ pub fn transform_if_statement_inner(
             }
             let mut else_if_prereqs = Prereqs::new();
             let else_if = transform_if_statement_inner(state, &mut else_if_prereqs, else_statement);
-            // rbxts-rs: a plugin's `insert_before_statement` for the `else if` (DESIGN §11)
+            // rbxts-rs: a plugin's `insert_before_statement` for the `else if` (docs/design.md §11)
             crate::plugins::dispatch::else_if_before_statement(state, else_statement, &mut else_if_prereqs.statements);
             if else_if_prereqs.statements.is_empty() {
                 ElseBody::If(Box::new(else_if))

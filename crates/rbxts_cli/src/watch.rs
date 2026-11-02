@@ -1,4 +1,4 @@
-//! Watch mode (`rbxtsc -w`, DESIGN §14 "Watcher"): one [`BuildSession`] rebuilt on file system events.
+//! Watch mode (`rbxtsc -w`, docs/design.md §14 "Watcher"): one [`BuildSession`] rebuilt on file system events.
 //!
 //! - **Events.** A `notify` watcher (ReadDirectoryChangesW on Windows, or polling with `--usePolling`). Watched:
 //!   - recursively: the root directories, the directories plugins asked to watch (`watch_dir`), and every package

@@ -1,4 +1,4 @@
-//! The plain types of the API: results, sites, call shapes, diagnostics, positions (DESIGN §11.2, §11.3).
+//! The plain types of the API: results, sites, call shapes, diagnostics, positions (docs/design.md §11.2, §11.3).
 
 use rbxts_project::FileRojoInfo;
 use tsrs_ast::{Kind, Node, SourceFile, Symbol};
@@ -26,7 +26,7 @@ pub enum Claim<T> {
 /// [`crate::Cx::error`], [`crate::Cx::report`] and the `Cx` primitives (when a nested node failed), so an `Err`
 /// normally has a diagnostic. Making one otherwise takes deliberate misuse (a hand-written backend), and the
 /// compiler reports a hook's `Err` without a new error as an internal error. The compiler emits `nil` for the expression or drops the statement, keeps transforming to collect
-/// more diagnostics, and writes nothing (DESIGN §11.5).
+/// more diagnostics, and writes nothing (docs/design.md §11.5).
 #[derive(Debug, PartialEq, Eq)]
 pub struct Abort(pub(crate) ());
 

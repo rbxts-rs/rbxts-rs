@@ -1,4 +1,4 @@
-//! The build lifecycle a plugin sees (DESIGN §14).
+//! The build lifecycle a plugin sees (docs/design.md §14).
 //!
 //! ```text
 //! build(kind, changes)

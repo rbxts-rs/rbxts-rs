@@ -1,4 +1,4 @@
-//! The plugin API of rbxts-rs (DESIGN §11, with the build lifecycle of §14).
+//! The plugin API of rbxts-rs (docs/design.md §11, with the build lifecycle of §14).
 //!
 //! A plugin is Rust compiled into the user's build. It has three parts:
 //! - a **factory** ([`Plugin`]), one per build tool, `Send + Sync`. It builds the read-only [`Plugin::Shared`]
@@ -12,7 +12,7 @@
 //! [`FinishBackend`]. Plugins use the wrappers [`Cx`], [`SetupCx`] and [`FinishCx`], which add what does not need
 //! the compiler: [`Abort`] values, Luau escaping of late strings, prereq capture.
 //!
-//! [`erased`] turns a typed plugin into trait objects for the compiler's plugin list (DESIGN §11.6).
+//! [`erased`] turns a typed plugin into trait objects for the compiler's plugin list (docs/design.md §11.6).
 //!
 //! The crate depends on `rbxts_luau`, `rbxts_project` and tsrs's handle and checker types only, never on the
 //! compiler, so the compiler can depend on it.
@@ -159,7 +159,7 @@
 //! # Build inputs
 //!
 //! Whatever a plugin's output depends on besides the program is read through the compiler, which records it as a
-//! build input and rebuilds what depends on it when it changes (DESIGN §14):
+//! build input and rebuilds what depends on it when it changes (docs/design.md §14):
 //! - files: [`SetupCx::read_input`];
 //! - environment variables: [`SetupCx::env`] in setup, [`Cx::env`] in a file's hooks;
 //! - globs: `record_glob` on [`SetupCx`], [`Cx`] and [`FinishCx`], with a [`GlobMatcher`] the compiler can call

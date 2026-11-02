@@ -16,7 +16,7 @@ use crate::util::validate_not_any::validate_not_any_type;
 
 /// `transformNewExpression`: a constructor macro (`new Map()`), or `Class.new(args)`.
 pub fn transform_new_expression(state: &mut TransformState<'_>, prereqs: &mut Prereqs, node: P<Node>) -> Expr {
-    // rbxts-rs: plugins are asked before constructor macros (DESIGN §11.5)
+    // rbxts-rs: plugins are asked before constructor macros (docs/design.md §11.5)
     if let Some(claimed) = crate::plugins::dispatch::claim_new(state, prereqs, node) {
         return claimed;
     }

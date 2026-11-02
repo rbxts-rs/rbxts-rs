@@ -1,6 +1,6 @@
 //! Luau's limits (200 local registers, 255 registers and 200 upvalues per function, its nesting depth), checked on
-//! every file a plugin emitted anything into (DESIGN §9: the compiler owns the check for all code, its own output
-//! included). Files no plugin emitted into, and builds without plugins, are left as roblox-ts leaves them.
+//! every file a plugin emitted anything into (docs/design.md §9: the compiler owns the check for all code, its own
+//! output included). Files no plugin emitted into, and builds without plugins, are left as roblox-ts leaves them.
 //!
 //! Every file a plugin emitted into is compiled by Luau 0.740 once rendered: whether a file is within the limits is
 //! decided by Luau's own compiler, not predicted, since whether a `local` takes a register depends on Luau's constant

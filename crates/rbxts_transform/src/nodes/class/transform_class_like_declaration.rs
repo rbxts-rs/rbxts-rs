@@ -160,8 +160,8 @@ fn identifier_or_string_name(member: P<Node>) -> Option<(P<Node>, &'static str)>
 
 /// Static properties and static blocks, in source order.
 ///
-/// rbxts-rs: this is where the plugin `class` hook (DESIGN §11.2) adds its statements, right after these and before
-/// the decorators are applied; keep the static emission in this one function.
+/// rbxts-rs: this is where the plugin `class` hook (docs/design.md §11.2) adds its statements, right after these and
+/// before the decorators are applied; keep the static emission in this one function.
 fn transform_static_declarations(
     state: &mut TransformState<'_>,
     node: P<Node>,
@@ -173,7 +173,7 @@ fn transform_static_declarations(
         if declaration.kind() == Kind::ClassStaticBlockDeclaration {
             let body = declaration.as_class_static_block_declaration().body;
             // rbxts-rs: the block is a statement a TS transformer sees (TypeScript's `isStatement`), lowered here rather
-            // than through `transformStatement`: offered to the plugins' statement hooks first (DESIGN §11.5)
+            // than through `transformStatement`: offered to the plugins' statement hooks first (docs/design.md §11.5)
             match crate::plugins::dispatch::claim_statement(state, body) {
                 Some(claimed) => statements.extend(claimed),
                 None => statements.extend(transform_block(state, body)),

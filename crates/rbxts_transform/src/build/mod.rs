@@ -1,4 +1,4 @@
-//! Clean, incremental and watch builds (DESIGN §14): the build session and what it decides with.
+//! Clean, incremental and watch builds (docs/design.md §14): the build session and what it decides with.
 //!
 //! - [`session`]: [`BuildSession`], the lifecycle over one project across builds.
 //! - [`checker_groups`]: the transform over the program's checkers, each file on the checker that checked it.
@@ -9,7 +9,7 @@
 //! - [`transform_order`]: the order roblox-ts transforms a build's files in (`getChangedFilePaths`).
 //! - [`plugin_inputs`]: what plugins record besides setup's file reads (environment, globs, finish reads), and the
 //!   directory rules of `remove_empty_dir`.
-//! - [`parity`]: the watch-parity harness's driver (DESIGN §14 W1).
+//! - [`parity`]: the watch-parity harness's driver (docs/design.md §14 W1).
 
 pub(crate) mod checker_groups;
 pub mod graph;

@@ -22,9 +22,9 @@
 //! follows, under roblox-ts's MIT licence (`include/LICENSE`).
 //!
 //! rbxts-rs: differences from roblox-ts, all writing less:
-//! - the copy is part of the commit (DESIGN §14 step 1, after the Luau, before plugin artifacts), so it happens only
-//!   when the build succeeds; roblox-ts copies before compiling, also when the build then fails. The files are read
-//!   before anything is written, so a missing include source fails the build with nothing written;
+//! - the copy is part of the commit (docs/design.md §14 step 1, after the Luau, before plugin artifacts), so it happens
+//!   only when the build succeeds; roblox-ts copies before compiling, also when the build then fails. The files are
+//!   read before anything is written, so a missing include source fails the build with nothing written;
 //! - a file is written only when its bytes differ (roblox-ts copies every file on every build), through a temporary
 //!   file renamed into place;
 //! - with an outDir override (parity runs, the harness) the include folder is moved under the override when it lies

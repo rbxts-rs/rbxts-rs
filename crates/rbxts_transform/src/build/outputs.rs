@@ -19,9 +19,9 @@
 //! removed themselves, never their targets) is deleted; `.git` is skipped.
 //!
 //! rbxts-rs: differences from roblox-ts, all keeping more or writing less:
-//! - assets are written only when their bytes changed (DESIGN §14 commit step 1), not copied on every build;
-//! - the include folder is kept whole when it lies under an output root (DESIGN §14: "The include folder is in the
-//!   clean step's keep set"), not only the runtime files it copies ([`crate::project::copy_include`]);
+//! - assets are written only when their bytes changed (docs/design.md §14 commit step 1), not copied on every build;
+//! - the include folder is kept whole when it lies under an output root (docs/design.md §14: "The include folder is in
+//!   the clean step's keep set"), not only the runtime files it copies ([`crate::project::copy_include`]);
 //! - plugin artifacts and state files of this build are kept;
 //! - declaration assets (project `.d.ts` files of a declaration build) are written only when their printed text
 //!   ([`crate::project::transform_declaration_file`]) changed, like the other assets;
@@ -292,8 +292,8 @@ pub fn read_assets(
     Ok(bytes)
 }
 
-/// Commit step 1 for the Luau outputs and the assets: `(path, bytes, match case)` per file, all or nothing (DESIGN
-/// §14: a failing build writes nothing).
+/// Commit step 1 for the Luau outputs and the assets: `(path, bytes, match case)` per file, all or nothing
+/// (docs/design.md §14: a failing build writes nothing).
 /// 1. Every file whose bytes differ (or that is missing) is staged in a temporary file beside it, in parallel
 ///    ([`super::parallel::map`]); a directory in the way is an error here. When any staging fails, the temporary
 ///    files and the directories staging created are removed and nothing else happens.

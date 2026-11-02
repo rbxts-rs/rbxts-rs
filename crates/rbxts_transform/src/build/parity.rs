@@ -1,5 +1,5 @@
-//! The watch-parity harness's driver (DESIGN §14 "W1", census §6.4): a scripted edit sequence applied to a watched
-//! copy of a project, where after every step the watcher's tree must equal a clean build of the same sources.
+//! The watch-parity harness's driver (docs/design.md §14 "W1", census §6.4): a scripted edit sequence applied to a
+//! watched copy of a project, where after every step the watcher's tree must equal a clean build of the same sources.
 //!
 //! - The watcher is an in-process [`BuildSession`] in watch mode over `work/` (a copy of the project: its sources,
 //!   configs and include folder, with `node_modules` linked, never copied). Each step edits `work/` and hands the

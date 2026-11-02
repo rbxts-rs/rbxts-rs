@@ -1,5 +1,5 @@
 //! An `rbxtsc`-compatible command line (roblox-ts's `CLI/commands/build.ts`) over `rbxts_transform`, with
-//! compiled-in plugins (DESIGN §11.6):
+//! compiled-in plugins (docs/design.md §11.6):
 //!
 //! ```no_run
 //! fn main() -> std::process::ExitCode {
@@ -15,7 +15,7 @@
 //! roblox-ts's exit codes: 0 when the build succeeded, 1 otherwise. Output follows roblox-ts's CLI: on stdout, every
 //! diagnostic as TypeScript's pretty reporter prints it (fatal errors and "Unable to find tsconfig.json!" as roblox-ts
 //! text diagnostics), and argument errors as yargs's message alone. `-w` / `--watch` runs watch mode ([`watch`],
-//! DESIGN §14), with `--usePolling` and `--events json` (machine-readable build events on stdout).
+//! docs/design.md §14), with `--usePolling` and `--events json` (machine-readable build events on stdout).
 //!
 //! rbxts-rs's own options besides `--timings` and `--events`: `--checkers <n>`, the number of type checkers, each
 //! checking and transforming its share of the files on a thread of its own (default

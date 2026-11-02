@@ -1,4 +1,4 @@
-//! The compiler's incremental state on disk (DESIGN §14), for an `incremental` or `composite` project: what the
+//! The compiler's incremental state on disk (docs/design.md §14), for an `incremental` or `composite` project: what the
 //! next build in a new process needs to transform only the changed closure.
 //!
 //! It sits beside roblox-ts's build info, as `<base>.rbxts-rs.buildinfo` (roblox-ts's `<base>.rbxtsc.tsbuildinfo`

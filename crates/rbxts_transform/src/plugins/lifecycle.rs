@@ -1,5 +1,6 @@
-//! The build lifecycle around the transform (DESIGN §4, §14): which plugins are on, `setup` and `finish` with their
-//! backends, the late-string key check, the commit, and `explain_checker_diagnostic` on files that failed checking.
+//! The build lifecycle around the transform (docs/design.md §4, §14): which plugins are on, `setup` and `finish` with
+//! their backends, the late-string key check, the commit, and `explain_checker_diagnostic` on files that failed
+//! checking.
 //!
 //! The build's kind, changes, state origin and whether every file is transformed come from the build session
 //! ([`crate::build`]), which also keeps the `Shared`s and committed states across builds, the cached file parts

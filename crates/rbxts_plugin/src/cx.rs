@@ -1,4 +1,4 @@
-//! `Cx`: what a hook can ask of the compiler (DESIGN §9, §11.3).
+//! `Cx`: what a hook can ask of the compiler (docs/design.md §9, §11.3).
 //!
 //! [`CxBackend`] is the compiler's side, one implementation over its per-file transform state. [`Cx`] is what
 //! plugins hold: a thin wrapper that adds the parts needing no compiler ([`Abort`] values, diagnostics builders,
@@ -436,7 +436,7 @@ pub trait CxBackend {
     /// the cached lists of files not transformed again included, as each file's own transform reported it.
     fn report(&mut self, diagnostic: PluginDiagnostic);
 
-    // --- build inputs (DESIGN §14) ---
+    // --- build inputs (docs/design.md §14) ---
 
     /// An environment variable of the process, read while this file is transformed, recorded as an input of this
     /// file.
