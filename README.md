@@ -463,4 +463,4 @@ every step compares the output tree with a clean build of the same sources seede
 (roblox-ts's tests project) and `crates/rbxts_transform/tests/watch_fixtures` (`cargo test -p rbxts_transform --test
 watch`, with the `stamp` plugin, without plugins and incremental; `--link-packages` lets a script install packages in
 the copy). `--no-clean` runs the watcher's builds alone, for
-timings and the working set (`bench/RESULTS.md`, S2).
+timings and the working set (`bench/RESULTS.md`, "Incremental and watch rebuilds").

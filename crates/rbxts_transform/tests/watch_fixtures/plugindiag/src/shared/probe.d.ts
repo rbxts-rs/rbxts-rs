@@ -163,7 +163,7 @@ declare function probeTwice(a: number): number;
 /** `probeStmtSelf;`: a statement hook compiles its own statement (tests only). */
 declare const probeStmtSelf: number;
 
-// --- S2 ---
+// --- optional and super calls, keys, literals, binaries, locals, spills, misuse ---
 
 /** Optional and non-method calls claimed by symbol: `compile_call(Function(useRecv), [receiver, args…])`. */
 interface Holder {

@@ -1,4 +1,4 @@
-//! The transform over the program's checkers (S3-par).
+//! The transform over the program's checkers, in parallel.
 //!
 //! A file is transformed by its owner, the checker that checked it: the transform asks that checker about types, and
 //! checkers are not shareable. tsrs assigns every file to a checker when the pool is made (a function of the program,

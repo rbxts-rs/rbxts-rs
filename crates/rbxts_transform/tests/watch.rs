@@ -3,7 +3,7 @@
 //!   plugin (artifacts, a state file, late strings re-rendered in cached files), without plugins, and as
 //!   incremental builds in new sessions; after every step the output must equal a clean build's (JSON modules
 //!   included: an edit re-copies the asset and re-transforms only the importers);
-//! - `attack.script.json` on `tests/watch_fixtures/attack`: the review of the branch's attack sequence;
+//! - `attack.script.json` on `tests/watch_fixtures/attack`: an adversarial edit sequence;
 //! - `references.script.json` on `tests/watch_fixtures/references`: TypeScript project references (edits in a
 //!   referenced project, errors, new and deleted files, hand-deleted outputs, a referenced tsconfig edit, projects
 //!   skipped while not dirty, edits made while a reference fails); `midsolution.script.json` on
@@ -166,10 +166,10 @@ fn watch_rebuilds_equal_clean_builds_with_the_stamp_plugin() {
 /// The basic script's step that turns a JSON module's number into a string, which changes its importer's Luau.
 const JSON_TYPE_EDIT: &str = "a JSON module: a number becomes a string (the importer's `+` becomes `..`)";
 
-/// The review's attack sequence (globals reached through the closure, augmentation and export hops, const enums,
+/// The adversarial edit sequence (globals reached through the closure, augmentation and export hops, const enums,
 /// JSDoc macro modes, renames, deletions and re-adds, a twin .d.ts, tsconfig and Rojo edits, a case-only rename).
 #[test]
-fn the_review_attack_sequence_equals_clean_builds() {
+fn the_attack_sequence_equals_clean_builds() {
     run_fixture("attack", "attack", &["stamp"], false);
     run_fixture("attack", "attack-inc", &[], true);
 }

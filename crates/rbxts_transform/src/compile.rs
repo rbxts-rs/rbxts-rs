@@ -87,10 +87,10 @@ pub fn env_checkers() -> Result<Option<usize>, String> {
     }
 }
 
-/// The default checker count (S3-par measurements: past it, more checkers add memory for little time). Fixed, not
-/// capped by the machine's parallelism: with several checkers tsrs (like TypeScript 7) has a rare known case whose
-/// diagnostics depend on which checker checked what (a base constraint cut short by the depth limit and cached:
-/// tsrs `notes/open-history-dependence.md` §1), so a fixed count gives every machine the same output.
+/// The default checker count (from the parallel checking measurements: past it, more checkers add memory for little
+/// time). Fixed, not capped by the machine's parallelism: with several checkers tsrs (like TypeScript 7) has a rare
+/// known case whose diagnostics depend on which checker checked what (a base constraint cut short by the depth limit
+/// and cached: tsrs `notes/open-history-dependence.md` §1), so a fixed count gives every machine the same output.
 pub const DEFAULT_CHECKERS: usize = 4;
 
 /// tsrs's limit.
@@ -258,7 +258,7 @@ pub struct CompileReport {
     pub plugin_timings: Vec<PluginTimings>,
     /// Plugin `info` messages (`--verbose`).
     pub plugin_messages: Vec<String>,
-    /// What plugins read in `setup` (rbxts-rs: S2 — watched and hashed by incremental and watch builds).
+    /// What plugins read in `setup` (rbxts-rs: watched and hashed by incremental and watch builds).
     pub build_inputs: Vec<BuildInput>,
     /// Plugin artifacts and state files written, and files plugins removed.
     pub artifacts_written: Vec<String>,

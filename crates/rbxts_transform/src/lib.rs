@@ -8,7 +8,7 @@
 //! - [`classes`]: [`TransformState`] (one file), [`MultiTransformState`] (the build), [`Prereqs`], the
 //!   [`MacroManager`], the diagnostics of a file.
 //! - [`nodes`]: `transform_expression` / `transform_statement` dispatch and the node transforms.
-//! - [`macros`]: the macro tables (names only in T1; each transform is `None` until ported).
+//! - [`macros`]: the macro tables: calls, property calls, constructors and identifiers compiled to inline Luau.
 //! - [`util`]: helpers, including the evaluation-order analysis (`util::evaluation`).
 //! - [`shared`]: roblox-ts's diagnostics table and constants.
 //! - [`build`]: clean, incremental and watch builds ([`build::BuildSession`], docs/design.md §14).

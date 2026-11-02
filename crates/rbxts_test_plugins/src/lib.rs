@@ -4,7 +4,7 @@
 //! - [`stamp`]: the `rbxts_plugin` crate's own test plugin (`crates/rbxts_plugin/tests/support/stamp.rs`, included
 //!   by path so there is one source): JSDoc-tagged calls become strings or late strings, with a tsconfig entry, an
 //!   env input, an artifact and a state file.
-//! - [`probe`]: exercises every compiler primitive S1 offers: calls by symbol, by receiver and by callee marker,
+//! - [`probe`]: exercises the seam's core compiler primitives: calls by symbol, by receiver and by callee marker,
 //!   `new` and decorator claims, `compile_call` slots, prereqs, hoists, captures, imports and import elision, the
 //!   class hook, the by-kind fallbacks, late strings, artifacts, and (in its failure modes) the phase guards,
 //!   panics and the contracts the compiler enforces.

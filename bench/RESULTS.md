@@ -17,7 +17,7 @@ the same counter, via `bench/maxrss.cjs`). Peak commit (private bytes) is given 
 Earlier measurements: roblox-ts's own TS5 check of the project files ~6 s;
 the tsrs API server check 1.0 s.
 
-## M0: load + type-check in-process through tsrs (`rbxts-bench load`)
+## Load + type-check in-process through tsrs (`rbxts-bench load`)
 
 `rbxts-bench load [--checkers N] [--check project|all|none] [--lazy-dts]`, profile `measure` (release, no LTO), tsrs
 v0.18.0 + fork branch `rbxts-fork`. Phases: config (tsconfig parse), program (`new_program`: read, parse, bind,
@@ -52,7 +52,7 @@ Findings:
 - Checking only the project files (what roblox-ts does; declaration files are only checked as far as the project
   uses them) takes ~1.2-1.3 s of checking on one checker, vs ~2.0 s for all files.
 - More checkers: 12 checkers save ~0.7 s but cost ~110 MiB working set and ~330 MiB commit. One checker is the
-  default for M1; per-checker transform is a later optimisation, not a requirement.
+  default for the first transform port; per-checker transform is a later optimisation, not a requirement.
 - `single_threaded` must not be used for "one checker": it also makes reading, parsing and binding serial (program
   phase 773 ms instead of ~140 ms). Set only `checkers`.
 - `--lazy-dts` (declaration members parsed on first use) gives no clear gain here (within noise); leave it off.
@@ -60,7 +60,7 @@ Findings:
 - The tsrs CLI's own `--extendedDiagnostics` "Check time" (1.1 s for 1 checker) undercounts its 3.0 s wall time;
   use wall time.
 
-## M1 (part): Luau render parity (`rbxts-bench luau-parity`)
+## Luau render parity (`rbxts-bench luau-parity`)
 
 `rbxts_luau` renders the trees roblox-ts master (TS 5.9) builds, dumped by `tools/dump-luau-ast.cjs` at
 `renderAST`, and the text is compared with roblox-ts's byte for byte. Render time is `rbxts_luau::render` over every
@@ -79,7 +79,7 @@ identifiers), nodes shared between two places (60), and whether any parent-depen
 temporary-identifier scope edges, long-bracket spacing) would differ under the structural parent. None does, in
 either corpus.
 
-## M1 (part): project setup parity (`rbxts-bench project-parity`)
+## Project setup parity (`rbxts-bench project-parity`)
 
 `rbxts_project`'s Rojo resolver, path translator and project setup against roblox-ts's own (`@roblox-ts/rojo-resolver`
 1.3.0, `@roblox-ts/path-translator` 1.1.1, `src/Project` of roblox-ts master with the tsrs-experiment
@@ -113,12 +113,12 @@ resolver per type root and the package mapping (those three in parallel), and `c
 - Partition checks (`checkRojoConfig`, lookups) compare already-resolved ASCII paths without building `path.relative`
   strings; that took the real project's setup from ~200 ms to ~80 ms before the walks were parallel.
 
-## M1 (part): the T1 transform skeleton (`rbxts-bench build`)
+## The first transform port, a skeleton (`rbxts-bench build`)
 
 `rbxts-bench build --optimizedLoops --allowCommentDirectives --write-partial`, profile `measure`, one checker:
-load, project setup, check of the project files, transform in program order, render, write changed outputs. T1 ports
-only part of the transform (docs/design.md §9b): files using a kind not ported yet are reported and not written, so the
-transform time covers less than the full work. Parity counts files whose output equals the reference byte for byte.
+load, project setup, check of the project files, transform in program order, render, write changed outputs. That port
+covered only part of the transform (docs/design.md §9b): files using a kind not ported yet are reported and not
+written, so the transform time covers less than the full work. Parity counts files whose output equals the reference byte for byte.
 Three rounds interleaved with stock roblox-ts master (TS 5.9, `node out/CLI/cli.js build`, same flags; peak memory
 from `bench/maxrss.cjs`) on 2026-10-21, machine moderately busy (ms; MiB).
 
@@ -128,11 +128,10 @@ from `bench/maxrss.cjs`) on 2026-10-21, machine moderately busy (ms; MiB).
 | roblox-ts tests (`tsconfig.bench.json`, 72 files) | 2.3-2.5 | 39-49 | 3.8-4.7 | 85-103 | 75-81 | 0.8-1.2 | 1.2-2.2 | 216-236 | 62.5-62.8 | 17 (55 unsupported) | 6.5-7.2 s, 450-454 |
 
 References: the tests project against the tsrs-backed roblox-ts build (TS 7 semantics), the real
-project against the same pipeline's build of it. Every file that uses only T1 kinds is identical in both corpora, and so
-are the 10 files of a hand-written T1 fixture against the same tsrs-backed
-pipeline.
+project against the same pipeline's build of it. Every file that uses only the kinds that port covered is identical in both
+corpora, and so are the 10 files of a hand-written fixture of those kinds against the same tsrs-backed pipeline.
 
-## S2: incremental and watch rebuilds (`rbxts-bench watch-parity`, `rbxtsc build` with `"incremental": true`)
+## Incremental and watch rebuilds (`rbxts-bench watch-parity`, `rbxtsc build` with `"incremental": true`)
 
 The real project without Flamework (`tsconfig.noplugin.json`, `--optimizedLoops --allowCommentDirectives`), on a
 scratch copy, profile `measure`, one checker, 2026-10-21, machine busy (other builds running, ms). A leaf is a

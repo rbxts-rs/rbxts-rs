@@ -9,7 +9,7 @@
 //! fallbacks; late strings; source facts (UTF-16 positions, `{@link}`, `declaring_package`, `resolve_module`); the
 //! artifact and state-file commit; claim order and `RBXTS_PLUGIN_CLAIMS=all`; the phase-guard refusals; a
 //! panicking hook; `Err` without an error; an unresolved late string; an artifact path outside the project;
-//! `explain_checker_diagnostic`; and tsconfig activation. From S2: optional method calls and `super.m()` (with
+//! `explain_checker_diagnostic`; and tsconfig activation. Then: optional method calls and `super.m()` (with
 //! `compile_receiver` binding a non-method optional call's receiver); `property_key` in every position; the
 //! `assignment` hook with `compile_binary`; `compile_object_literal` (edits and a permuted order); `locals()`;
 //! `hoist_spillable` and the main chunk's local limit; expression hooks on chain links and statement assignments,
@@ -1236,7 +1236,7 @@ fn every_ts_nocheck_pragma_is_reported() {
     assert_eq!(spans, [(0, 14), (15, 14)], "{errors:?}");
 }
 
-/// The offers S2 left out and the seam's last additions, against the `seamrest` fixture (`probe` and `probe-exprcall`):
+/// The remaining offers and the seam's last additions, against the `seamrest` fixture (`probe` and `probe-exprcall`):
 /// optional method calls and non-method optional calls, `super.m()` / `super.m?.()` and a `super` callee's key, every
 /// access and call inside a chain for the expression hooks, an expression hook asked once per node, block bodies,
 /// `else if`, a static block and `declare` statements for the statement hooks, and dotted JSX tags. The expected Luau is

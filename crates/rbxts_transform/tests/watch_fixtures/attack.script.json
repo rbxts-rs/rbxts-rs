@@ -1,5 +1,5 @@
 {
-	"comment": "The c/s2-watch review's attack sequence on tests/watch_fixtures/attack (cargo test --test watch).",
+	"comment": "An adversarial edit sequence for watch and incremental builds on tests/watch_fixtures/attack (cargo test --test watch).",
 	"steps": [
 		{
 			"name": "A1b global .d.ts hop: a member renamed (clean build fails)",

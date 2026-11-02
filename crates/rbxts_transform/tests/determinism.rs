@@ -1,5 +1,5 @@
-//! S3-par: what a build writes and reports does not depend on the checker count, on which checker gets which file,
-//! or on the order a checker visits its files.
+//! Parallel checking: what a build writes and reports does not depend on the checker count, on which checker gets
+//! which file, or on the order a checker visits its files.
 //!
 //! Every transform fixture (`tests/fixtures/<area>` without links) and the plugin fixture (`tests/plugin_fixtures/probe`
 //! with the `stamp`, `probe` and `probe-exprcall` plugins, which write artifacts and a state file) is built, with
