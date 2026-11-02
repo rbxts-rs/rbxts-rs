@@ -14,6 +14,8 @@
 //   --where     print the binary's path and the state of its stamp, then exit
 //   --build     build the binary with Rust if it is missing or stale, without asking
 //   --rebuild   build the binary with Rust even if it is up to date
+// A build uses a temporary target folder in the OS temp folder, deleted afterwards (after Ctrl+C too); the next
+// build deletes those that killed builds left.
 // Environment: RBXTSC_BUILD=1 (as --build); RBXTSC_INTERACTIVE=1 or 0 (ask, reading the answer from stdin, or never
 // ask, whatever the terminal is).
 //
@@ -281,7 +283,105 @@ function pinnedRev(dir) {
 	return /\b(?:tag|rev)\s*=\s*"([^"]+)"/.exec(line)?.[1] ?? "(the rbxts_cli pin in Cargo.toml)";
 }
 
-function build(s) {
+const BUILD_DIR_PREFIX = "rbxtsc-build-";
+
+/**
+ * The process a build folder in the OS temp folder belongs to: `rbxtsc-build-<hash prefix>-<pid>` names the launcher
+ * that builds in it. `null` for an older launcher's `rbxtsc-build-<hash prefix>`, which names none; `undefined` for
+ * any other name.
+ */
+export function buildDirOwner(name) {
+	const match = /^rbxtsc-build-[0-9a-f]{12}(?:-(\d+))?$/.exec(name);
+	if (!match) return undefined;
+	return match[1] === undefined ? null : Number(match[1]);
+}
+
+function processAlive(pid) {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (e) {
+		// another user's process
+		return e.code === "EPERM";
+	}
+}
+
+/**
+ * Deletes the build folders in `tmp` that no running build holds: those of launchers that are gone (a build killed
+ * before it could clean up, such as by closing its terminal), and those of older launchers, which named no owner.
+ * Returns the names it deleted.
+ */
+export function removeStaleBuildDirs(tmp = os.tmpdir()) {
+	let entries;
+	try {
+		entries = fs.readdirSync(tmp, { withFileTypes: true });
+	} catch {
+		return [];
+	}
+	const removed = [];
+	for (const entry of entries) {
+		if (!entry.isDirectory() || !entry.name.startsWith(BUILD_DIR_PREFIX)) continue;
+		const owner = buildDirOwner(entry.name);
+		if (owner === undefined || (owner !== null && owner !== process.pid && processAlive(owner))) continue;
+		if (removeDir(path.join(tmp, entry.name))) removed.push(entry.name);
+	}
+	return removed;
+}
+
+/** Deletes a folder; on Windows a process that just ended may hold its files for a moment. */
+function removeDir(dir) {
+	try {
+		fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Ends a process and the processes it started (cargo and its rustc processes). */
+function killTree(child) {
+	if (process.platform === "win32") {
+		spawnSync("taskkill", ["/T", "/F", "/PID", String(child.pid)], { stdio: "ignore" });
+	} else {
+		child.kill("SIGKILL");
+	}
+}
+
+/**
+ * Runs cargo with `args` and resolves with `{ code, signal, error, interrupted }` once it has ended: `interrupted` is
+ * the signal that stopped the launcher meanwhile. The launcher waits for cargo before it deletes the target folder.
+ * On Windows Ctrl+C and Ctrl+Break reach cargo and its rustc processes too (one console), which end by themselves;
+ * they are ended if they have not after a few seconds, and at once when the console closes. Elsewhere the signal is
+ * passed on to cargo.
+ */
+function runCargo(args, options) {
+	return new Promise((resolve) => {
+		const child = spawn("cargo", args, options);
+		let interrupted;
+		let timer;
+		const stop = (signal) => {
+			interrupted ??= signal;
+			if (process.platform !== "win32") {
+				child.kill(signal);
+			} else if (signal === "SIGINT" || signal === "SIGBREAK") {
+				timer ??= setTimeout(() => killTree(child), 5000);
+			} else {
+				killTree(child);
+			}
+		};
+		for (const signal of SIGNALS) process.on(signal, stop);
+		const done = (result) => {
+			clearTimeout(timer);
+			for (const signal of SIGNALS) process.off(signal, stop);
+			resolve({ ...result, interrupted });
+		};
+		child.on("error", (error) => done({ error }));
+		child.on("exit", (code, signal) => done({ code, signal }));
+	});
+}
+
+/** Builds the binary with Rust: true when built, false when not, or `{ signal }` when a signal stopped the build. */
+async function build(s) {
 	if (!hasCommand("cargo") || !hasCommand("rustup")) {
 		say(`${NAME}: building needs Rust (cargo and rustup), which was not found.`);
 		say("  Install rustup from https://rustup.rs, open a new terminal, and run this again. rustup then installs the");
@@ -317,12 +417,20 @@ function build(s) {
 			return false;
 		}
 	}
-	const targetDir = path.join(os.tmpdir(), `rbxtsc-build-${s.hash.slice(0, 12)}`);
+	// a build killed before it could delete its target folder left it behind (several GB): the next build does
+	const removed = removeStaleBuildDirs();
+	if (removed.length > 0) say(`${NAME}: deleted ${removed.length} target folder(s) interrupted builds left in ${os.tmpdir()}`);
+	// the launcher's process id in the name: a running build's folder is never another build's or a leftover
+	const targetDir = path.join(os.tmpdir(), `${BUILD_DIR_PREFIX}${s.hash.slice(0, 12)}-${process.pid}`);
 	const args = ["build", "--release", ...(locked ? ["--locked"] : []), "--target-dir", targetDir];
 	say(`${NAME}: building ${s.bin} for ${s.triple} (about ${BUILD_MINUTES} min): cargo ${args.join(" ")}`);
 	try {
-		const r = spawnSync("cargo", args, { cwd, env, stdio: ["ignore", "inherit", "inherit"] });
-		if (r.error || r.status !== 0) {
+		const r = await runCargo(args, { cwd, env, stdio: ["ignore", "inherit", "inherit"] });
+		if (r.interrupted) {
+			say(`${NAME}: the build was stopped (${r.interrupted}); deleting its target folder.`);
+			return { signal: r.interrupted };
+		}
+		if (r.error || r.code !== 0) {
 			say(`${NAME}: the build failed${r.error ? ` (${r.error.message})` : ""}.`);
 			return false;
 		}
@@ -330,7 +438,7 @@ function build(s) {
 		// the hash after the build: without --locked, cargo may have updated Cargo.lock
 		install(s, (tmp) => fs.copyFileSync(built, tmp), configHash(cwd));
 	} finally {
-		fs.rmSync(targetDir, { recursive: true, force: true });
+		removeDir(targetDir);
 	}
 	say(`${NAME}: built ${s.exe}`);
 	if (!locked) say(`${NAME}: Cargo.lock was updated; commit it.`);
@@ -407,7 +515,8 @@ export async function main(argv, dir = HERE) {
 	}
 	const buildAsked = flags.has("--build") || flags.has("--rebuild") || process.env.RBXTSC_BUILD === "1";
 	if (flags.has("--rebuild")) {
-		if (!build(s)) return 1;
+		const built = await build(s);
+		if (built !== true) return built || 1;
 	} else if (s.upToDate) {
 		// the stamp matches: run it
 	} else if (s.presetMatches && s.prebuilt) {
@@ -429,7 +538,8 @@ export async function main(argv, dir = HERE) {
 				return 1;
 			}
 		}
-		if (!build(s)) return 1;
+		const built = await build(s);
+		if (built !== true) return built || 1;
 	}
 	// `rbxtsc.mjs --build` (or --rebuild) alone only builds
 	if (args.length === 0 && (flags.has("--build") || flags.has("--rebuild"))) return 0;

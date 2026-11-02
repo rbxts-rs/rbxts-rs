@@ -74,6 +74,57 @@ function installFake(dir, stamp = launcher.configHash(dir)) {
 	fs.writeFileSync(path.join(bin, ".stamp"), `${stamp}\n`);
 }
 
+/**
+ * The environment of a launcher that builds with a fake cargo and rustup (copies of the node executable that a
+ * preloaded script turns into them) and uses `tmp` as its temp folder. The fake `cargo build` makes its target folder
+ * and a binary there; with FAKE_CARGO_WAIT it writes its process id to that file instead and waits until the file
+ * FAKE_CARGO_STOP appears (then exits 1) or it is ended.
+ */
+function fakeCargoEnv(tmp) {
+	const bin = path.join(ROOT, "fake-rust");
+	const preload = path.join(ROOT, "fake-rust.cjs");
+	if (!fs.existsSync(bin)) {
+		fs.mkdirSync(bin);
+		for (const name of ["cargo", "rustup"]) {
+			const file = path.join(bin, WIN ? `${name}.exe` : name);
+			fs.copyFileSync(process.execPath, file);
+			if (!WIN) fs.chmodSync(file, 0o755);
+		}
+		fs.writeFileSync(
+			preload,
+			`const fs = require("fs"), path = require("path");
+const tool = path.basename(process.execPath).toLowerCase().replace(/\\.exe$/, "");
+if (tool === "cargo" || tool === "rustup") {
+	// node took the first argument for its script: \`cargo build …\` runs ./build
+	const command = path.basename(process.argv[1] ?? "");
+	if (tool === "cargo" && command === "metadata") fs.writeSync(1, JSON.stringify({ packages: [] }));
+	if (tool === "cargo" && command === "build") {
+		const target = process.argv[process.argv.indexOf("--target-dir") + 1];
+		fs.mkdirSync(path.join(target, "release"), { recursive: true });
+		fs.writeFileSync(path.join(target, "release", "partial.rlib"), "x");
+		if (process.env.FAKE_CARGO_WAIT) {
+			fs.writeFileSync(process.env.FAKE_CARGO_WAIT, String(process.pid));
+			const cell = new Int32Array(new SharedArrayBuffer(4));
+			while (!(process.env.FAKE_CARGO_STOP && fs.existsSync(process.env.FAKE_CARGO_STOP))) Atomics.wait(cell, 0, 0, 50);
+			process.exit(1);
+		}
+		fs.writeFileSync(path.join(target, "release", ${JSON.stringify(EXE)}), "fake binary");
+	}
+	process.exit(0);
+}
+`,
+		);
+	}
+	const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+	return {
+		[pathKey]: `${bin}${path.delimiter}${process.env[pathKey]}`,
+		NODE_OPTIONS: `--require ${JSON.stringify(preload)}`,
+		TEMP: tmp,
+		TMP: tmp,
+		TMPDIR: tmp,
+	};
+}
+
 /** Runs the launcher (asynchronously: the fake release is served from this process). */
 function runLauncher(dir, args, { env = {}, input = "" } = {}) {
 	const child = spawn(process.execPath, [path.join(dir, "rbxtsc.mjs"), ...args], {
@@ -303,6 +354,72 @@ try {
 			error = e.message;
 		}
 		assert(error === `the archive has 2 files named ${EXE}, not one`, "two exes", error);
+	});
+
+	await test("--build: deletes the target folders of builds that are gone, keeps a running build's", async () => {
+		const dir = project("stale", withRelease());
+		fs.appendFileSync(path.join(dir, "Cargo.toml"), "\n# a change\n");
+		const tmp = path.join(ROOT, "tmp-stale");
+		fs.mkdirSync(tmp, { recursive: true });
+		const dead = spawnSync(process.execPath, ["-e", ""]).pid;
+		const folders = {
+			dead: `rbxtsc-build-0123456789ab-${dead}`,
+			legacy: "rbxtsc-build-0123456789ab",
+			running: `rbxtsc-build-0123456789ab-${process.pid}`,
+			other: "rbxtsc-build-notes",
+		};
+		for (const name of Object.values(folders)) fs.mkdirSync(path.join(tmp, name, "release"), { recursive: true });
+		const r = await runLauncher(dir, ["--build"], { env: fakeCargoEnv(tmp) });
+		assert(r.code === 0, "exit code", r.all);
+		assert(r.stderr.includes(`deleted 2 target folder(s) interrupted builds left in ${tmp}`), "the note", r.all);
+		const left = fs.readdirSync(tmp).sort();
+		assert(left.join() === [folders.running, folders.other].sort().join(), "the folders left", left.join());
+		assert(/--target-dir \S*rbxtsc-build-[0-9a-f]{12}-\d+/.test(r.stderr), "the build's own folder names its launcher", r.all);
+		assert(fs.readFileSync(path.join(dir, "bin", TRIPLE, ".stamp"), "utf8") === `${launcher.configHash(dir)}\n`, "built and stamped", r.all);
+	});
+
+	await test("Ctrl+C during --build: waits for cargo, deletes the target folder, ends as interrupted", async () => {
+		for (const cargoEnds of [true, false]) {
+			const dir = project(`interrupt-${cargoEnds}`, withRelease());
+			fs.appendFileSync(path.join(dir, "Cargo.toml"), "\n# a change\n");
+			const tmp = path.join(ROOT, `tmp-interrupt-${cargoEnds}`);
+			fs.mkdirSync(tmp, { recursive: true });
+			const pidFile = path.join(ROOT, `cargo-${cargoEnds}.pid`);
+			const stopFile = path.join(ROOT, `cargo-${cargoEnds}.stop`);
+			// the launcher runs in a driver that raises SIGINT in itself, as a console Ctrl+C does (Windows has no
+			// signals to send to another process). The fake cargo ends when the stop file appears (it got the Ctrl+C
+			// too) or, without one, has to be ended by the launcher.
+			const driver = path.join(ROOT, `driver-build-${cargoEnds}.mjs`);
+			fs.writeFileSync(
+				driver,
+				`import { main } from ${JSON.stringify(pathToFileURL(path.join(dir, "rbxtsc.mjs")).href)};
+process.stdin.once("data", () => process.emit("SIGINT", "SIGINT"));
+main(["--build"]).then((r) => { console.log("result " + JSON.stringify(r)); process.exit(0); });
+`,
+			);
+			const env = { ...process.env, RBXTSC_INTERACTIVE: "0", ...fakeCargoEnv(tmp), FAKE_CARGO_WAIT: pidFile, FAKE_CARGO_STOP: stopFile };
+			const child = spawn(process.execPath, [driver], { cwd: path.dirname(dir), env, stdio: ["pipe", "pipe", "pipe"] });
+			let out = "";
+			child.stdout.on("data", (d) => (out += d));
+			child.stderr.on("data", (d) => (out += d));
+			const exited = new Promise((resolve) => child.on("exit", resolve));
+			const deadline = Date.now() + 20_000;
+			while (!fs.existsSync(pidFile) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
+			assert(fs.existsSync(pidFile), "cargo did not start", out);
+			const cargoPid = Number(fs.readFileSync(pidFile, "utf8"));
+			const building = fs.readdirSync(tmp).filter((n) => n.startsWith("rbxtsc-build-"));
+			assert(building.length === 1, "the build's target folder", building.join());
+			child.stdin.write("go\n");
+			if (cargoEnds) fs.writeFileSync(stopFile, "");
+			const result = await Promise.race([exited, new Promise((r) => setTimeout(() => r("timeout"), 20_000))]);
+			if (result === "timeout") child.kill();
+			assert(result !== "timeout", "the launcher did not end", out);
+			assert(out.includes('result {"signal":"SIGINT"}'), "the launcher's result", out);
+			assert(out.includes("the build was stopped (SIGINT); deleting its target folder."), "the note", out);
+			assert(!alive(cargoPid), "cargo was left running", out);
+			assert(fs.readdirSync(tmp).length === 0, "the target folder was left", fs.readdirSync(tmp).join());
+			assert(!fs.existsSync(path.join(dir, "bin", TRIPLE, EXE)), "a binary was installed");
+		}
 	});
 
 	await test("signal forwarding: the launcher's SIGINT/SIGTERM stops the binary and the launcher waits for it", async () => {

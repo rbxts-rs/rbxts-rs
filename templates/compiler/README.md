@@ -56,11 +56,13 @@ Building needs [rustup](https://rustup.rs) (it brings `cargo`); without it the l
 installs the Rust version `rust-toolchain.toml` names by itself. The launcher then runs
 
 ```sh
-cargo build --release --locked --target-dir <OS temp>/rbxtsc-build-<hash prefix>
+cargo build --release --locked --target-dir <OS temp>/rbxtsc-build-<hash prefix>-<launcher process id>
 ```
 
 in this folder, copies the binary into `bin/<target triple>/`, stamps it, and deletes the temporary target folder
-(also when the build fails). A clean build takes about 3 min on a desktop PC.
+(also when the build fails, and after Ctrl+C: the launcher waits for cargo to stop first). A build killed outright
+(its terminal closed, its process ended) cannot clean up: the next build deletes the target folders of launchers that
+are no longer running. A clean build takes about 3 min on a desktop PC.
 
 - **`Cargo.lock` out of date** (a plugin added to `Cargo.toml`): the launcher says so, builds without `--locked`,
   which updates `Cargo.lock`, and asks you to commit it.
