@@ -167,6 +167,10 @@ follows TypeScript 7.1"). A project made by `npx rbxtsc init` needs these change
 - **`rootDir`:** set it. Without it, TypeScript 7 lays the outputs out under the tsconfig's folder and refuses sources
   with another common folder (TS5011), which a `rootDirs` project meets.
 - **Removed options:** delete `downlevelIteration` (TS5102) and any other option TypeScript 7 reports as removed.
+- **`@rbxts/compiler-types`:** TypeScript 7 needs the 3-parameter iterables (docs/design.md §5). The published
+  package has 1-parameter `Iterable`, `IterableIterator`, `AsyncIterable` and `AsyncIterableIterator`, and with them
+  `for…of` and spread over anything but an array do not type-check. Until a fixed package is published, patch
+  `node_modules/@rbxts/compiler-types/types/Iterable.d.ts` as described under "Build, test and measure".
 
 The template's tsconfig, adapted (it builds with `@rbxts/services`, `@rbxts/t`, `@rbxts/react` and
 `@rbxts/react-roblox` imported):
