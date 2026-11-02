@@ -1,13 +1,99 @@
 # rbxts-rs
 
-roblox-ts rewritten in Rust on [tsrs](https://github.com/oxc-project/tsrs) (the Rust port of TypeScript 7), with
-compiled-in plugins. Private and local: never pushed or published. Flamework's plugin (`flamework_rs`) and its
-`rbxtsc-fw` binary live in their own repository, flamework-rs, which depends on this one by git rev.
+[roblox-ts](https://github.com/roblox-ts/roblox-ts) rewritten in Rust, on TypeScript 7.1 through
+[tsrs](https://github.com/oxc-project/tsrs) (the Rust port of TypeScript 7), with plugins compiled in. `rbxtsc` is
+called as stock `rbxtsc` is and answers as it does; a project with plugins builds its own `rbxtsc` from a few lines of
+Rust that register them. Flamework's transformer is one such plugin: `flamework_rs` and its `rbxtsc-fw` binary live
+in their own repository, flamework-rs, which depends on this one by git rev.
 
-- Design: `docs/design.md` (code comments cite its sections as `docs/design.md §n`).
-- Measurements: `bench/RESULTS.md`.
-- tsrs: the fork branch `rbxts-fork-0.20.1` (tsrs v0.20.1 plus visibility flips), a git dependency pinned by rev (see
-  `Cargo.toml` and `docs/tsrs.md`, "The fork").
+rbxts-rs is a base to fork, not a product: there are no releases, no semver and no support promises. Take it, pin a
+rev, and change what you need.
+
+## Status and what it promises
+
+- **Output parity with stock roblox-ts** (3.0.0, master 68648b0) for regular code: the Luau, the runtime include
+  folder, the diagnostics and the exit codes are stock's, byte for byte. Parity is checked against stock builds of
+  roblox-ts's own tests project and of a real project (`rbxts-bench build --parity`, below), and by the fixtures under
+  `crates/*/tests`.
+- **The documented differences, and only those:**
+  - TypeScript 7.1's rules where they differ from TypeScript 5's (configuration, a few diagnostics, export and union
+    order): "Upgrading a roblox-ts project to rbxts-rs" below and `docs/tsrs.md`, "rbxts-rs follows TypeScript 7.1";
+  - roblox-ts bugs fixed on purpose: "Deliberate differences from stock" below and the divergence manifest
+    (`crates/rbxts_bench/parity/divergences.json`);
+  - watch and project-reference deviations, listed in their sections below.
+- **Platform:** developed and tested on Windows. Many end-to-end tests are Windows-only, and other platforms are
+  untested.
+- **Design:** `docs/design.md` (code comments cite its sections as `docs/design.md §n`). Measurements:
+  `bench/RESULTS.md`.
+
+## Build, test and measure
+
+The Rust version is pinned in `rust-toolchain.toml`. `dev` builds are optimised too (a debug checker is unusably
+slow); `measure` is release without LTO, for tests and numbers; `release` (fat LTO) is for binaries projects use.
+
+```sh
+cargo build --profile measure                     # target/measure/rbxtsc(.exe) and rbxts-bench(.exe)
+cargo test --workspace --profile measure
+cargo clippy --workspace --all-targets --profile measure -- -D warnings
+```
+
+Tests that build projects link in the `node_modules` of roblox-ts's tests project (a roblox-ts checkout with its
+`tests` packages installed): `RBXTS_RS_FIXTURE_NODE_MODULES` names it, or it is found as `roblox-ts/tests` beside
+the checkout or a directory above it. Without it those tests are skipped with a note, or fail when `CI` or
+`RBXTS_RS_FIXTURE_REQUIRE=1` is set ("Building a project" below).
+
+Measuring a project's load and check, and its build:
+
+```sh
+cd <project with tsconfig.json>
+<rbxts-rs>/target/measure/rbxts-bench load [--checkers N] [--check project|all|none] [--lazy-dts] [--json]
+<rbxts-rs>/target/measure/rbxts-bench build [-p tsconfig.json] [--parity REF_DIR] [--json] ...
+```
+
+Use `measure` for any number that goes into `bench/RESULTS.md`, and interleave runs with the reference, because
+machine load moves wall times.
+
+## Repository layout
+
+- `crates/rbxts_project`: the project as a tsrs program (tsconfig, loading, checking) and roblox-ts's project setup:
+  the Rojo resolver, the path translator, Node's `path`.
+- `crates/rbxts_luau`: the Luau syntax tree and renderer (`@roblox-ts/luau-ast`).
+- `crates/rbxts_luau_check`: Luau's own compiler, to check emitted Luau against Luau's limits.
+- `crates/rbxts_transform`: the TypeScript → Luau transform (roblox-ts's `src/TSTransformer`), the build pipeline,
+  incremental and watch builds, and the compiler side of the plugin seam.
+- `crates/rbxts_plugin`: the plugin API.
+- `crates/rbxts_cli`: the `rbxtsc` command line, as a library (`Cli`) and the plain `rbxtsc` binary.
+- `crates/rbxts_bench`: `rbxts-bench`, the measurement and parity harness.
+- `crates/rbxts_probe`: probes of tsrs behaviour the port relies on.
+- `crates/rbxts_test_plugins`, `crates/rbxts_test_support`: test plugins and test helpers.
+- `docs`: the design and the tsrs notes; `bench`: measurements; `tools`: Node scripts that record stock roblox-ts's
+  answers for the fixtures.
+
+## Plugins: writing one and compiling it in
+
+A plugin is a Rust crate implementing `rbxts_plugin::Plugin`; `crates/rbxts_plugin/README.md` is the guide (the
+model, the hooks, what the compiler offers, a worked example). A project's own `rbxtsc` is a bin crate that
+depends on `rbxts_cli` and the plugin crates by git rev and registers them:
+
+```rust
+fn main() -> std::process::ExitCode {
+    rbxts_cli::Cli::new().plugin(my_plugin::MyPlugin::new()).run() // rbxtsc's arguments, exit codes 0 / 1
+}
+```
+
+A tsconfig's `plugins` entry turns a plugin on (`PluginInfo::tsconfig_transform`). More under "Plugins" below; the
+flamework-rs repository is a complete example.
+
+## The tsrs fork
+
+rbxts-rs builds on a fork of tsrs whose commits only make tsrs functions public (visibility flips, no behaviour
+changes), `<tsrs-fork-repo>`, pinned by rev in the workspace `Cargo.toml`. `docs/tsrs.md` covers the fork (its
+branch, its flips, how to move it to a new tsrs version) and what following TypeScript 7.1 means for projects.
+
+## License
+
+MIT (`LICENSE`). rbxts-rs ports roblox-ts and the packages it uses and builds on tsrs and TypeScript;
+`THIRD-PARTY-NOTICES.md` lists them with their licenses.
 
 ## Upgrading a roblox-ts project to rbxts-rs (TypeScript 7.1)
 rbxts-rs reads a tsconfig as TypeScript 7.1 does and does not emulate TypeScript 5's rules (`docs/tsrs.md`, "rbxts-rs
@@ -59,17 +145,6 @@ The template's tsconfig, adapted (it builds with `@rbxts/services`, `@rbxts/t`, 
 }
 ```
 
-## Build and measure
-
-```sh
-cargo build --profile measure
-cd <project with tsconfig.json>
-<rbxts-rs>/target/measure/rbxts-bench.exe load [--checkers N] [--check project|all|none] [--lazy-dts] [--json]
-```
-
-`dev` builds are optimised too (a debug checker is unusably slow). Use `measure` for any number that goes into
-`bench/RESULTS.md`, and interleave runs with the reference because machine load moves wall times.
-
 ## Luau render parity (`rbxts_luau`)
 
 `crates/rbxts_luau` is `@roblox-ts/luau-ast` 2.1.2 in Rust. Its renderer is checked byte for byte against roblox-ts's
@@ -82,7 +157,7 @@ node <rbxts-rs>/tools/dump-luau-ast.cjs <roblox-ts checkout> tsconfig.json <dump
 <rbxts-rs>/target/measure/rbxts-bench.exe luau-parity <dump.jsonl>... [--show N] [--repeat N] [--threads N]
 ```
 
-Dumps of the real project stay outside the repo (scratchpad `rbxts-rs/luau-dumps`). The committed fixture
+Dumps of real projects stay outside the repository. The committed fixture
 `crates/rbxts_bench/fixtures/luau-edge-cases.jsonl` comes from `tools/luau-edge-cases.cjs` (hand-written trees,
 rendered by roblox-ts's luau-ast) and is checked by `cargo test -p rbxts_bench`.
 
@@ -96,16 +171,15 @@ as `ProjectServices` (with package.json lookups and `Project::resolve_module`). 
 records roblox-ts's own values for a project; `rbxts-bench project-parity` computes them with the port and compares.
 
 ```sh
-# RBXTS_DIR: a roblox-ts checkout with out/ built (default E:/Projects/TS/Flamework/roblox-ts-test/roblox-ts)
+# RBXTS_DIR: a roblox-ts checkout with out/ built
 node <rbxts-rs>/tools/dump-project-services.cjs <project dir or tsconfig.json> <dump.json> [--timing-runs N]
 <rbxts-rs>/target/measure/rbxts-bench.exe project-parity <dump.json> [--runs N] [--max-diffs N]
 ```
 
 The roblox-ts checkout the dumps were made with has a patched `@roblox-ts/rojo-resolver`
 (`out/RojoResolver.js` calls `realpathSync.native` where the shipped file, kept as `RojoResolver.js.orig`, calls
-`realpathSync`); parity holds against either. Dumps of the real project stay outside the repo (scratchpad
-`rbxts-rs/project-dumps`). `cargo test -p rbxts_project
--p rbxts_bench` runs the same comparisons on committed fixtures: Node's answers for the path functions
+`realpathSync`); parity holds against either. Dumps of real projects stay outside the repository.
+`cargo test -p rbxts_project -p rbxts_bench` runs the same comparisons on committed fixtures: Node's answers for the path functions
 (`tools/gen-nodepath-cases.cjs`), the JavaScript resolver's on hand-made Rojo trees (`tools/gen-rojo-cases.cjs`) and
 roblox-ts's setup on hand-made projects (`tools/gen-setup-fixtures.cjs`); rerun those scripts when the fixtures
 change.
@@ -126,9 +200,9 @@ cd <project>
 `--out-dir` writes outside the project's `outDir` (Rojo paths still resolve against `outDir`). `--parity` compares
 each output with a reference build's file (identical / known-fix / stale / differing / failed / missing), and with
 `--report` writes the per-file list.
-References: roblox-ts's tests project (`tsconfig.bench.json`, against the tsrs-backed build in scratchpad
-`tsrs-roblox-ts/exp/out-C-tsrs/out`) and the real project without Flamework (scratchpad `rbxts-rs/refs`); both were
-built with `--optimizedLoops --allowCommentDirectives`.
+The references are stock roblox-ts builds (roblox-ts master on TypeScript 5.9, `--optimizedLoops
+--allowCommentDirectives`) of roblox-ts's tests project (`tsconfig.bench.json`) and of a real project without
+Flamework; `--divergences crates/rbxts_bench/parity/divergences.json` classes the outputs that differ on purpose.
 
 **Linked `node_modules` (workspaces, junctions).** As stock roblox-ts does, rbxts-rs tells Roblox types apart by the
 real path of their declaration file: it must lie under the project's `node_modules/@rbxts/types`. When that folder
@@ -149,10 +223,9 @@ In watch and project-reference builds, the deviations listed there (a case-only 
 
 Hand-written transform fixtures live in `crates/rbxts_transform/tests/fixtures/<area>`: a roblox-ts project without
 `node_modules` (`src`, `tsconfig.json`, `default.project.json`) and `expected/`, stock roblox-ts's output for it
-(`node roblox-ts-test/probe/rbxts-driver.cjs <roblox-ts checkout> tsconfig.json --backend ts5`, from the fixture with a
-`node_modules` linked in). `cargo test -p rbxts_transform --test fixtures` builds each one in a temporary copy, linking
+(stock roblox-ts on TypeScript 5 building the fixture with a `node_modules` linked in). `cargo test -p rbxts_transform --test fixtures` builds each one in a temporary copy, linking
 in `RBXTS_RS_FIXTURE_NODE_MODULES` (default: the roblox-ts tests project's `node_modules`, found as
-`roblox-ts/tests` or `roblox-ts-test/roblox-ts/tests` beside the checkout or a directory above it), and compares byte
+`roblox-ts/tests` beside the checkout or a directory above it), and compares byte
 for byte; any diagnostic fails the fixture. A fixture with a `links.json` is built in each linked layout it describes
 (junctions made at test time). Without a `node_modules` the tests are skipped with a note on the terminal, or fail
 when `CI` or `RBXTS_RS_FIXTURE_REQUIRE=1` is set; a variable naming a directory without the packages is an error.
