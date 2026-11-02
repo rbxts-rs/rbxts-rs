@@ -1564,7 +1564,8 @@ fn entries(dir: &Path) -> Vec<String> {
 
 /// The Luau outputs are written all or nothing (docs/design.md §14: a failing build writes nothing): with two outputs
 /// blocked by directories, the build fails naming both, and no other output is written, no temporary file is left, and
-/// no directory the staging created stays. With the paths free again, the next build writes them.
+/// no directory the commit made stays (`out/shared/sub`, made for a new source's output before the staging failed).
+/// With the paths free again, the next build writes them.
 #[test]
 fn a_luau_write_error_writes_no_other_output() {
     let Some((copy, root)) = keeper_copy("blocked", false) else { return };
@@ -1573,6 +1574,8 @@ fn a_luau_write_error_writes_no_other_output() {
         std::fs::create_dir_all(root.join(dir)).unwrap();
         std::fs::write(root.join(dir).join("keep.txt"), "x").unwrap();
     }
+    std::fs::create_dir_all(root.join("src/shared/sub")).unwrap();
+    std::fs::write(root.join("src/shared/sub/e.ts"), "export const e = 1;\n").unwrap();
     let before = entries(&root.join("out"));
     big_stack(|| {
         let options = PluginOptions { ignore_unknown_tsconfig_plugins: true, ..PluginOptions::default() };
@@ -1592,9 +1595,64 @@ fn a_luau_write_error_writes_no_other_output() {
         let (report, summary) = session.build(&[]);
         assert!(!report.has_errors(), "{:?}", report.fatal);
         assert!(!summary.written.is_empty());
-        for file in blocked {
+        for file in blocked.iter().chain(&["out/shared/sub/e.luau"]) {
             assert!(root.join(file).is_file(), "{file}");
         }
+    });
+    drop(copy);
+}
+
+/// A folder the commit cannot make (a file sits at its parent's path) fails the build naming the output below it, and
+/// the folders made before it (`out/shared/fresh`, one level up) are removed again: no other output, folder or
+/// temporary file stays. With the file gone, the next build writes both.
+#[test]
+fn a_folder_that_cannot_be_made_removes_the_folders_made_before_it() {
+    let Some((copy, root)) = keeper_copy("nodir", false) else { return };
+    std::fs::create_dir_all(root.join("out/shared")).unwrap();
+    std::fs::write(root.join("out/shared/f"), "a file where a folder goes\n").unwrap();
+    for (dir, file) in [("src/shared/fresh", "a.ts"), ("src/shared/f/sub", "e.ts")] {
+        std::fs::create_dir_all(root.join(dir)).unwrap();
+        std::fs::write(root.join(dir).join(file), "export const x = 1;\n").unwrap();
+    }
+    let before = entries(&root.join("out"));
+    big_stack(|| {
+        let options = PluginOptions { ignore_unknown_tsconfig_plugins: true, ..PluginOptions::default() };
+        let mut session = keeper_session(&root, &options, false);
+        let (report, summary) = session.build(&[]);
+        let failed: Vec<String> =
+            report.fatal.iter().filter(|m| m.starts_with("could not write")).map(|m| m.replace('\\', "/")).collect();
+        assert_eq!(failed.len(), 1, "{:?}", report.fatal);
+        assert!(failed[0].contains("out/shared/f/sub/e.luau") && failed[0].contains("could not create"), "{failed:?}");
+        assert!(summary.written.is_empty(), "{:?}", summary.written);
+        assert_eq!(entries(&root.join("out")), before, "no output, no folder, no temporary file");
+
+        std::fs::remove_file(root.join("out/shared/f")).unwrap();
+        let (report, _) = session.build(&[]);
+        assert!(!report.has_errors(), "{:?}", report.fatal);
+        for file in ["out/shared/fresh/a.luau", "out/shared/f/sub/e.luau"] {
+            assert!(root.join(file).is_file(), "{file}");
+        }
+    });
+    drop(copy);
+}
+
+/// A new output in a folder that is there already (unlisted, so its folder is made, which finds it there) leaves the
+/// unchanged outputs beside it alone: that folder is not one the commit made, so they are compared, not written again.
+/// A second build, in a new session, writes the new output only.
+#[test]
+fn a_new_output_beside_unchanged_ones_writes_only_itself() {
+    let Some((copy, root)) = keeper_copy("beside", false) else { return };
+    big_stack(|| {
+        let options = PluginOptions { ignore_unknown_tsconfig_plugins: true, ..PluginOptions::default() };
+        let (report, summary) = keeper_session(&root, &options, false).build(&[]);
+        assert!(!report.has_errors(), "{:?}", report.fatal);
+        assert!(summary.written.len() > 2, "{:?}", summary.written);
+        std::fs::write(root.join("src/shared/fresh.ts"), "export const fresh = 1;\n").unwrap();
+        let (report, summary) = keeper_session(&root, &options, false).build(&[]);
+        assert!(!report.has_errors(), "{:?}", report.fatal);
+        let written: Vec<String> = summary.written.iter().map(|p| p.replace('\\', "/")).collect();
+        assert_eq!(written.len(), 1, "{written:?}");
+        assert!(written[0].ends_with("out/shared/fresh.luau"), "{written:?}");
     });
     drop(copy);
 }
