@@ -9,6 +9,56 @@ compiled-in plugins. Private and local: never pushed or published. Flamework's p
 - tsrs: the fork branch `rbxts-fork-0.20` (tsrs v0.20.0 plus visibility flips), a git dependency pinned by rev (see
   `Cargo.toml` and `docs/tsrs.md`, "The fork").
 
+## Upgrading a roblox-ts project to rbxts-rs (TypeScript 7.1)
+rbxts-rs reads a tsconfig as TypeScript 7.1 does and does not emulate TypeScript 5's rules (`docs/tsrs.md`, "rbxts-rs
+follows TypeScript 7.1"). A project made by `npx rbxtsc init` needs these changes to its tsconfig's
+`compilerOptions`:
+
+- **`types`:** add `"types": ["types", "compiler-types"]`, plus any other package of `typeRoots` whose globals the
+  project uses. TypeScript 7 no longer loads the type-root packages by itself; without `types`, rbxtsc warns with this
+  line and the build fails (`MacroManager could not find symbol for Promise`). The names are relative to `typeRoots`,
+  as roblox-ts checks them. `"types": ["*"]` loads every type-root package, as TypeScript 5 did.
+- **`baseUrl`:** remove it (TS5102). For `"baseUrl": "src"`, write `"paths": { "*": ["./src/*"] }`; `paths` entries
+  are relative to the tsconfig.
+- **`module` / `moduleResolution`:** `"module": "preserve"` and `"moduleResolution": "bundler"`. `node` / `node10`
+  is removed (TS5108); roblox-ts accepts `commonjs` only with it.
+- **`rootDir`:** set it. Without it, TypeScript 7 lays the outputs out under the tsconfig's folder and refuses sources
+  with another common folder (TS5011), which a `rootDirs` project meets.
+- **Removed options:** delete `downlevelIteration` (TS5102) and any other option TypeScript 7 reports as removed.
+
+The template's tsconfig, adapted (it builds with `@rbxts/services`, `@rbxts/t`, `@rbxts/react` and
+`@rbxts/react-roblox` imported):
+
+```jsonc
+{
+	"compilerOptions": {
+		// required
+		"allowSyntheticDefaultImports": true,
+		"jsx": "react",
+		"jsxFactory": "React.createElement",
+		"jsxFragmentFactory": "React.Fragment",
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"noLib": true,
+		"resolveJsonModule": true,
+		"experimentalDecorators": true,
+		"forceConsistentCasingInFileNames": true,
+		"moduleDetection": "force",
+		"strict": true,
+		"target": "ESNext",
+		"typeRoots": ["node_modules/@rbxts"],
+		"types": ["types", "compiler-types"],
+
+		// configurable
+		"rootDir": "src",
+		"outDir": "out",
+		"paths": { "*": ["./src/*"] },
+		"incremental": true,
+		"tsBuildInfoFile": "out/tsconfig.tsbuildinfo"
+	}
+}
+```
+
 ## Build and measure
 
 ```sh
@@ -169,7 +219,7 @@ every project at the one directory); what makes a project dirty is a superset of
 **Declarations** (`project/emit_declarations.rs`): a `declaration` or `composite` build checks the declaration
 diagnostics with the others and emits the `.d.ts` (and `.d.ts.map`) of every transformed file through tsrs's
 emitter, then applies roblox-ts's `afterDeclarations` transformers (`/// <reference types="types" />` to
-`@rbxts/types`; `transformPaths` with `baseUrl`/`paths`) as text rewrites, moving the map's mappings with them.
+`@rbxts/types`; `transformPaths` with `paths`) as text rewrites, moving the map's mappings with them.
 `.d.ts` files under the root dirs are declaration assets, reprinted as `transformDeclarationFile` does. Declarations
 go through the same all-or-nothing commit as the Luau, and stale ones are removed by the `getProjectOutputs` keep set.
 Declaration maps are TypeScript 7's (its mappings differ from TypeScript 5's for some declarations); the declarations
@@ -205,9 +255,8 @@ rules) and answers as stock does: exit code 0 or 1, diagnostics on stdout in Typ
 own errors as `TS roblox-ts` text diagnostics. A successful build copies the runtime include files (`copyInclude`)
 from the roblox-ts package the project resolves (the first `node_modules/roblox-ts` from the project folder upwards),
 so the include folder equals stock's; without one, from the files embedded from roblox-ts master 68648b0
-(`crates/rbxts_transform/include`). The tsconfig must suit TypeScript 7: `module: "preserve"` with
-`moduleResolution: "bundler"`, `paths` instead of `baseUrl` and no `downlevelIteration`. Without `types`, every
-package of the type roots is included, as TypeScript 5 does (TypeScript 7 alone includes none; see `docs/tsrs.md`).
+(`crates/rbxts_transform/include`). The tsconfig must suit TypeScript 7.1 ("Upgrading a roblox-ts project to
+rbxts-rs", above).
 
 A tsconfig `plugins` entry (`transform`) that no compiled-in plugin claims is handled as stock roblox-ts 3.0.0 handles
 a transformer it can't load: when `resolve.sync` can't find it from the project folder (`.js` files only), or Node

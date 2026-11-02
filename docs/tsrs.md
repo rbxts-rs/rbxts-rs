@@ -1,8 +1,65 @@
 # tsrs: how rbxts-rs depends on it, and how to update it
 
 rbxts-rs links tsrs, the Rust port of TypeScript 7, directly as Rust crates in the same process. There is no wrapper,
-no IPC and no patched tsrs code. Everything roblox-ts-specific lives in rbxts-rs. That includes the places where we
-emulate TypeScript 5 behaviour that TypeScript 7 changed.
+no IPC and no patched tsrs code. Everything roblox-ts-specific lives in rbxts-rs.
+
+## rbxts-rs follows TypeScript 7.1
+Stock roblox-ts runs on TypeScript 5. rbxts-rs reads and checks a project as TypeScript 7.1 does: its tsconfig rules,
+module resolution and diagnostics are TypeScript 7.1's (user decision, 2026-10-28 and 2026-11-02). TypeScript 5
+behaviour is reproduced only where the emitted Luau or the plugin API needs it: where Luau would run otherwise, where
+it must agree with Luau stock roblox-ts compiled (npm packages ship such Luau), or where a plugin relies on it.
+Projects move their tsconfig to TypeScript 7.1 (the README, "Upgrading a roblox-ts project to rbxts-rs"), and
+TypeScript transformers are rewritten as rbxts-rs plugins anyway, so neither is a reason to keep TypeScript 5
+behaviour.
+
+### The tsconfig: TypeScript 7.1's rules, not emulated
+rbxts-rs used to emulate three TypeScript 5 tsconfig behaviours. They are gone; TypeScript 7.1's own errors stand.
+- **No `types`.** TypeScript 5 put every package of the type roots into the program when the tsconfig has no
+  `types`; TypeScript 7 puts none, so `@rbxts/compiler-types` and `@rbxts/types` are missing and roblox-ts stops at
+  `MacroManager could not find symbol for Promise` (or the checker at `TS2318: Cannot find global type 'Array'`).
+  When the tsconfig has no `types` and the program holds no file of a type root's `compiler-types` package, rbxtsc
+  warns first, with the line to add (`Project::missing_types_hint`):
+
+  ```
+  TypeScript 7 no longer loads the packages of "typeRoots" on its own, and this tsconfig has no "types". Add "types": ["types", "compiler-types"] to its "compilerOptions" (with any other package of "typeRoots" whose globals the project uses).
+  ```
+
+  The entries are named relative to `typeRoots`, as roblox-ts's check of `types` wants them. `"types": ["*"]` is
+  TypeScript 7's way to TypeScript 5's rule (every type-root package); roblox-ts's check lets `"*"` through.
+- **`baseUrl`** is `TS5102: Option 'baseUrl' has been removed. Please remove it from your configuration.`, with
+  TypeScript 7's hint `Use '"paths": {"*": ["./src/*"]}' instead.`; each import only `baseUrl` resolved is TS2307.
+- **`rootDirs` without `rootDir`.** With an output directory and no `rootDir`, TypeScript 7 lays the outputs out
+  under the tsconfig's directory and refuses a project whose sources have another common directory: `TS5011: The
+  common source directory of 'tsconfig.json' is './src'. The 'rootDir' setting must be explicitly set to this or
+  another path to adjust your output's file layout.`
+- **Removed options** (`moduleResolution: node` / `node10`: TS5108; `downlevelIteration`, `baseUrl` and others:
+  TS5102) are TypeScript 7's errors too.
+
+### TypeScript 5 behaviour kept, and why
+| Layer | What it changes | Why it stays |
+|---|---|---|
+| `mark_ts5_context_sensitive_functions` (`rbxts_project`), read by `util/is_method.rs` | a function expression's or object literal method's contextual `this`: `function(self)` or `function()` in Luau, and the overload chosen | the Luau calling convention, which must match the Luau a callback slot expects (a stock-compiled package's included) |
+| `util/symlink_cache.rs`, with its type-root order | which link to a package an import goes through: the `require` path | runtime paths |
+| `ts5_property_order` (`Cx::ts5_properties_of_type`) | a type's property order for plugins | plugin API; Flamework's guards and serializer lay fields out in it (a wire format) |
+| `ts5_file_identifiers` (`Cx::file_identifier_texts`) | the names a plugin's unique names avoid | plugin API |
+| `build/transform_order.rs` | the order files are transformed and reported in (`FileIndex`) | plugin API (Flamework's ids and `flamework.build`); roblox-ts's own algorithm |
+| Export order (`TransformState::get_module_exports`) | the order of export tables | tsrs's own symbol-table order, no code of ours; the insertion order can reach runtime through `pairs` |
+| TypeScript 5.9's `compareDiagnostics` for plugin duplicates (`compile.rs`) | which copy of a duplicated plugin diagnostic is kept | plugin behaviour |
+| TypeScript 5's pretty printer layout (`rbxts_cli/src/pretty.rs`) | how rbxtsc prints related information and empty spans | roblox-ts's CLI output format |
+
+### TypeScript 5 behaviour dropped
+Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no effect; TypeScript 7.1's stands.
+- TS2769's elaboration (`overload_errors.rs`): TypeScript 7 elaborates only the last overload (`The last overload gave
+  the following error.`) and may put the error on the failing argument or the callee where TypeScript 5 put it on the
+  call. The code is TS2769 in both.
+- The span of TS7011, and of TS2683's related information, on an anonymous function expression: TypeScript 7 spans
+  the name it is assigned to (`c1` in `const c1 = function () {}`), TypeScript 5 the function's first token.
+- The related information of TS1007 ("The parser expected to find a '}' to match the '{' token here."): TypeScript
+  7's span is empty, so rbxtsc underlines nothing there.
+- A declaration map's empty `"sourceRoot":""`: TypeScript 7 leaves it out.
+
+`crates/rbxts_bench/parity/divergences.json`'s `ts7` reasons list the parity-corpus files whose Luau a dropped
+layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau, so it lists none.
 
 ## The fork
 - **Where:** branch `rbxts-fork-0.20` of the tsrs clone (`E:\Projects\TS\Flamework\roblox-ts-test\tsrs`; worktree
@@ -39,16 +96,16 @@ emulate TypeScript 5 behaviour that TypeScript 7 changed.
 | 46b35c99 (adadb25) | `Checker::get_contextual_signature` | `tsrs_checker/src/checker_05.rs` | nothing since TypeScript 5's context sensitivity is marked on the tree (below); kept, as the fork is shared |
 | 31e644fb (87958da) | `Checker::is_readonly_array_type` | `tsrs_checker/src/checker_11.rs` | Flamework's macro types (`flamework_rs`) |
 | 31e644fb (87958da) | `Checker::get_literal_type_from_property` | `tsrs_checker/src/checker_13.rs` | Flamework's macros (`flamework_rs`) |
-| 0d271600 (0f5217e) | `Checker::choose_overload` | `tsrs_checker/src/checker_05.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::reorder_candidates` | `tsrs_checker/src/checker_05.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::is_signature_applicable` | `tsrs_checker/src/checker_05.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::add_implementation_success_elaboration` | `tsrs_checker/src/checker_05.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::get_effective_call_arguments` | `tsrs_checker/src/checker_15.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::signature_to_string` | `tsrs_checker/src/printer.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::check_expression` | `tsrs_checker/src/checker_04.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::get_optional_expression_type` | `tsrs_checker/src/checker_14.rs` | TS5's TS2769 text (`rbxts_project/src/overload_errors.rs`) |
-| a368b659 (aa35a73) | `Checker::get_uninstantiated_jsx_signatures_of_type` | `tsrs_checker/src/jsx.rs` | TS5's TS2769 text for JSX elements (`rbxts_project/src/overload_errors.rs`) |
-| 107aad07 (new) | `CallState`'s 11 fields; `Checker::{call_resolution_stack, subtype_relation, assignable_relation}` | `tsrs_checker/src/checker.rs` | TS5's TS2769 text (`overload_errors.rs` runs `resolve_call`'s steps again) |
+| 0d271600 (0f5217e) | `Checker::choose_overload` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::reorder_candidates` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::is_signature_applicable` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::add_implementation_success_elaboration` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::get_effective_call_arguments` | `tsrs_checker/src/checker_15.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::signature_to_string` | `tsrs_checker/src/printer.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::check_expression` | `tsrs_checker/src/checker_04.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 0d271600 (0f5217e) | `Checker::get_optional_expression_type` | `tsrs_checker/src/checker_14.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| a368b659 (aa35a73) | `Checker::get_uninstantiated_jsx_signatures_of_type` | `tsrs_checker/src/jsx.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text for JSX, `overload_errors.rs`) |
+| 107aad07 (new) | `CallState`'s 11 fields; `Checker::{call_resolution_stack, subtype_relation, assignable_relation}` | `tsrs_checker/src/checker.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
 | 107aad07 (new) | `Checker::{regular_true_type, regular_false_type}` | `tsrs_checker/src/checker.rs` | the transform's type queries (`isBooleanLiteralType`, a generator's `done: true`), Flamework's guards |
 | 107aad07 (new) | `Checker::mapped_symbol_links`, `LinkStore::try_get`, `MappedSymbolLinks::synthetic_origin`, `MappedType::{declaration, modifiers_type}` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | TS5's property order of mapped types (`util/ts5_property_order.rs`) |
 | 107aad07 (new) | `ConditionalType::root`, `ConditionalRoot::{node, check_type}` | `tsrs_checker/src/types.rs` | roblox-ts's `isMethod` (`util/is_method.rs`) |
@@ -56,6 +113,8 @@ emulate TypeScript 5 behaviour that TypeScript 7 changed.
 | 107aad07 (new) | `Checker::get_emit_resolver` | `tsrs_checker/src/checker_15.rs` | the transform state's emit resolver |
 | 92248ec5 (new) | `diagnostic_file`, `diagnostic_pos`, `diagnostic_len`, `FileLike::file_name` | `tsrs_compiler/src/diagnosticwriter.rs` | rbxtsc's TypeScript 5 pretty printer (`rbxts_cli/src/pretty.rs`) |
 | 77c97efa (new) | `Checker::value_symbol_links`, `SymbolArenaLinkStore::try_get`, `MappedSymbolLinks::key_type` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | Flamework's serializer (flamework-rs): a mapped property's mapped type (`ValueSymbolLinks::containing_type`, TS5's `links.mappedType`) and key type (`links.keyType`), read only |
+
+  The flips marked "nothing since" are unused; they stay until the next rebase of the fork, whose revs are pinned.
 
   Dropped as upstream: `is_declaration_readonly` (87958da) is public in tsrs 0.20, as
   `tsrs_checker::utilities::is_declaration_readonly`. Not carried over: 67b5330 (overload internals made public) and
@@ -99,8 +158,9 @@ Pin the version and update on purpose, never automatically. tsrs is pre-1.0, so 
    Use `merge\parity.sh` and `merge\parity-{tests,real}-main.txt` in the scratchpad's `batch\rbxts-rs` folder, plus
    `cargo test --workspace` for the fixtures and plugin tests. Some files differ from stock on purpose, where
    rbxts-rs fixes a roblox-ts bug. `rbxts-bench build --parity REF --divergences crates/rbxts_bench/parity/divergences.json
-   --corpus {roblox-ts-tests,real-noplugin}` reports those as `known-fix` while their output is unchanged (see
-   `crates/rbxts_bench/src/divergences.rs`). Any other differing file, or a `stale` one, is a behaviour change. Find
+   --corpus {roblox-ts-tests,real-noplugin}` reports those as `known-fix` while their output is unchanged, and files a
+   dropped TypeScript 5 layer changes as `ts7-accepted` (see `crates/rbxts_bench/src/divergences.rs`). The corpora's
+   tsconfigs list their `types` (TypeScript 7 loads no type-root package by itself). Any other differing file, or a `stale` one, is a behaviour change. Find
    the tsrs commit that caused it, then either adapt rbxts-rs (with a `// rbxts-rs:` note) or report it upstream.
 5. **Re-measure** `rbxts-bench load` and a full build (see `bench/RESULTS.md`), so a performance regression doesn't
    slip in.
@@ -118,7 +178,7 @@ Re-check these after an update; they are where tsrs's behaviour reaches our outp
 - `Node::text()` panics on a `QualifiedName`.
 - Positions are UTF-8 byte offsets. `tsrs_ast::positionmap` converts them to UTF-16 where text positions reach the
   output.
-- **Context-sensitive functions.** TypeScript 5 takes every function expression and object literal method without
+- **Context-sensitive functions** (kept, above). TypeScript 5 takes every function expression and object literal method without
   type parameters and without a `this` parameter for context sensitive (its implicit `this` is contextually typed);
   TypeScript 7's `has_context_sensitive_parameters` takes only one that uses `this` (its `ContainsThis` flag).
   That decides whether such a function gets its contextual `this` (`function () {}` in a `(this: Foo) => void` slot
@@ -130,52 +190,8 @@ Re-check these after an update; they are where tsrs's behaviour reaches our outp
   re-check that (`ContainsThis` in `tsrs_checker` and `tsrs_ast`) after an update. TypeScript 7 also takes a
   generator whose `yield` is context sensitive for context sensitive (`has_context_sensitive_yield_expression`),
   which no flag decides: see "A context-sensitive `yield`" below.
-- **TS2769's elaboration.** When no overload matches a call and two or three were tried, TypeScript 5 lists the error
-  of each (`Overload 1 of 2, '<signature>', gave the following error.`, each with its own chain, the related
-  information of all of them on the error); TypeScript 7 (`report_call_resolution_errors`) elaborates only the last
-  (`The last overload gave the following error.` and `The last overload is declared here.`), as TypeScript 5 does
-  from four on. `rbxts_project/src/overload_errors.rs` makes such a TS2769 again as TypeScript 5 does: it asks the
-  call's resolution again of the checker that checked the file (`reorder_candidates`, then `choose_overload` over
-  the subtype and assignable relations, as `resolve_call` does) for the candidates that failed on an argument, and
-  reports each one's error (`is_signature_applicable`), instantiated as inference made it, its signature written as a
-  call (`WriteCallStyleSignature`: a construct signature without `new`, as TypeScript 5's `signatureToString`), the
-  error on `getErrorNodeForCallNode`'s node when the overloads' errors are in different places. Every call
-  `resolve_call` resolves: calls (optional chains included), `new` expressions, tagged templates, decorators (under
-  their head message, TS1238 to TS1241) and JSX elements (an intrinsic element has one signature).
-  `rbxts_cli`'s pretty printer adds the line end TypeScript 5's `formatDiagnosticsWithColorAndContext` prints for its
-  (always present, maybe empty) related information array. Tests: `rbxts_cli/tests/fixtures/overload_error*`, stock's
-  stdout byte for byte.
-- **The span of a diagnostic on an anonymous function expression.** TypeScript 7's `get_error_range_for_node` spans the
-  name the function is assigned to (`get_name_of_declaration`: `c1` in `const c1 = function () {}`); TypeScript 5's
-  `getErrorSpanForNode` spans the function's own name, else its first token (`function`, `async`). Such a
-  diagnostic is TS2683's related information "An outer value of 'this' is shadowed by this container." and TS7011:
-  `rbxts_project` (`ts5_function_expression_spans`) moves each one spanning such a name to the function's first token
-  (test `rbxts_cli/tests/fixtures/this_shadowed`).
 - `implements` entries are TypeReference nodes. `getIndexTypeOfType` takes a key type. A property access through an
   index signature gives an `__index` symbol. There is no `__String`.
-- TypeScript 7 gives the related information of `TS1007` ("The parser expected to find a '}' to match the '{' token
-  here.") a length of 0; rbxtsc prints it with TypeScript 5's length of 1 (`rbxts_cli/src/pretty.rs`), so its
-  underline matches stock's.
-- **Automatic type directives.** Without `types` in the tsconfig, TypeScript 5 includes every package of the type
-  roots in the program; TypeScript 7 (tsrs `get_automatic_type_directive_names`) includes none (only `"types": ["*"]`
-  lists the type roots, by TypeScript 5's rule, with TypeScript 5's wording where the two differ: TS2688's "Entry
-  point for implicit type library", "Cannot find name 'process'" without "add node to the types field"). rbxts-rs
-  restores TypeScript 5's rule: `rbxts_project` puts `"types": ["*"]` into the parsed options when the tsconfig has
-  no `types` (`add_automatic_type_directives`; roblox-ts's own check of `types` still sees the tsconfig's), so a
-  project, or a referenced project, whose sources import no package still sees `@rbxts/compiler-types` (TypeScript 7
-  alone stops at `TS2318: Cannot find global type 'Array'`). The type roots are listed through the program's file
-  system, so watch and incremental builds see a package appear, change or go. On the real project that loads 70 more declaration files, from 8
-  packages nothing imports, as TypeScript 5 does.
-- **`baseUrl`.** TypeScript 7 removed it (`TS5102`, and an import that only resolves through it is `TS2307`).
-  `rbxts_project` emulates TypeScript 5 (`emulate_base_url`): the `paths` substitutions are made absolute against
-  `baseUrl`, `"*": ["<baseUrl>/*"]` takes the names no pattern matches (TypeScript 5 tries `baseUrl` only for those: a
-  matched pattern that resolves nothing is TS2307 in both), and `baseUrl` is cleared.
-- **`rootDirs` without `rootDir`.** With an output directory and no `rootDir`, TypeScript 5 lays the outputs out under
-  the common source directory of the emitted files; TypeScript 7 under the tsconfig's directory, refusing a project
-  whose files have another one (`TS5011`). `rbxts_project` gives the program TypeScript 5's common source directory
-  as its `rootDir` when it is not the tsconfig's (`ts5_root_dir`; from the root files, and the program is made again
-  in the rare case that its files reach further), and roblox-ts and plugins see the tsconfig's options
-  (`Project::options`).
 - **Threading:** the checker is not `Send`, and `get_type_checker` takes a non-reentrant guard. Checking needs a
   512 MiB stack. Set only `checkers`: `single_threaded` also makes parsing and binding serial.
 
@@ -190,12 +206,11 @@ the same as on 0.18. Two tsrs changes needed rbxts-rs adaptations, both marked `
   diagnostics are told apart by their message's address. rbxts-rs leaks its own
   (`rbxts_transform::shared::diagnostics::new_ad_hoc_message`), as tsrs did.
 - **A declaration map's empty `sourceRoot`.** TypeScript 5 writes `"sourceRoot":""` without the `sourceRoot`
-  option; tsrs 0.20 leaves an empty one out (tsrs d93d7249, TypeScript's typed path prep fixes).
-  `project/emit_declarations.rs` (`ts5_source_root`) puts it back.
+  option; tsrs 0.20 leaves an empty one out (tsrs d93d7249, TypeScript's typed path prep fixes). rbxts-rs put it back
+  until it followed TypeScript 7.1; now TypeScript 7's map stands.
 
 Re-checked and unchanged: `ContainsThis` is still read only by `has_context_sensitive_parameters` and
-`is_thisless_interface`; the binder still binds functions first; `regular_true_type`; the automatic type
-directives. tsrs 0.20 also refuses network paths ("Projects on a network path", below). The API breaks were
+`is_thisless_interface`; the binder still binds functions first; `regular_true_type`. tsrs 0.20 also refuses network paths ("Projects on a network path", below). The API breaks were
 renames: diagnostic messages, compiler option kinds and `INTERNAL_SYMBOL_NAME_MISSING` are `SCREAMING_SNAKE_CASE`,
 `compilerOptions.paths` is an `Arc`, and `DefaultResolver` borrows its host.
 
@@ -211,8 +226,8 @@ program (the tests and any other caller). It must run before a checker exists, a
 value, or none, leaves it on. How each part of the preset meets rbxts-rs:
 - **Lazy type members, the canonical history and its caches (union-front, indexed-access, inference-walk):** on.
   Checker internals; tsrs 0.18 had the first two by default, the settings rbxts-rs was validated with. Everything
-  rbxts-rs reads from the checker goes through its public API (`ts5_property_order`, `overload_errors.rs`, the
-  transform's and Flamework's type queries), and the `ContainsThis` marks of `mark_ts5_context_sensitive_functions`
+  rbxts-rs reads from the checker goes through its public API (`ts5_property_order`, the transform's and
+  Flamework's type queries), and the `ContainsThis` marks of `mark_ts5_context_sensitive_functions`
   are on the bound tree, before any checker exists. Parity, the 169 diagnostics files and Flamework's output are the
   same with the preset on and off.
 - **The locality assignment of files to checkers:** on, in place of Go's FENNEL assignment. It is static, a function
@@ -264,11 +279,10 @@ last section lists Luau behaviour that stock's output, and so rbxts-rs's, can me
   A file with one fails to build in rbxts-rs, where stock roblox-ts reports its own diagnostic for the construct when
   it reaches the file (or nothing, when an earlier file's error stops it). Both refuse the code; only the message
   differs.
-- **Diagnostic message text.** Every diagnostic matches stock in its code, file, position, exit code and the rule
-  that a failing build writes nothing. Its message text follows TypeScript 7 where the text is the checker's own
-  wording or type printing. Ported back to TypeScript 5's text: TS2769 for calls, `new`, tagged templates,
-  decorators and JSX opening elements (`rbxts_project/src/overload_errors.rs`), and the TS2683/TS7011 spans.
-  Known remaining cases, each present before the stockgaps round and accepted by the user (2026-10-27):
+- **Diagnostic message text and spans.** Every diagnostic matches stock in its code, file, exit code and the rule
+  that a failing build writes nothing. Its message text, related information and some spans follow TypeScript 7.1
+  (above, "TypeScript 5 behaviour dropped": TS2769, TS7011/TS2683, TS1007). Other cases, accepted by the user
+  (2026-10-27):
   - **Printed type order.** Literal unions print in TypeScript 7's order (`"a" | "b" | "c"`, where TypeScript 5
     gives `"a" | "c" | "b"`), and so do the keys of a mapped or `Record` type and the properties of a JSX attributes
     type (`{ a: number; children: string; }`, where TypeScript 5 gives `{ children: string; a: number; }`).
@@ -279,10 +293,9 @@ last section lists Luau behaviour that stock's output, and so rbxts-rs's, can me
     "Overload N of M" TS2769 at the element. For a child-count error (TS2745/TS2746), TypeScript 5 also prints the
     TS2745/TS2746 on its own, and its chain has no "Overload N of M" line.
 
-  TypeScript 7.1 (tsrs 0.20) changed none of it here: each of the 169 `src/diagnostics` files of roblox-ts's tests
-  corpus, built alone, prints the same on tsrs 0.18 and 0.20 (164 byte-identical to stock; the other five are the four
-  comment-directive spans below and `noPrivateIdentifier.1`'s TS18064, above), and the fixtures' stock stdouts
-  still match. Code, place and exit stay the contract.
+  Code and exit stay the contract. The CLI fixtures that print a dropped layer's diagnostics keep stock's stdout as
+  `stock-stdout.txt` beside rbxts-rs's `expected-stdout.txt`, and the test checks they have the same codes in the
+  same files.
 - **Declaration maps.** TypeScript 7 maps some declarations (constructors, a specifier `transformPaths` rewrites)
   differently from TypeScript 5: `.d.ts.map` files are not byte-equal to stock roblox-ts's. The `.d.ts` files are.
   The maps' other fields are TypeScript 5's, the empty `sourceRoot` included (see "What changed with tsrs 0.20").
