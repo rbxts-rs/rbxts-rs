@@ -8,3 +8,6 @@
 [7m13[0m   const n: number = x;
 [7m  [0m [91m        ~[0m
 
+
+Found 2 errors in the same file, starting at: src/shared/a.ts[90m:6[0m
+

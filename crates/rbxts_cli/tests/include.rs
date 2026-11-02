@@ -57,9 +57,9 @@ impl Fixture {
         Fixture { root, game }
     }
 
-    /// Runs `rbxtsc` in `cwd`: (exit code, stdout).
+    /// Runs `rbxtsc` in `cwd`, its output pretty as in a terminal: (exit code, stdout).
     fn run(&self, cwd: &Path, args: &[&str]) -> (i32, String) {
-        let output = Command::new(RBXTSC).args(args).current_dir(cwd).output().unwrap();
+        let output = Command::new(RBXTSC).args(args).current_dir(cwd).env("FORCE_COLOR", "1").output().unwrap();
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         assert!(output.stderr.is_empty(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
         (output.status.code().unwrap_or(-1), stdout)
@@ -108,9 +108,9 @@ fn embedded(name: &str) -> Vec<u8> {
     std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../rbxts_transform/include").join(name)).unwrap()
 }
 
-/// A roblox-ts text diagnostic as stock's reporter prints it.
+/// A roblox-ts text diagnostic alone, as tsc's reporter prints a diagnostic without a file, then tsc's error summary.
 fn text_error(message: &str) -> String {
-    format!("\u{1b}[91merror\u{1b}[0m\u{1b}[90m TS roblox-ts: \u{1b}[0m{message}\r\n\r\n")
+    format!("\u{1b}[91merror\u{1b}[0m\u{1b}[90m TS roblox-ts: \u{1b}[0m{message}\n\nFound 1 error.\n\n")
 }
 
 #[test]
@@ -215,13 +215,14 @@ fn errors_write_nothing_and_print_as_roblox_ts() {
     std::fs::write(fixture.game.join("src/shared/bad.ts"), "const x: number = \"nope\";\nexport = x;\n").unwrap();
     let (code, stdout) = fixture.build(&[]);
     assert_eq!(code, 1);
-    // TypeScript's pretty reporter: the diagnostic, then a blank line, with CRLF line ends
+    // tsc's pretty reporter: the diagnostic, then a blank line, then tsc's summary, with LF line ends
     assert_eq!(
         stdout,
         "\u{1b}[96msrc/shared/bad.ts\u{1b}[0m:\u{1b}[93m1\u{1b}[0m:\u{1b}[93m7\u{1b}[0m - \u{1b}[91merror\u{1b}[0m\
-         \u{1b}[90m TS2322: \u{1b}[0mType 'string' is not assignable to type 'number'.\r\n\r\n\
-         \u{1b}[7m1\u{1b}[0m const x: number = \"nope\";\r\n\
-         \u{1b}[7m \u{1b}[0m \u{1b}[91m      ~\u{1b}[0m\r\n\r\n"
+         \u{1b}[90m TS2322: \u{1b}[0mType 'string' is not assignable to type 'number'.\n\n\
+         \u{1b}[7m1\u{1b}[0m const x: number = \"nope\";\n\
+         \u{1b}[7m \u{1b}[0m \u{1b}[91m      ~\u{1b}[0m\n\n\
+         \nFound 1 error in src/shared/bad.ts\u{1b}[90m:1\u{1b}[0m\n\n"
     );
     // rbxts-rs: nothing is written by a failed build (roblox-ts copies the include folder before compiling)
     assert!(fixture.files("include").is_empty() && fixture.files("out").is_empty());
@@ -240,8 +241,8 @@ fn command_line_parity() {
     // `-p` without a value is the working directory
     assert_eq!(fixture.build(&["-p"]), (0, String::new()));
 
-    // no tsconfig.json here or above: a `CLIError`
-    let unable = "\u{1b}[91merror\u{1b}[0m\u{1b}[90m TS roblox-ts: \u{1b}[0mUnable to find tsconfig.json!\r\n\n";
+    // no tsconfig.json here or above: a `CLIError`, without a summary
+    let unable = "\u{1b}[91merror\u{1b}[0m\u{1b}[90m TS roblox-ts: \u{1b}[0mUnable to find tsconfig.json!\n";
     let elsewhere = fixture.root.join("elsewhere");
     std::fs::create_dir_all(&elsewhere).unwrap();
     if !elsewhere.ancestors().any(|dir| dir.join("tsconfig.json").exists()) {

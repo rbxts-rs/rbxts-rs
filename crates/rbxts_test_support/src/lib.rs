@@ -118,6 +118,24 @@ pub fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
+/// The lines of a compiler's `stdout` that start a diagnostic (`file:line:col - error TS2322: message`, `error TS
+/// roblox-ts: message`), colours left out, in order: the same in TypeScript 5's pretty layout and TypeScript 7's.
+pub fn diagnostic_headers(stdout: &str) -> Vec<String> {
+    let mut plain = String::new();
+    let mut chars = stdout.chars();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            chars.by_ref().find(|&c| c == 'm');
+        } else {
+            plain.push(c);
+        }
+    }
+    let starts = |line: &str| {
+        ["error TS", "warning TS"].iter().any(|kind| line.starts_with(kind) || line.contains(&format!(" - {kind}")))
+    };
+    plain.lines().filter(|line| !line.starts_with(' ') && starts(line)).map(str::to_owned).collect()
+}
+
 /// A temporary directory, `<temp>/rbxts-rs-<label>-<process id>`, removed on drop, panics included. Links made
 /// through [`TempDir::link`] are removed as links first, innermost first.
 pub struct TempDir {

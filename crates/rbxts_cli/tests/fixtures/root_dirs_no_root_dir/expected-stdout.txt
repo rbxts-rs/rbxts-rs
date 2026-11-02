@@ -4,3 +4,6 @@
 [7m17[0m   "outDir": "out"
 [7m  [0m [91m  ~~~~~~~~[0m
 
+
+Found 1 error in tsconfig.json[90m:17[0m
+

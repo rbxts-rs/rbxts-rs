@@ -5,8 +5,10 @@
 [7m3[0m tag`x${true}y`;
 [7m [0m [91m       ~~~~[0m
 
-  [96msrc/shared/a.ts[0m:[93m2[0m:[93m18[0m
+  [96msrc/shared/a.ts[0m:[93m2[0m:[93m18[0m - The last overload is declared here.
     [7m2[0m declare function tag(s: TemplateStringsArray, a: string): string;
     [7m [0m [96m                 ~~~[0m
-    The last overload is declared here.
+
+
+Found 1 error in src/shared/a.ts[90m:3[0m
 

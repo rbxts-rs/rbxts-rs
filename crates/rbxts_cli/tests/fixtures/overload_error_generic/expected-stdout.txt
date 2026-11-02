@@ -5,12 +5,14 @@
 [7m8[0m gen(1, (x) => true);
 [7m [0m [91m    ~[0m
 
-  [96msrc/shared/bad.ts[0m:[93m6[0m:[93m17[0m
+  [96msrc/shared/bad.ts[0m:[93m6[0m:[93m17[0m - The last overload is declared here.
     [7m6[0m export function gen<T extends Foo>(v: T, cb: (x: T) => number): void;
     [7m [0m [96m                ~~~[0m
-    The last overload is declared here.
-  [96msrc/shared/bad.ts[0m:[93m7[0m:[93m17[0m
+
+  [96msrc/shared/bad.ts[0m:[93m7[0m:[93m17[0m - The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
     [7m7[0m export function gen(v: unknown, cb: Callback) {}
     [7m [0m [96m                ~~~[0m
-    The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
+
+
+Found 1 error in src/shared/bad.ts[90m:8[0m
 

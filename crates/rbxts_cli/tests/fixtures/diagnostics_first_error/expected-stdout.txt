@@ -9,3 +9,10 @@ Suggestion: Use `unknown` instead.
 [7m1[0m export const wrong: number = "text";
 [7m [0m [91m             ~~~~~[0m
 
+
+Found 2 errors in 2 files.
+
+Errors  Files
+     1  src/b.ts[90m:2[0m
+     1  src/d.ts[90m:1[0m
+

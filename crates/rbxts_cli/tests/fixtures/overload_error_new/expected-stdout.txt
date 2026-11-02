@@ -5,14 +5,13 @@
 [7m7[0m new C(1, 1);
 [7m [0m [91m      ~[0m
 
-  [96msrc/shared/a.ts[0m:[93m3[0m:[93m2[0m
+  [96msrc/shared/a.ts[0m:[93m3[0m:[93m2[0m - The last overload is declared here.
     [7m3[0m  constructor(a: string, b: number);
     [7m [0m [96m ~~~~~~~~~~~[0m
-    The last overload is declared here.
-  [96msrc/shared/a.ts[0m:[93m4[0m:[93m2[0m
+
+  [96msrc/shared/a.ts[0m:[93m4[0m:[93m2[0m - The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
     [7m4[0m  constructor(a: unknown, b: unknown) {}
     [7m [0m [96m ~~~~~~~~~~~[0m
-    The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
 
 [96msrc/shared/a.ts[0m:[93m9[0m:[93m10[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
   The last overload gave the following error.
@@ -21,14 +20,13 @@
 [7m9[0m new ns.D(1, 1);
 [7m [0m [91m         ~[0m
 
-  [96msrc/shared/a.ts[0m:[93m3[0m:[93m2[0m
+  [96msrc/shared/a.ts[0m:[93m3[0m:[93m2[0m - The last overload is declared here.
     [7m3[0m  constructor(a: string, b: number);
     [7m [0m [96m ~~~~~~~~~~~[0m
-    The last overload is declared here.
-  [96msrc/shared/a.ts[0m:[93m4[0m:[93m2[0m
+
+  [96msrc/shared/a.ts[0m:[93m4[0m:[93m2[0m - The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
     [7m4[0m  constructor(a: unknown, b: unknown) {}
     [7m [0m [96m ~~~~~~~~~~~[0m
-    The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
 
 [96msrc/shared/a.ts[0m:[93m12[0m:[93m3[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
   The last overload gave the following error.
@@ -37,10 +35,9 @@
 [7m12[0m f(1, 1);
 [7m  [0m [91m  ~[0m
 
-  [96msrc/shared/a.ts[0m:[93m11[0m:[93m18[0m
+  [96msrc/shared/a.ts[0m:[93m11[0m:[93m18[0m - The last overload is declared here.
     [7m11[0m declare function f(a: string, b: number): void;
     [7m  [0m [96m                 ~[0m
-    The last overload is declared here.
 
 [96msrc/shared/a.ts[0m:[93m13[0m:[93m5[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
   The last overload gave the following error.
@@ -49,10 +46,9 @@
 [7m13[0m (f)(1, 1);
 [7m  [0m [91m    ~[0m
 
-  [96msrc/shared/a.ts[0m:[93m11[0m:[93m18[0m
+  [96msrc/shared/a.ts[0m:[93m11[0m:[93m18[0m - The last overload is declared here.
     [7m11[0m declare function f(a: string, b: number): void;
     [7m  [0m [96m                 ~[0m
-    The last overload is declared here.
 
 [96msrc/shared/b.ts[0m:[93m7[0m:[93m7[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
   The last overload gave the following error.
@@ -61,14 +57,13 @@
 [7m7[0m new C(true);
 [7m [0m [91m      ~~~~[0m
 
-  [96msrc/shared/b.ts[0m:[93m3[0m:[93m2[0m
+  [96msrc/shared/b.ts[0m:[93m3[0m:[93m2[0m - The last overload is declared here.
     [7m3[0m  constructor(a: string);
     [7m [0m [96m ~~~~~~~~~~~[0m
-    The last overload is declared here.
-  [96msrc/shared/b.ts[0m:[93m4[0m:[93m2[0m
+
+  [96msrc/shared/b.ts[0m:[93m4[0m:[93m2[0m - The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
     [7m4[0m  constructor(a: unknown) {}
     [7m [0m [96m ~~~~~~~~~~~[0m
-    The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
 
 [96msrc/shared/b.ts[0m:[93m13[0m:[93m10[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
   The last overload gave the following error.
@@ -77,8 +72,14 @@
 [7m13[0m new Made(true);
 [7m  [0m [91m         ~~~~[0m
 
-  [96msrc/shared/b.ts[0m:[93m10[0m:[93m2[0m
+  [96msrc/shared/b.ts[0m:[93m10[0m:[93m2[0m - The last overload is declared here.
     [7m10[0m  new (a: string): object;
     [7m  [0m [96m ~~~~~~~~~~~~~~~~~~~~~~~~[0m
-    The last overload is declared here.
+
+
+Found 6 errors in 2 files.
+
+Errors  Files
+     4  src/shared/a.ts[90m:7[0m
+     2  src/shared/b.ts[90m:7[0m
 

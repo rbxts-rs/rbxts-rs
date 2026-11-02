@@ -12,9 +12,10 @@
 //! [`Cli::run`] parses roblox-ts's `build` arguments (`-p`, `--verbose`, `--rojo`, `--includePath`, `--type`,
 //! `--optimizedLoops`, `--allowCommentDirectives`, `--noInclude`, `--logTruthyChanges`, `--writeOnlyChanged`,
 //! `--writeTransformedFiles`, `--luau`) as yargs does, builds on a thread with a 512 MiB stack, and returns
-//! roblox-ts's exit codes: 0 when the build succeeded, 1 otherwise. Output follows roblox-ts's CLI: on stdout, every
-//! diagnostic as TypeScript's pretty reporter prints it (fatal errors and "Unable to find tsconfig.json!" as roblox-ts
-//! text diagnostics), and argument errors as yargs's message alone. `-w` / `--watch` runs watch mode ([`watch`],
+//! roblox-ts's exit codes: 0 when the build succeeded, 1 otherwise. Output follows roblox-ts's CLI, in TypeScript 7's
+//! layout: on stdout, every diagnostic as TypeScript 7.1's `tsc` prints it ([`pretty_output`]: pretty with a code frame
+//! and an error summary, or plain; fatal errors and "Unable to find tsconfig.json!" as roblox-ts text diagnostics),
+//! and argument errors as yargs's message alone. `-w` / `--watch` runs watch mode ([`watch`],
 //! docs/design.md §14), with `--usePolling` and `--events json` (machine-readable build events on stdout).
 //!
 //! rbxts-rs's own options besides `--timings` and `--events`: `--checkers <n>`, the number of type checkers, each
@@ -291,9 +292,10 @@ impl Cli {
         let tsconfig = match rbxts_project::setup::find_tsconfig_path(&build.project, &cwd) {
             Ok(path) => path,
             Err(_) => {
-                // a `CLIError`, logged with `LogService.writeLine`: the formatted diagnostic, then "\n"
+                // roblox-ts's `CLIError`, printed as tsc prints a diagnostic, without a summary (tsc prints none when
+                // it finds no project either)
                 let error = text_diagnostic("Unable to find tsconfig.json!", Category::Error);
-                println!("{}", format_diagnostic_logged(error, &cwd));
+                print!("{}", pretty::format_reported(error, &format(&cwd)));
                 return 1;
             }
         };
@@ -311,55 +313,61 @@ impl Cli {
         }
         let plugin_options = PluginOptions { plugins: &self.plugins, ..PluginOptions::default() };
         let report = compile_project_with(&options, &plugin_options);
-        if report.thrown {
-            // `DiagnosticError.log`: `formatDiagnostics` of them all, then `LogService.writeLine`'s line feed
-            let text: String = report.diagnostics.iter().map(|d| format_diagnostic_logged(*d, &cwd)).collect();
-            println!("{text}");
-        } else {
-            print_report(&report, &cwd, &build);
-        }
+        print_report(&report, &cwd, &build);
         u8::from(report.has_errors())
     }
 }
 
-/// `ts.sys.newLine`.
-const NEW_LINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
-
-/// One diagnostic as roblox-ts's `ts.createDiagnosticReporter(ts.sys, true)` prints it: TypeScript 5's
-/// `formatDiagnosticsWithColorAndContext` ([`pretty`]), ending with a line end, with the OS's line ends and `ts.sys`'s
-/// file name rules (case-insensitive on Windows). rbxts-rs: roblox-ts's own diagnostics, ad hoc messages here, show
-/// roblox-ts's code (`TS roblox-ts`, from `createTextDiagnostic` and `createDiagnosticWithLocation`) instead of tsrs's
-/// `TS-1`; a plugin diagnostic with a source (`Plugin::diagnostic_source`, `PluginDiagnostic::source`) shows that
-/// source instead (`TS @flamework-experimental/transformer`), and one with a code (`PluginDiagnostic::code`) the code
-/// as TypeScript shows its own (`TS1117`).
-pub fn format_diagnostic(diagnostic: P<Diagnostic>, cwd: &str) -> String {
-    format_with(diagnostic, cwd, cfg!(not(windows)))
-}
-
-/// One diagnostic as roblox-ts's `formatDiagnostics` formats it (`DiagnosticError`, `CLIError`): as
-/// [`format_diagnostic`], with file names compared as they are spelled.
-pub fn format_diagnostic_logged(diagnostic: P<Diagnostic>, cwd: &str) -> String {
-    format_with(diagnostic, cwd, true)
-}
-
-fn format_with(diagnostic: P<Diagnostic>, cwd: &str, case_sensitive: bool) -> String {
-    let code = |diagnostic: P<Diagnostic>| {
-        if diagnostic.code() == -1 {
-            // a plugin diagnostic with a code or a source shows it in the code slot, as the TS transformers' do
-            // (`code: 1117`, `code: " <name>"`)
-            rbxts_transform::plugins::diagnostic_code_slot(diagnostic).unwrap_or_else(|| " roblox-ts".to_owned())
-        } else {
-            diagnostic.code().to_string()
+/// Whether diagnostics print pretty, as tsc decides it without `--pretty`: with `FORCE_COLOR` set, when it is empty,
+/// `1`, `2`, `3` or `true`; else not with a non-empty `NO_COLOR` or with `TERM=dumb`; else when stdout is a terminal.
+/// rbxtsc's warnings follow it too.
+pub fn pretty_output() -> bool {
+    static PRETTY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *PRETTY.get_or_init(|| {
+        use std::io::IsTerminal;
+        if let Ok(force) = std::env::var("FORCE_COLOR") {
+            return matches!(force.as_str(), "" | "1" | "2" | "3" | "true");
         }
-    };
-    pretty::format_diagnostic(diagnostic, &pretty::Format { cwd, case_sensitive, new_line: NEW_LINE, code: &code })
+        if std::env::var("NO_COLOR").is_ok_and(|v| !v.is_empty()) || std::env::var("TERM").is_ok_and(|v| v == "dumb")
+        {
+            return false;
+        }
+        std::io::stdout().is_terminal()
+    })
 }
 
-/// Prints the build's outcome: warnings, plugin messages (`--verbose`), diagnostics with TypeScript's pretty
-/// reporter, fatal errors, and the plugin timings (`--timings`).
+/// The code slot of a diagnostic without a TypeScript code, after `TS`: roblox-ts's own diagnostics, ad hoc messages
+/// here, show roblox-ts's code (`TS roblox-ts`, from `createTextDiagnostic` and `createDiagnosticWithLocation`)
+/// instead of tsrs's `TS-1`; a plugin diagnostic with a source (`Plugin::diagnostic_source`,
+/// `PluginDiagnostic::source`) shows that source instead (`TS @flamework-experimental/transformer`), and one with a
+/// code (`PluginDiagnostic::code`) the code as TypeScript shows its own (`TS1117`).
+fn code_slot(diagnostic: P<Diagnostic>) -> String {
+    rbxts_transform::plugins::diagnostic_code_slot(diagnostic).unwrap_or_else(|| " roblox-ts".to_owned())
+}
+
+/// How rbxtsc prints diagnostics: pretty or plain ([`pretty_output`]), locations relative to `cwd`.
+fn format(cwd: &str) -> pretty::Format<'_> {
+    pretty::Format::new(cwd, pretty_output(), &code_slot)
+}
+
+/// One diagnostic in TypeScript 7.1's pretty layout ([`pretty`]): the location, category, code and message, a code
+/// frame, and related information as `  file:line:col - message` with its own frame, in colour. As tsc's writer gives
+/// it, without the line end its reporter adds after it; locations relative to `cwd`, roblox-ts's and plugins' own
+/// diagnostics with their code slot (`TS roblox-ts`, a plugin's source or code).
+pub fn format_diagnostic(diagnostic: P<Diagnostic>, cwd: &str) -> String {
+    pretty::format_pretty(diagnostic, &pretty::Format::new(cwd, true, &code_slot))
+}
+
+/// Prints the build's outcome: warnings, plugin messages (`--verbose`), diagnostics and fatal errors as tsc's reporter
+/// prints diagnostics, tsc's error summary (pretty output, not in watch mode), and the plugin timings (`--timings`).
 pub fn print_report(report: &CompileReport, cwd: &str, build: &BuildArgs) {
+    let format = format(cwd);
     for warning in &report.warnings {
-        println!("\u{1b}[33m{warning}\u{1b}[0m");
+        if format.pretty {
+            println!("\u{1b}[33m{warning}\u{1b}[0m");
+        } else {
+            println!("{warning}");
+        }
     }
     if build.verbose {
         for message in &report.plugin_messages {
@@ -377,10 +385,13 @@ pub fn print_report(report: &CompileReport, cwd: &str, build: &BuildArgs) {
     let diagnostics = if report.thrown { diagnostics } else { sort_and_deduplicate_diagnostics(&diagnostics) };
     // roblox-ts reports its fatal errors (`ProjectError`, `emitResultFailure`) as text diagnostics too
     let fatal = report.fatal.iter().map(|message| text_diagnostic(message, Category::Error));
-    for diagnostic in diagnostics.iter().copied().chain(fatal) {
-        // `ts.createDiagnosticReporter(ts.sys, true)`: the formatted diagnostic, then a line end
-        print!("{}{NEW_LINE}", format_diagnostic(diagnostic, cwd));
+    let reported: Vec<P<Diagnostic>> = diagnostics.iter().copied().chain(fatal).collect();
+    let mut text: String = reported.iter().map(|d| pretty::format_reported(*d, &format)).collect();
+    // then tsc's error summary, but in watch mode, whose status line counts the errors
+    if !build.watch {
+        text.push_str(&pretty::error_summary(&reported, &format));
     }
+    print!("{text}");
     if build.verbose {
         let errors = diagnostics.iter().filter(|d| d.category() == Category::Error).count();
         let written = report.files.iter().filter(|f| f.written).count();

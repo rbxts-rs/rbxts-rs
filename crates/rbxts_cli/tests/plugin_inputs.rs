@@ -35,6 +35,8 @@ fn compiler(root: &Path, args: &[&str]) -> Command {
     command
         .args(["--exact", "child", "--nocapture", "--test-threads=1"])
         .env(CHILD_ARGS, args.join("\n"))
+        // pretty output, as in a terminal
+        .env("FORCE_COLOR", "1")
         .env_remove("PROBE_FILE")
         .env_remove("PROBE_SETUP")
         .current_dir(root);
@@ -156,6 +158,13 @@ fn a_new_process_transforms_the_files_whose_environment_changed() {
     assert!(again.contains(" TS @probe/inputs: \u{1b}[0mprobe-inputs warning"), "{again}");
     assert!(again.contains(" TS @probe/own: \u{1b}[0mprobe-inputs own source"), "{again}");
     assert!(again.contains(" TS1117: \u{1b}[0mprobe-inputs with a code"), "{again}");
+    // plain output (not a terminal, or `FORCE_COLOR=0`): the same code slots, as tsc's plain lines have them
+    let (plain, count) = build(&project, &[("FORCE_COLOR", "0")]);
+    assert_eq!(count, 1);
+    assert!(!plain.contains('\u{1b}'), "{plain}");
+    assert!(plain.contains("src/shared/warned.ts(2,1): warning TS @probe/inputs: probe-inputs warning"), "{plain}");
+    assert!(plain.contains(" TS @probe/own: probe-inputs own source"), "{plain}");
+    assert!(plain.contains(" TS1117: probe-inputs with a code"), "{plain}");
     // PROBE_FILE set: the two files that read it (one has the glob too), and nothing else
     assert_eq!(build(&project, &[("PROBE_FILE", "one")]).1, 2);
     assert!(project.read("out/shared/marked.luau").contains("env Some(\"one\")"));

@@ -172,6 +172,16 @@ From the tsrs source (first at v0.18.0; `docs/tsrs.md` covers the later versions
   On the files with checker errors, plugins may reword a checker diagnostic through `explain_checker_diagnostic`
   (Flamework's `explainRemovedNetworkMarker` / `explainRenamed`).
 - Any error diagnostic, from the checker, roblox-ts or a plugin, means nothing is written (roblox-ts's rule).
+- **Printed layout.** `rbxtsc` prints every diagnostic (checker, tsconfig, roblox-ts's own, plugins') in TypeScript
+  7.1's layout, through tsrs's writer (`tsrs_compiler::diagnosticwriter`, tsgo's `FormatDiagnosticsWithColorAndContext`
+  and `WriteErrorSummaryText`; `rbxts_cli/src/pretty.rs`), not TypeScript 5's as roblox-ts does. Pretty, as `tsc`
+  decides it (`FORCE_COLOR`, else not with `NO_COLOR` or `TERM=dumb`, else when stdout is a terminal): a code frame,
+  related information as `  file:line:col - message` with its own frame, an empty span underlining the character after
+  it, then "Found N errors in M files." and a table of the files (not in watch mode, whose status line counts them).
+  Plain otherwise: `file(line,col): error TS2322: message` lines only, no related information and no summary. Lines
+  end with `\n` on every OS. roblox-ts's and plugins' own diagnostics keep their codes and texts in the code slot
+  (`TS roblox-ts`, a plugin's source or code), which tsrs's writer would print as `TS-1`. Watch mode's status lines
+  keep roblox-ts's layout (§14). The tsconfig's `pretty` option is not read.
 
 ## 8. Measurement protocol
 

@@ -24,3 +24,10 @@
 [7m19[0m   "paths": { "@lib/*": ["lib/*"] }
 [7m  [0m [91m                        ~~~~~~~[0m
 
+
+Found 5 errors in 2 files.
+
+Errors  Files
+     3  src/shared/a.ts[90m:3[0m
+     2  tsconfig.json[90m:18[0m
+

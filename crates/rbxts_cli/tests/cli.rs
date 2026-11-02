@@ -1,17 +1,19 @@
 //! `Cli` end to end on a copy of `rbxts_transform`'s probe fixture: registered plugins build it (exit 0), and the
 //! plain command line, without the plugin the tsconfig names, refuses it (exit 1), as roblox-ts's exit codes go.
-//! Then the `rbxtsc` binary's diagnostics against stock roblox-ts's stdout, byte for byte
-//! (`tests/fixtures/diagnostics_*/expected-stdout.txt`: roblox-ts master on TypeScript 5, `node out/CLI/cli.js build`):
-//! related information, chained messages, an empty span, spans of several lines and of more than five, tabs and
-//! characters outside the BMP before a span. Where rbxts-rs follows TypeScript 7.1 instead (docs/tsrs.md), a fixture's
-//! `expected-stdout.txt` is rbxts-rs's and `stock-stdout.txt` keeps stock's: the same diagnostic codes in the same
-//! files ([`same_codes_as_stock`]).
+//! Then the `rbxtsc` binary's diagnostics byte for byte, in TypeScript 7.1's layout (`tsc`'s): `expected-stdout.txt`
+//! pretty, as in a terminal (`FORCE_COLOR=1`): related information, chained messages, an empty span, spans of several
+//! lines and of more than five, tabs and characters outside the BMP before a span, the error summary; and
+//! `expected-plain.txt`, where a fixture has one, plain, as when stdout is not a terminal (`FORCE_COLOR=0`). Against
+//! stock roblox-ts's stdout (`stock-stdout.txt`: roblox-ts master on TypeScript 5, `node out/CLI/cli.js build`, in
+//! TypeScript 5's layout): the same diagnostics, each the same first line ([`same_diagnostics_as_stock`]), or where
+//! rbxts-rs follows TypeScript 7.1 instead (docs/tsrs.md) the same diagnostic codes in the same files
+//! ([`same_codes_as_stock`]).
 
 #![cfg(windows)]
 
 use std::path::Path;
 
-use rbxts_test_support::{TempDir, copy_dir, node_modules_or_skip};
+use rbxts_test_support::{TempDir, copy_dir, diagnostic_headers as headers, node_modules_or_skip};
 
 #[test]
 fn builds_with_registered_plugins_and_returns_roblox_ts_exit_codes() {
@@ -50,9 +52,20 @@ fn builds_with_registered_plugins_and_returns_roblox_ts_exit_codes() {
     assert_eq!(status, 1);
 }
 
-/// `rbxtsc build` in a copy of `tests/fixtures/<name>`: stdout as `expected-stdout.txt` has it (stock's, unless the
-/// fixture keeps stock's as `stock-stdout.txt`), exit code 1.
-fn diagnostics_like_stock(name: &str) -> Option<TempDir> {
+/// `rbxtsc build` in `root`, with `FORCE_COLOR` set to `force_color`: (exit code, stdout).
+fn rbxtsc_build(root: &Path, force_color: &str) -> (Option<i32>, String) {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rbxtsc"))
+        .arg("build")
+        .current_dir(root)
+        .env("FORCE_COLOR", force_color)
+        .output()
+        .unwrap();
+    (output.status.code(), String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// `rbxtsc build` in a copy of `tests/fixtures/<name>`: exit code 1, stdout pretty as `expected-stdout.txt` has it,
+/// and plain as `expected-plain.txt` has it where the fixture has one.
+fn diagnostics_as_expected(name: &str) -> Option<TempDir> {
     let node_modules = node_modules_or_skip(&format!("cli::{name}"))?;
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
     let mut root = TempDir::new(&format!("cli-{name}"));
@@ -68,32 +81,19 @@ fn diagnostics_like_stock(name: &str) -> Option<TempDir> {
         }
     }
     root.link("node_modules", &node_modules);
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rbxtsc"))
-        .arg("build")
-        .current_dir(root.path())
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(1));
     let expected = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
-    assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+    assert_eq!(rbxtsc_build(root.path(), "1"), (Some(1), expected), "{name}: pretty");
+    if let Ok(expected) = std::fs::read_to_string(fixture.join("expected-plain.txt")) {
+        assert_eq!(rbxtsc_build(root.path(), "0"), (Some(1), expected), "{name}: plain");
+    }
     Some(root)
 }
 
 /// Each diagnostic's file and code, as `file - error TSnnnn`, sorted: the place in the file left out (TypeScript 7
 /// spans some errors otherwise).
 fn codes(stdout: &str) -> Vec<String> {
-    let mut plain = String::new();
-    let mut chars = stdout.chars();
-    while let Some(c) = chars.next() {
-        if c == '\u{1b}' {
-            chars.by_ref().find(|&c| c == 'm');
-        } else {
-            plain.push(c);
-        }
-    }
-    let mut codes: Vec<String> = plain
-        .lines()
-        .filter(|line| !line.starts_with(' '))
+    let mut codes: Vec<String> = headers(stdout)
+        .iter()
         .filter_map(|line| {
             let (place, rest) = line.split_once(" - error TS")?;
             let file = place.split(':').next()?;
@@ -105,10 +105,22 @@ fn codes(stdout: &str) -> Vec<String> {
     codes
 }
 
-/// [`diagnostics_like_stock`] for a fixture whose `expected-stdout.txt` is rbxts-rs's (TypeScript 7.1's text and
-/// spans), with the same diagnostic codes in the same files as stock's `stock-stdout.txt`.
+/// [`diagnostics_as_expected`], with the diagnostics of stock's `stock-stdout.txt`: each one's first line the same,
+/// in the same order.
+fn same_diagnostics_as_stock(name: &str) -> Option<TempDir> {
+    let root = diagnostics_as_expected(name)?;
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
+    let ours = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
+    let stock = std::fs::read_to_string(fixture.join("stock-stdout.txt")).unwrap();
+    assert!(!headers(&stock).is_empty(), "{name}: stock reports something");
+    assert_eq!(headers(&ours), headers(&stock), "{name}: the diagnostics are stock's");
+    Some(root)
+}
+
+/// [`diagnostics_as_expected`] for a fixture where rbxts-rs reports TypeScript 7.1's text and spans, with the same
+/// diagnostic codes in the same files as stock's `stock-stdout.txt`.
 fn same_codes_as_stock(name: &str) -> Option<TempDir> {
-    let root = diagnostics_like_stock(name)?;
+    let root = diagnostics_as_expected(name)?;
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
     let ours = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
     let stock = std::fs::read_to_string(fixture.join("stock-stdout.txt")).unwrap();
@@ -119,7 +131,7 @@ fn same_codes_as_stock(name: &str) -> Option<TempDir> {
 
 #[test]
 fn diagnostics_print_as_stock_with_related_information() {
-    diagnostics_like_stock("diagnostics_pretty");
+    same_diagnostics_as_stock("diagnostics_pretty");
 }
 
 /// An empty span, and TS1007's related information, whose span TypeScript 7 leaves empty (stock underlines the `{`).
@@ -185,11 +197,13 @@ fn an_outer_this_is_shadowed_by_the_function_as_stock_reports_it() {
 /// is rbxts-rs's, `stock-stdout.txt` stock's: they differ in the one error's inferred type alone.
 #[test]
 fn a_context_sensitive_yield_differs_from_stock_as_documented() {
-    diagnostics_like_stock("yield_context_sensitive");
+    diagnostics_as_expected("yield_context_sensitive");
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/yield_context_sensitive");
     let ours = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
     let stock = std::fs::read_to_string(fixture.join("stock-stdout.txt")).unwrap();
-    assert_eq!(ours.replacen("'string' is not assignable", "'unknown' is not assignable", 1), stock);
+    let ours = headers(&ours.replacen("'string' is not assignable", "'unknown' is not assignable", 1));
+    assert!(!ours.is_empty());
+    assert_eq!(ours, headers(&stock));
 }
 
 /// roblox-ts's `compileFiles` adds every file's checker diagnostics but transforms file by file, in transform order,
@@ -197,28 +211,28 @@ fn a_context_sensitive_yield_differs_from_stock_as_documented() {
 /// `c.ts`'s roblox-ts error is not (it comes after `b.ts`'s).
 #[test]
 fn diagnostics_stop_at_the_first_file_with_an_error_as_stock() {
-    diagnostics_like_stock("diagnostics_first_error");
+    same_diagnostics_as_stock("diagnostics_first_error");
 }
 
 /// A type-root package without declarations, with `"types": ["*"]` (every type root package, stock's rule without
 /// `types`): TypeScript 5's TS2688 wording ("Entry point for implicit type library"), which TypeScript 7 keeps for it.
 #[test]
 fn a_type_root_package_without_declarations_reports_as_stock() {
-    diagnostics_like_stock("automatic_types_no_declarations");
+    same_diagnostics_as_stock("automatic_types_no_declarations");
 }
 
 /// `"types": []`: roblox-ts makes its MacroManager before checking anything, so the compiler types it cannot find
 /// are its only error (no TS2318).
 #[test]
 fn empty_types_stop_at_the_macro_manager_as_stock() {
-    diagnostics_like_stock("types_empty");
+    same_diagnostics_as_stock("types_empty");
 }
 
 /// `baseUrl`, which TypeScript 7 removed: TS5102 (with TypeScript 7's hint, the `paths` entry to write instead),
 /// and TS2307 for each import only it resolved. Not emulated (docs/tsrs.md). `expected-stdout.txt` is rbxts-rs's.
 #[test]
 fn base_url_is_a_tsconfig_error() {
-    diagnostics_like_stock("base_url_removed");
+    diagnostics_as_expected("base_url_removed");
 }
 
 /// `rootDirs` without `rootDir`, the sources in `src`: TS5011 (TypeScript 7 lays the outputs out under the tsconfig's
@@ -226,7 +240,7 @@ fn base_url_is_a_tsconfig_error() {
 /// `expected-stdout.txt` is rbxts-rs's.
 #[test]
 fn root_dirs_without_root_dir_is_a_tsconfig_error() {
-    let Some(root) = diagnostics_like_stock("root_dirs_no_root_dir") else { return };
+    let Some(root) = diagnostics_as_expected("root_dirs_no_root_dir") else { return };
     assert!(!root.path().join("out").exists(), "nothing is written");
 }
 
@@ -234,7 +248,7 @@ fn root_dirs_without_root_dir_is_a_tsconfig_error() {
 /// error is the build's.
 #[test]
 fn empty_types_without_sources_stop_at_the_macro_manager_as_stock() {
-    diagnostics_like_stock("types_empty_no_sources");
+    same_diagnostics_as_stock("types_empty_no_sources");
 }
 
 /// A tsconfig without `types` whose sources import no package: TypeScript 7 loads no type-root package, so roblox-ts
@@ -242,7 +256,7 @@ fn empty_types_without_sources_stop_at_the_macro_manager_as_stock() {
 /// that line the project builds.
 #[test]
 fn a_tsconfig_without_types_gets_the_line_to_add() {
-    let Some(root) = diagnostics_like_stock("types_missing") else { return };
+    let Some(root) = diagnostics_as_expected("types_missing") else { return };
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/types_missing");
     let expected = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
     assert!(expected.contains("Add \"types\": [\"types\", \"compiler-types\"]"), "the warning names the line");

@@ -1,0 +1,7 @@
+src/index.ts(4,23): error TS2322: Type 'string' is not assignable to type 'number'.
+src/index.ts(8,39): error TS2322: Type 'string' is not assignable to type 'number'.
+src/index.ts(9,39): error TS2322: Type 'string' is not assignable to type 'number'.
+src/index.ts(10,14): error TS2322: Type 'string[]' is not assignable to type 'number[]'.
+  Type 'string' is not assignable to type 'number'.
+src/index.ts(13,2): error TS7027: Unreachable code detected.
+src/index.ts(22,2): error TS7027: Unreachable code detected.

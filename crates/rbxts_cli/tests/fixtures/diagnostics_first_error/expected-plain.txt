@@ -1,0 +1,3 @@
+src/b.ts(2,22): error TS roblox-ts: Using values of type `any` is not supported!
+Suggestion: Use `unknown` instead.
+src/d.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.

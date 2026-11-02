@@ -7,16 +7,18 @@
 [7m11[0m bad(function () {});
 [7m  [0m [91m    ~~~~~~~~[0m
 
-  [96msrc/shared/bad.ts[0m:[93m2[0m:[93m2[0m
+  [96msrc/shared/bad.ts[0m:[93m2[0m:[93m2[0m - 'n' is declared here.
     [7m2[0m  n: number;
     [7m [0m [96m ~[0m
-    'n' is declared here.
-  [96msrc/shared/bad.ts[0m:[93m9[0m:[93m17[0m
+
+  [96msrc/shared/bad.ts[0m:[93m9[0m:[93m17[0m - The last overload is declared here.
     [7m9[0m export function bad(cb: (this: Bar) => void): void;
     [7m [0m [96m                ~~~[0m
-    The last overload is declared here.
-  [96msrc/shared/bad.ts[0m:[93m10[0m:[93m17[0m
+
+  [96msrc/shared/bad.ts[0m:[93m10[0m:[93m17[0m - The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
     [7m10[0m export function bad(cb: Callback) {}
     [7m  [0m [96m                ~~~[0m
-    The call would have succeeded against this implementation, but implementation signatures of overloads are not externally visible.
+
+
+Found 1 error in src/shared/bad.ts[90m:11[0m
 

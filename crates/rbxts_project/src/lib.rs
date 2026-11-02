@@ -150,6 +150,11 @@ impl ParseConfigHost for ConfigHost {
     }
 }
 
+/// Whether the OS's file system tells file names apart by case, as tsrs (and tsgo's `sys`) decides it.
+pub fn os_case_sensitive_file_names() -> bool {
+    osvfs::fs().use_case_sensitive_file_names()
+}
+
 /// TypeScript's `flattenDiagnosticMessageText`: the message, then its chain indented two spaces a level. tsrs 0.20.0's
 /// `diagnosticwriter::flatten_diagnostic_message`, which tsrs 0.20.1 (#813) removed, over the writer it kept.
 pub fn flatten_diagnostic_message(d: P<Diagnostic>, new_line: &str) -> String {

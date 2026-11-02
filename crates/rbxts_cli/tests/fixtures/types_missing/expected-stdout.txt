@@ -2,3 +2,5 @@
 [91merror[0m[90m TS roblox-ts: [0mMacroManager could not find symbol for Promise
 You may need to update your @rbxts/compiler-types!
 
+Found 1 error.
+

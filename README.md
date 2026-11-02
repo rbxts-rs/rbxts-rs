@@ -174,6 +174,8 @@ follows TypeScript 7.1"). A project made by `npx rbxtsc init` needs these change
   `for…of` and spread over anything but an array do not type-check. Until a fixed package is published, patch
   `node_modules/@rbxts/compiler-types/types/Iterable.d.ts` as described under "Build, test and measure".
 
+rbxtsc prints errors in TypeScript 7's layout.
+
 The template's tsconfig, adapted (it builds with `@rbxts/services`, `@rbxts/t`, `@rbxts/react` and
 `@rbxts/react-roblox` imported):
 

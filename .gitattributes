@@ -3,9 +3,11 @@
 * text=auto eol=lf
 # The json fixture's CRLF asset: copied as it is, so committed and checked out with its CRLF line ends.
 crates/rbxts_transform/tests/fixtures/json/**/crlf.json -text
-# Stock rbxtsc stdout, CRLF line ends and colour codes included: compared byte for byte.
+# rbxtsc's stdout, colour codes included, and stock rbxtsc's (CRLF line ends too): compared byte for byte.
 crates/rbxts_cli/tests/fixtures/*/expected-stdout.txt -text
+crates/rbxts_cli/tests/fixtures/*/expected-plain.txt -text
 crates/rbxts_cli/tests/fixtures/*/stock-stdout.txt -text
 
-# Stock rbxtsc stdout of the forwarding cases: compared byte for byte.
+# rbxtsc's diagnostics of the forwarding cases and stock rbxtsc's stdout: compared byte for byte, line by line.
 crates/rbxts_cli/tests/fixtures/forwarding/expected/*.txt -text
+crates/rbxts_cli/tests/fixtures/forwarding/stock/*.txt -text

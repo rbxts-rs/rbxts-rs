@@ -2,3 +2,5 @@
   The file is in the program because:
     Entry point for implicit type library 'nodts'
 
+Found 1 error.
+
