@@ -486,94 +486,100 @@ pub(crate) struct DiagnosticOwner<'a> {
     pub plugin: &'a [P<Diagnostic>],
 }
 
-/// Keeps one of each plugin diagnostic in the build, as TypeScript's `sortAndDeduplicateDiagnostics` does: of the
-/// diagnostics equal to one a plugin reported (the same file, range, code (a plugin diagnostic's source) and message
-/// text, the hint included; the category and related information do not count), the one first in TypeScript 5.9's
-/// `compareDiagnostics` order is kept, which puts the one with more related information first; then a plugin's before
-/// a compiler diagnostic (stock adds the transformers' diagnostics before roblox-ts's own and sorts stably), then the
-/// owning file's place in the transform order and the position in its list. Compiler diagnostics
-/// equal only to each other are left alone, as stock roblox-ts reports them.
+/// Keeps one of each plugin diagnostic in the build, as TypeScript 7.1's `SortAndDeduplicateDiagnostics` does (tsrs's
+/// [`tsrs_compiler::sort_and_deduplicate_diagnostics`], which the reporter applies to the whole build): diagnostics
+/// equal to one a plugin reported but for their related information ([`tsrs_ast::equal_diagnostics_no_related_info`]:
+/// the same file, range, code, category, source and message, its arguments and chain) are one diagnostic, the one
+/// first in TypeScript 7.1's order ([`tsrs_ast::compare_diagnostics`]: more related information first), carrying the
+/// related information of them all, sorted and deduplicated. Among copies that order does not tell apart, a plugin's
+/// is kept before a compiler diagnostic (stock adds the transformers' diagnostics before roblox-ts's own and sorts
+/// stably), then the owning file's place in the transform order, then the position in its list. Compiler diagnostics
+/// equal only to each other are left alone, as stock roblox-ts reports them. rbxts-rs: copies that show different
+/// code slots (a plugin's source or code, which renders as the code) are different diagnostics.
 ///
 /// **Watch and incremental builds.** `owners` holds every project file's transform diagnostics, the files
 /// transformed now and the cached ones of files a rebuild does not transform again, each as its own last transform
 /// reported them (a rebuild commits a file's list before this drop). The choice depends only on that set, so a
 /// rebuild reports what a clean build would: when the file holding the kept copy stops reporting it, or is deleted,
 /// a copy another file holds is reported in its place.
-pub(crate) fn drop_plugin_duplicates(owners: &mut [DiagnosticOwner<'_>]) {
-    type Key = (Option<String>, Option<u32>, Option<u32>, Option<String>, i32, String);
+///
+/// Returns the copies made to carry merged related information: they stand for a diagnostic a file reported, so the
+/// build commits that diagnostic, not them.
+pub(crate) fn drop_plugin_duplicates(owners: &mut [DiagnosticOwner<'_>]) -> FxHashSet<P<Diagnostic>> {
+    use tsrs_ast::{compare_diagnostics, equal_diagnostics, equal_diagnostics_no_related_info};
+    let mut copies_made: FxHashSet<P<Diagnostic>> = FxHashSet::default();
     if owners.iter().all(|owner| owner.plugin.is_empty()) {
-        return;
+        return copies_made;
     }
-    let key = |d: P<Diagnostic>| -> Key {
-        // the code slot: a plugin's code or source
-        let slot = crate::plugins::diagnostic_code_slot(d);
-        (d.file().map(|f| f.file_name().to_owned()), d.pos(), d.end(), slot, d.code(), d.localize())
-    };
     // (owner, position in its list, diagnostic, a plugin's)
     type Candidate = (usize, usize, P<Diagnostic>, bool);
-    let mut groups: FxHashMap<Key, Vec<Candidate>> = FxHashMap::default();
+    let mut candidates: Vec<Candidate> = Vec::new();
     for (o, owner) in owners.iter().enumerate() {
         let plugin: FxHashSet<P<Diagnostic>> = owner.plugin.iter().copied().collect();
-        for (i, &d) in owner.diagnostics.iter().enumerate() {
-            groups.entry(key(d)).or_default().push((o, i, d, plugin.contains(&d)));
-        }
+        candidates.extend(owner.diagnostics.iter().enumerate().map(|(i, &d)| (o, i, d, plugin.contains(&d))));
     }
+    candidates.sort_by(|a, b| {
+        compare_diagnostics(a.2, b.2)
+            .then(b.3.cmp(&a.3))
+            .then(owners[a.0].order.cmp(&owners[b.0].order))
+            .then(a.1.cmp(&b.1))
+    });
     let mut dropped: Vec<FxHashSet<P<Diagnostic>>> = vec![FxHashSet::default(); owners.len()];
-    for group in groups.values() {
-        if group.len() < 2 || !group.iter().any(|&(_, _, _, plugin)| plugin) {
+    let mut merged: Vec<FxHashMap<P<Diagnostic>, P<Diagnostic>>> = vec![FxHashMap::default(); owners.len()];
+    let mut start = 0;
+    while start < candidates.len() {
+        let first = candidates[start].2;
+        let length =
+            1 + candidates[start + 1..].iter().take_while(|c| equal_diagnostics_no_related_info(first, c.2)).count();
+        let run = &candidates[start..start + length];
+        start += length;
+        if run.len() < 2 || !run.iter().any(|&(_, _, _, plugin)| plugin) {
             continue;
         }
-        let kept = group
-            .iter()
-            .min_by(|a, b| {
-                ts_compare_diagnostics(a.2, b.2)
-                    .then(b.3.cmp(&a.3))
-                    .then(owners[a.0].order.cmp(&owners[b.0].order))
-                    .then(a.1.cmp(&b.1))
-            })
-            .expect("a group is not empty");
-        for &(o, _, d, _) in group {
-            if d != kept.2 {
-                dropped[o].insert(d);
+        // copies that show different code slots (a plugin's source or code) stay apart
+        let mut groups: Vec<(Option<String>, Vec<Candidate>)> = Vec::new();
+        for &candidate in run {
+            let slot = crate::plugins::diagnostic_code_slot(candidate.2);
+            match groups.iter_mut().find(|(s, _)| *s == slot) {
+                Some((_, group)) => group.push(candidate),
+                None => groups.push((slot, vec![candidate])),
+            }
+        }
+        for (_, group) in groups {
+            if group.len() < 2 || !group.iter().any(|&(_, _, _, plugin)| plugin) {
+                continue;
+            }
+            let (owner, _, kept, _) = group[0];
+            // the group as TypeScript 7.1 deduplicates it: its first diagnostic, or a copy of it with the related
+            // information of the whole group (the first kept as it is when that is its own)
+            let copies: Vec<P<Diagnostic>> = group.iter().map(|c| c.2).collect();
+            if let [one] = tsrs_compiler::sort_and_deduplicate_diagnostics(&copies)[..]
+                && one != kept
+            {
+                let (own, all) = (kept.related_information(), one.related_information());
+                if own.len() != all.len() || !own.iter().zip(all).all(|(&a, &b)| equal_diagnostics(a, b)) {
+                    merged[owner].insert(kept, one);
+                    copies_made.insert(one);
+                }
+            }
+            for &(o, _, d, _) in &group[1..] {
+                if d != kept {
+                    dropped[o].insert(d);
+                }
             }
         }
     }
-    for (owner, dropped) in owners.iter_mut().zip(dropped) {
+    for ((owner, dropped), merged) in owners.iter_mut().zip(dropped).zip(merged) {
         if !dropped.is_empty() {
             owner.diagnostics.retain(|d| !dropped.contains(d));
         }
-    }
-}
-
-/// TypeScript 5.9's `compareDiagnostics`: file (its path, lowercased on Windows, as TypeScript compares it), start,
-/// length, code (a plugin diagnostic's source first), message text, then related information (one with more first,
-/// one with none last).
-fn ts_compare_diagnostics(d1: P<Diagnostic>, d2: P<Diagnostic>) -> std::cmp::Ordering {
-    use std::cmp::Ordering;
-    let file = |d: P<Diagnostic>| d.file().map(|f| f.path().to_string());
-    let source = crate::plugins::diagnostic_code_slot;
-    let skip_related = file(d1)
-        .cmp(&file(d2))
-        .then(d1.pos().cmp(&d2.pos()))
-        .then(d1.len().cmp(&d2.len()))
-        .then(source(d1).cmp(&source(d2)))
-        .then(d1.code().cmp(&d2.code()))
-        .then_with(|| d1.localize().cmp(&d2.localize()));
-    skip_related.then_with(|| {
-        let (r1, r2) = (d1.related_information(), d2.related_information());
-        match (r1.is_empty(), r2.is_empty()) {
-            (true, true) => Ordering::Equal,
-            (false, true) => Ordering::Less,
-            (true, false) => Ordering::Greater,
-            (false, false) => r2.len().cmp(&r1.len()).then_with(|| {
-                r1.iter()
-                    .zip(r2)
-                    .map(|(&a, &b)| ts_compare_diagnostics(a, b))
-                    .find(|c| c.is_ne())
-                    .unwrap_or(Ordering::Equal)
-            }),
+        for d in owner.diagnostics.iter_mut() {
+            if let Some(&one) = merged.get(d) {
+                *d = one;
+            }
         }
-    })
+    }
+    copies_made
 }
 
 /// The diagnostics `classify_symbol` reported in all files, once each and sorted (file, position, message): which

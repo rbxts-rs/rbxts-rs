@@ -40,8 +40,9 @@
 //!   diagnostics;
 //! - `links`: every `{@link}` of the tag as `name=target:text` (`JsDocLink::text`, `-` for none);
 //! - `runtime`: `runtime_member("Promise", "is")`; `synth`: an array of `synthesized_string`s of tricky texts;
-//! - `diagtwice`: the same warning reported twice, then as a message and with related information (one is kept),
-//!   with a hint and as the same text without one (one is kept), and with another source (kept), value `nil`;
+//! - `diagtwice`: the same warning reported twice and with related information (one is kept), as a message (kept: a
+//!   category of its own), with a hint and as the same text without one (one is kept), and with another source
+//!   (kept), value `nil`;
 //! - `before`: `insert_before_statement([comment, print("before <arg text>")])`, then `compile_expr(arg)`;
 //! - `named`: `hoist_spillable_named(compile_expr(a), "constant_22")`;
 //! - `props`: the names of `properties_of_type` of the argument's type (a unique symbol's as `@name`), joined;
@@ -790,7 +791,7 @@ impl ProbeInstance {
             "diagtwice" => {
                 cx.warning(call.node, "probe: reported twice, kept once");
                 cx.warning(call.node, "probe: reported twice, kept once");
-                // neither the category nor the related information makes a diagnostic distinct
+                // the related information does not make a diagnostic distinct; the category does (TypeScript 7.1)
                 let message = rbxts_plugin::ts::Category::Message;
                 cx.report(PluginDiagnostic::new(call.node, message, "probe: reported twice, kept once"));
                 cx.report(

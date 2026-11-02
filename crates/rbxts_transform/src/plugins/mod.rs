@@ -134,9 +134,10 @@
 //! (`compile::classify_diagnostics`), whatever the checker count.
 //!
 //! **Plugin diagnostics** (`compile::drop_plugin_duplicates`): each file's list keeps everything its hooks reported;
-//! the build then keeps one of each plugin diagnostic and the diagnostics equal to it (same file, range, code or
-//! source, message text), the copy TypeScript's `sortAndDeduplicateDiagnostics` keeps (more related information
-//! first, then a plugin's, then transform order and report order). In watch and incremental builds a transformed file
+//! the build then keeps one of each plugin diagnostic and the diagnostics equal to it but for their related
+//! information, as TypeScript 7.1's `SortAndDeduplicateDiagnostics` keeps it (the copy first in its order, more
+//! related information first, then a plugin's, then transform order and report order; with the related information
+//! of all the copies). In watch and incremental builds a transformed file
 //! commits its list as its transform reported it, before the drop, and the drop runs over the transformed files'
 //! lists and the cached lists of the files not transformed again together: the copy kept is a clean build's, also
 //! when the file holding it stops reporting it or is deleted. (A new process of an incremental build reports only

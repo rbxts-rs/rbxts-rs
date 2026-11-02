@@ -270,7 +270,9 @@ fn probe_and_stamp_match_the_expected_luau() {
             // that two files report: each once in the build
             "warning seamdiag.ts: Value will be checked against 0, NaN",
             "warning probe.d.ts: probe: at the declaration, once in the build",
-            // reported twice at the same node, then as a message and with related information: kept once
+            // reported twice at the same node, then with related information: kept once; then as a message (a
+            // category of its own, as TypeScript 7.1 compares it), listed as a warning here
+            "warning seamnames.ts: probe: reported twice, kept once",
             "warning seamnames.ts: probe: reported twice, kept once",
             // with a hint, and the same text without one: kept once
             "warning seamnames.ts: probe: with a hint\nthe hint",
@@ -1311,8 +1313,9 @@ fn declining_or_lowering_as_roblox_ts_changes_no_output() {
 
 /// A plugin diagnostic identical to roblox-ts's own at the same node (here its `logTruthyChanges` warning), or to
 /// one another file's hook reported at a node in a third file, is kept once in the build, as TypeScript's
-/// DiagnosticCollection keeps one of each; for any checker count. The copy kept is the one TypeScript's
-/// `sortAndDeduplicateDiagnostics` keeps, the one with related information, whichever file reports it first.
+/// DiagnosticCollection keeps one of each; for any checker count. The copy kept is the one TypeScript 7.1's
+/// `SortAndDeduplicateDiagnostics` keeps, the one with related information, whichever file reports it first, with the
+/// related information of all the copies.
 #[test]
 fn a_plugin_diagnostic_is_kept_once_in_the_build() {
     let probe = fixture_dir_of("probe");
@@ -1361,17 +1364,17 @@ fn a_plugin_diagnostic_is_kept_once_in_the_build() {
     let report = project.build_with(&["stamp", "probe"], Some(1), |_| {});
     assert_eq!(kept(&report), vec![("seamdiag.ts".to_owned(), 1)]);
 
-    // copies whose related information differs only by file compare by path, lowercased on Windows as TypeScript
-    // compares it: `a.ts`'s before `B.ts`'s (and the others'), where the file names would put `B.ts` first
+    // copies whose related information differs only by file compare by file name, as TypeScript 7.1 compares it
+    // (TypeScript 5 lowercased it on Windows): `B.ts`'s first, which carries the related information of all three
     project.write("src/shared/a.ts", "export const a = probeDiagDecl(true);\n");
     project.write("src/shared/B.ts", "export const b = probeDiagDecl(true);\n");
     let report = project.build_with(&["stamp", "probe"], Some(1), |_| {});
-    assert_eq!(kept(&report), vec![("a.ts".to_owned(), 1)]);
+    assert_eq!(kept(&report), vec![("B.ts".to_owned(), 3)]);
     std::fs::remove_file(project.root.join("src/shared/a.ts")).unwrap();
     std::fs::remove_file(project.root.join("src/shared/B.ts")).unwrap();
 
-    // a plugin copy and roblox-ts's that differ only in category: the plugin's is kept, as stock adds transformer
-    // diagnostics before its own and sorts stably
+    // a plugin copy and roblox-ts's that differ only in category: both are kept, as TypeScript 7.1 compares the
+    // category (TypeScript 5's rule kept the plugin's alone)
     project.write(
         "src/shared/category.ts",
         "declare const n: number;\nexport const c = probeDiagSame(n, \"Value will be checked against 0, NaN\", true) ? 1 : 0;\n",
@@ -1385,7 +1388,8 @@ fn a_plugin_diagnostic_is_kept_once_in_the_build() {
         .filter(|d| d.localize().starts_with("Value will be checked"))
         .map(|d| d.category())
         .collect();
-    assert_eq!(truthy, vec![Category::Message]);
+    assert_eq!(truthy.len(), 2, "{truthy:?}");
+    assert!(truthy.contains(&Category::Message) && truthy.contains(&Category::Warning), "{truthy:?}");
 }
 
 /// A copy of `plugin_fixtures/fwapi` (with its `lib`).

@@ -42,10 +42,9 @@ rbxts-rs used to emulate three TypeScript 5 tsconfig behaviours. They are gone; 
 | `util/symlink_cache.rs`, with its type-root order | which link to a package an import goes through: the `require` path | runtime paths |
 | `build/transform_order.rs` | the order files are transformed and reported in (`FileIndex`) | plugin API (Flamework's ids and `flamework.build`); roblox-ts's own algorithm |
 | Export order (`TransformState::get_module_exports`) | the order of export tables | tsrs's own symbol-table order, no code of ours; the insertion order can reach runtime through `pairs` |
-| TypeScript 5.9's `compareDiagnostics` for plugin duplicates (`compile.rs`) | which copy of a duplicated plugin diagnostic is kept | plugin behaviour |
 
 ### TypeScript 5 behaviour dropped
-Each only reproduced TypeScript 5's diagnostic cosmetics, an output with no effect, or (the last two) plugin
+Each only reproduced TypeScript 5's diagnostic cosmetics, an output with no effect, or (the last three) plugin
 behaviour, which follows TypeScript 7.1 too; TypeScript 7.1's stands.
 - TS2769's elaboration (`overload_errors.rs`): TypeScript 7 elaborates only the last overload (`The last overload gave
   the following error.`) and may put the error on the failing argument or the callee where TypeScript 5 put it on the
@@ -67,6 +66,11 @@ behaviour, which follows TypeScript 7.1 too; TypeScript 7.1's stands.
   `SourceFile::has_identifier` (every identifier and every string, numeric, big-integer and no-substitution template
   literal in the tree; no JSDoc). A plugin's local named after a JSDoc-only name keeps it now, and one named after a
   string literal's text anywhere in the file (`print("x")`) is numbered (`x_1`).
+- Plugin duplicates by TypeScript 5.9's `compareDiagnostics` (`compile::drop_plugin_duplicates`): the build keeps one
+  of each plugin diagnostic as TypeScript 7.1's `SortAndDeduplicateDiagnostics` does (tsrs's
+  `sort_and_deduplicate_diagnostics`, which rbxtsc's reporter applies to the whole build): copies that differ in
+  category are two diagnostics, the kept copy carries the related information of all the copies, and copies whose
+  related information differs only by file sort by the file name as it is (TypeScript 5 lowercased it on Windows).
 
 `crates/rbxts_bench/parity/divergences.json`'s `ts7` reasons list the parity-corpus files whose Luau a dropped
 layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau without plugins, so it

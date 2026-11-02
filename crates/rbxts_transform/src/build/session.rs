@@ -1775,8 +1775,9 @@ impl<'p> BuildSession<'p> {
         // what each transformed file reported, committed as it is (a rebuild drops duplicates again, over the cached
         // files' lists and its own, so it keeps the copy a clean build keeps)
         let reported: Vec<Vec<P<Diagnostic>>> = report.files.iter().map(|f| f.diagnostics.clone()).collect();
-        // one of each plugin diagnostic in the build
-        {
+        // one of each plugin diagnostic in the build (`merged_copies`: what stands for a reported diagnostic with the
+        // related information of its duplicates, never committed)
+        let merged_copies = {
             let mut owners: Vec<crate::compile::DiagnosticOwner<'_>> = report
                 .files
                 .iter_mut()
@@ -1793,8 +1794,8 @@ impl<'p> BuildSession<'p> {
                 diagnostics,
                 plugin,
             }));
-            crate::compile::drop_plugin_duplicates(&mut owners);
-        }
+            crate::compile::drop_plugin_duplicates(&mut owners)
+        };
         report.diagnostics.extend(cached.into_iter().flat_map(|(_, diagnostics, _)| diagnostics));
         // the transform ran on a MacroManager without the missing symbols for the plugins' sake alone: besides their
         // error, which stock reports instead, nothing it reported is stock's (internal errors of a missing symbol
@@ -2258,7 +2259,13 @@ impl<'p> BuildSession<'p> {
                             Some(&t) => {
                                 let known: FxHashSet<P<Diagnostic>> = reported[t].iter().copied().collect();
                                 let mut diagnostics = reported[t].clone();
-                                diagnostics.extend(report.files[t].diagnostics.iter().copied().filter(|d| !known.contains(d)));
+                                diagnostics.extend(
+                                    report.files[t]
+                                        .diagnostics
+                                        .iter()
+                                        .copied()
+                                        .filter(|d| !known.contains(d) && !merged_copies.contains(d)),
+                                );
                                 Some((diagnostics, &plugin_reported[t]))
                             }
                             None => committed
@@ -2345,7 +2352,7 @@ impl<'p> BuildSession<'p> {
             .zip(report.files.iter().zip(&reported).map(|(f, reported)| {
                 let known: FxHashSet<P<Diagnostic>> = reported.iter().copied().collect();
                 let mut diagnostics = reported.clone();
-                diagnostics.extend(f.diagnostics.iter().copied().filter(|d| !known.contains(d)));
+                diagnostics.extend(f.diagnostics.iter().copied().filter(|d| !known.contains(d) && !merged_copies.contains(d)));
                 diagnostics
             }))
             .collect();
