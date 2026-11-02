@@ -10,7 +10,7 @@ use super::facts::{mark_constant_reference, mark_stable_lookup, set_call_effects
 use crate::classes::transform_state::TransformState;
 use crate::util::traversal::get_ancestor;
 use crate::util::types::{
-    is_array_type, is_definitely_type, is_in_rbxts_types, is_in_rbxts_types_through_links, is_possibly_type, is_possibly_undefined, is_roblox_type,
+    is_array_type, is_definitely_type, is_in_rbxts_types, is_possibly_type, is_possibly_undefined, is_roblox_type,
 };
 
 const LIBRARIES: &[&str] = &["math", "string", "table", "bit32", "utf8", "coroutine", "task", "os", "debug", "buffer"];
@@ -155,7 +155,7 @@ fn allowed_arity(datatype: &str, member: &str, count: usize) -> bool {
 fn is_declared_in_rbxts_types(state: &mut TransformState<'_>, node: P<Node>) -> bool {
     let Some(symbol) = state.checker.get_symbol_at_location_exported(node) else { return false };
     let declarations = symbol.declarations();
-    !declarations.is_empty() && declarations.iter().all(|&d| is_in_rbxts_types_through_links(state, d))
+    !declarations.is_empty() && declarations.iter().all(|&d| is_in_rbxts_types(state, d))
 }
 
 /// rbxts-rs: `declaration` belongs to `receiver`'s own constructor type in `@rbxts/types`: its nearest interface or
@@ -168,7 +168,7 @@ fn is_declared_by_constructor_type(state: &mut TransformState<'_>, declaration: 
     });
     owner.is_some_and(|owner| {
         owner.name().is_some_and(|name| name.text().strip_suffix("Constructor") == Some(receiver))
-            && is_in_rbxts_types_through_links(state, owner)
+            && is_in_rbxts_types(state, owner)
     })
 }
 

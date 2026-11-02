@@ -180,7 +180,7 @@ local function arrayMutators(arr, getArr, f)
 	-- ▲ Array.pop ▲
 	print(_result)
 	arr[#arr] = nil
-	print(table.remove(arr, 1))
+	print((table.remove(arr, 1)))
 	table.remove(arr, 1)
 	-- ▼ Array.unshift ▼
 	table.insert(arr, 1, 6)
@@ -190,7 +190,7 @@ local function arrayMutators(arr, getArr, f)
 	local len2 = #arr
 	table.insert(arr, 1, 8)
 	table.insert(arr, f() + 1, 9)
-	print(table.remove(arr, 1), table.remove(arr, f() + 1))
+	print((table.remove(arr, 1)), (table.remove(arr, f() + 1)))
 	-- ▼ Array.unorderedRemove ▼
 	local _length_1 = #arr
 	local _value = arr[2]

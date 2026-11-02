@@ -41,7 +41,7 @@ local function maps(map, ro, getKey)
 		_size += 1
 	end
 	-- ▲ ReadonlyMap.size ▲
-	print(_exp, _size, ro.a ~= nil, ro.a, ro[getKey()])
+	print(_exp, _size, ro.a ~= nil, (ro.a), (ro[getKey()]))
 	local _arg0 = function(v, k, m)
 		return print(v, k, m)
 	end
@@ -71,11 +71,11 @@ local function maps(map, ro, getKey)
 		print(value + 1)
 	end
 	table.clear(map)
-	print(returned, existed, map.c)
+	print(returned, existed, (map.c))
 end
 local function order(getMap, k, v)
 	getMap()[k()] = v()
-	print(getMap()[k()])
+	print((getMap()[k()]))
 	local has = getMap()[k()] ~= nil
 	local _exp = getMap()
 	local _arg0 = k()

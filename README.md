@@ -284,14 +284,15 @@ The references are stock roblox-ts builds (roblox-ts master on TypeScript 5.9, `
 --allowCommentDirectives`) of roblox-ts's tests project (`tsconfig.bench.json`) and of a real project without
 Flamework; `--divergences crates/rbxts_bench/parity/divergences.json` classes the outputs that differ on purpose.
 
-**Linked `node_modules` (workspaces, junctions).** As stock roblox-ts does, rbxts-rs tells Roblox types apart by the
-real path of their declaration file: it must lie under the project's `node_modules/@rbxts/types`. When that folder
-(or `node_modules` itself) is a link to somewhere else, as in a pnpm or a monorepo workspace, nothing counts as a
-Roblox type: possibly-undefined arguments of Roblox calls are not wrapped in parentheses, the Roblox-type
-`instanceof` error is not reported, and the evaluation-order analysis no longer knows Roblox builtins such as
-`string.char` and method calls like `game:FindFirstChild`, so it moves them into temporaries. To get the usual output
-in such a layout, set `"preserveSymlinks": true` in the tsconfig (the linked path then counts), as stock needs too
-(`util/types.rs` `is_in_rbxts_types`, a roblox-ts bug kept for parity).
+**Linked `node_modules` (workspaces, junctions).** A linked `node_modules`, `node_modules/@rbxts` or package (pnpm,
+bun and workspace installs, a junction) compiles as a copied install does. Stock roblox-ts does not: it tells Roblox
+types apart by their declaration file's path as the program spells it, the real path, which must lie under the
+project's `node_modules/@rbxts/types` link path. Through a link nothing then counts as a Roblox type, and its output
+silently changes: possibly-undefined arguments of Roblox calls lose their parentheses (`tostring((f()))` becomes
+`tostring(f())`, which passes every value `f` returns), the Roblox-type `instanceof` error is not reported, and the
+evaluation-order analysis no longer knows Roblox builtins such as `string.char` and Roblox method calls, so it moves
+them into temporaries. rbxts-rs also tests the real path of `node_modules/@rbxts/types` (`util/types.rs`
+`is_in_rbxts_types`; the `junction_roblox_types` fixture).
 
 **Deliberate differences from stock (roblox-ts bugs fixed).** In outputs, the fixes the divergence manifest names
 (`crates/rbxts_bench/parity/divergences.json`, each with its description; the `stockfix` fixture). In diagnostics,

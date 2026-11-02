@@ -284,50 +284,35 @@ pub fn is_roblox_type(state: &mut TransformState<'_>, t: P<Type>) -> bool {
     symbol.declarations().iter().any(|&d| is_in_rbxts_types(state, d))
 }
 
-/// Whether `declaration` is in `node_modules/@rbxts/types` (cached per file).
+/// Whether `declaration` is in `node_modules/@rbxts/types` (cached per file): its file lies under the project's
+/// `node_modules/@rbxts/types`, or under that folder's real path.
 ///
-/// roblox-ts bug, mirrored: it tests the file's real path, so with `node_modules` (or `@rbxts/types`) linked from
-/// elsewhere no type counts as a Roblox type: possibly-undefined call arguments of Roblox functions are not wrapped in
-/// parentheses, and the Roblox-type `instanceof` diagnostic is not reported. The builtin checks of `util/evaluation`
-/// go through here too and never hold either: in roblox-ts's tests project, `string.char` and Roblox method calls
-/// (`game:FindFirstChild`) are then evaluated into temporaries and called with `.`. Fixtures link `@rbxts/types`, so
-/// they can't exercise these paths. rbxts-rs's own pure datatype constructors look through links
-/// ([`is_in_rbxts_types_through_links`]).
+/// rbxts-rs: roblox-ts tests only the first, against the path as the program spells it: the file's real path, as
+/// TypeScript resolves links unless `preserveSymlinks` is set. With `node_modules`, `node_modules/@rbxts` or
+/// `@rbxts/types` linked from elsewhere (pnpm, bun and workspace installs, a junction), nothing then counts as a Roblox
+/// type and the output silently changes: possibly-undefined call arguments of Roblox functions lose their
+/// LuaTuple-truncating parentheses (`tostring((f()))` becomes `tostring(f())`), the Roblox-type `instanceof`
+/// diagnostic is not reported, and the evaluation-order analysis no longer knows Roblox builtins (`string.char`,
+/// `game:FindFirstChild`), moving them into temporaries. With the real path a linked install compiles as a copied one.
 pub fn is_in_rbxts_types(state: &mut TransformState<'_>, declaration: P<Node>) -> bool {
     let Some(file) = tsrs_ast::get_source_file_of_node(declaration) else { return false };
     if let Some(&cached) = state.multi_transform_state.is_rbxts_types_file_cache.get(&file) {
         return cached;
     }
     let types_path = rbxts_project::nodepath::join(&[&state.services.data.node_modules_path, RBXTS_SCOPE, "types"]);
-    let result = rbxts_project::setup::is_path_descendant_of(file.get().file_name(), &types_path);
-    state.multi_transform_state.is_rbxts_types_file_cache.insert(file, result);
-    result
-}
-
-/// rbxts-rs: [`is_in_rbxts_types`], or under the real path of `node_modules/@rbxts/types` (a linked `node_modules` or
-/// package, as pnpm, bun and linked installs lay them out). For rbxts-rs's own checks (the pure datatype constructors
-/// of the JSX ordering, `util/evaluation/builtins`), whose output then does not depend on how the packages are
-/// installed; roblox-ts's own checks keep its link-dependent test (`is_in_rbxts_types`).
-pub fn is_in_rbxts_types_through_links(state: &mut TransformState<'_>, declaration: P<Node>) -> bool {
-    if is_in_rbxts_types(state, declaration) {
-        return true;
-    }
-    let Some(file) = tsrs_ast::get_source_file_of_node(declaration) else { return false };
-    if let Some(&cached) = state.multi_transform_state.is_rbxts_types_real_file_cache.get(&file) {
-        return cached;
-    }
-    let real = match &state.multi_transform_state.rbxts_types_real_path {
-        Some(real) => real.clone(),
-        None => {
-            let types_path =
-                rbxts_project::nodepath::join(&[&state.services.data.node_modules_path, RBXTS_SCOPE, "types"]);
-            let real = state.program.host().fs().realpath(&tsrs_core::tspath::normalize_path(&types_path));
-            state.multi_transform_state.rbxts_types_real_path = Some(real.clone());
-            real
-        }
+    let file_name = file.get().file_name();
+    let result = rbxts_project::setup::is_path_descendant_of(file_name, &types_path) || {
+        let real = match &state.multi_transform_state.rbxts_types_real_path {
+            Some(real) => real.clone(),
+            None => {
+                let real = state.program.host().fs().realpath(&tsrs_core::tspath::normalize_path(&types_path));
+                state.multi_transform_state.rbxts_types_real_path = Some(real.clone());
+                real
+            }
+        };
+        rbxts_project::setup::is_path_descendant_of(file_name, &real)
     };
-    let result = rbxts_project::setup::is_path_descendant_of(file.get().file_name(), &real);
-    state.multi_transform_state.is_rbxts_types_real_file_cache.insert(file, result);
+    state.multi_transform_state.is_rbxts_types_file_cache.insert(file, result);
     result
 }
 

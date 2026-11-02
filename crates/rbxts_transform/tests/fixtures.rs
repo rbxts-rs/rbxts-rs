@@ -16,9 +16,9 @@
 //! (outside the captured output), and passes, unless `RBXTS_RS_FIXTURE_REQUIRE=1` or `CI` is set: then it fails.
 //!
 //! A fixture's copy links the shared `node_modules` in as its `node_modules`, or, with a `links.json`, makes the
-//! links that describes, in each of its layouts (see [`check`]). Linked `@rbxts/types` means no type counts as a
-//! Roblox type (`is_in_rbxts_types`, as in stock roblox-ts), so the fixtures can't exercise the Roblox-type paths
-//! (wrapping, the `instanceof` diagnostic).
+//! links that describes, in each of its layouts (see [`check`]). A linked `@rbxts/types` counts as `@rbxts/types`
+//! (`is_in_rbxts_types` also tests its real path, where stock roblox-ts counts no Roblox type), so `expected/` is stock
+//! roblox-ts's output with a real `node_modules`.
 //!
 //! - `binding`: destructuring in declarations (`export let` and hoisted names included), parameters (rest tuples
 //!   too) and assignments (optimized, nested, below a rest element, used as values), over arrays, tuples, LuaTuple
@@ -78,6 +78,11 @@
 //! - `junction_workspace`: a bun / pnpm isolated workspace (`packages/game` and its sibling `packages/core`, both
 //!   linking `@rbxts/services` from `node_modules/.store`): the first link met is game's own.
 //!   `junction_workspace_core_first` imports `core` before `services`: game's link still comes first.
+//! - `junction_roblox_types`: Roblox types through a linked `node_modules`, `@rbxts` scope, each package, and a pnpm
+//!   store: possibly-undefined call arguments of Roblox functions keep their parentheses (a void call, a `Callback`
+//!   call: `tonumber((f()))`), and Roblox builtins (`string.char`, `SetAttribute`) stay stable lookups for the
+//!   evaluation order, as with a real `node_modules` (stock roblox-ts, which tests the real path against the link
+//!   path, counts none through a link).
 //! - `literals`: object and array literals, methods in object literals, spread in objects, arrays and calls, every
 //!   iterable kind an array spread accepts.
 //! - `loops`: numeric `for` loops under `--optimizedLoops` and the `while` fallback (copies of captured loop
@@ -104,9 +109,7 @@
 //!   tsconfig turns on `allowCommentDirectives` (for `@ts-expect-error` in enums).
 //! - `stockfix`: the roblox-ts bugs rbxts-rs fixes (each source file names its bug). `expected/` is rbxts-rs's output,
 //!   which differs from stock roblox-ts's exactly by those fixes, and `runtime/check.luau` runs it with Lune (when
-//!   `lune` is on the PATH) against JavaScript's results for the same calls (`runtime/<file>.luau`). Its tsconfig sets
-//!   `preserveSymlinks`, so the linked `@rbxts/types` counts as `@rbxts/types` (`jsxConstructors` needs its Roblox
-//!   datatype globals recognised); nothing else in the fixture depends on it.
+//!   `lune` is on the PATH) against JavaScript's results for the same calls (`runtime/<file>.luau`).
 //!   `tests/error_fixtures/jsx_entity` holds an input stock roblox-ts crashes on, which rbxts-rs reports as errors
 //!   (outside `tests/fixtures`, whose builds must succeed).
 //! - `transform_order`: imports, a triple-slash reference, a module augmentation, an ambient module import, a
@@ -363,7 +366,8 @@ fn compare_one_tree(out: &Path, expected: &Path, prefix: &str) -> Vec<String> {
 ///
 /// `links.json` is `{ "project"?: dir, "layouts": { name: [[link, target], …] } }`: the project directory inside the
 /// copy (default: the copy itself), and per layout the links to make, in order, each a path inside the copy and a
-/// target, `@shared/<package>` for the shared `node_modules`'s `@rbxts/<package>` or a path inside the copy. Without
+/// target: `@shared/<package>` for the shared `node_modules`'s `@rbxts/<package>`, `@node_modules` for the shared
+/// `node_modules` itself and `@node_modules/<path>` for a path inside it, or a path inside the copy. Without
 /// `links.json`, `node_modules` links to the shared `node_modules`.
 fn check(area: &'static str) {
     check_in(area, None);
@@ -416,10 +420,17 @@ fn check_in(area: &'static str, trees: Option<&'static [&'static str]>) {
         let label = if layout.is_empty() { area.to_owned() } else { format!("{area}-{layout}") };
         let mut project = TempProject::copy_of(&fixture, &label);
         for (link, target) in pairs {
-            let target = match target.strip_prefix("@shared/") {
-                Some(package) => node_modules.join("@rbxts").join(package),
-                None if Path::new(&target).is_absolute() => PathBuf::from(target),
-                None => project.root.join(target),
+            let inside_shared = match target.strip_prefix("@node_modules") {
+                Some("") => Some(""),
+                Some(rest) => rest.strip_prefix('/'),
+                None => None,
+            };
+            let target = match (target.strip_prefix("@shared/"), inside_shared) {
+                (Some(package), _) => node_modules.join("@rbxts").join(package),
+                (None, Some("")) => node_modules.clone(),
+                (None, Some(inside)) => node_modules.join(inside),
+                (None, None) if Path::new(&target).is_absolute() => PathBuf::from(target),
+                (None, None) => project.root.join(target),
             };
             project.link(&link, &target);
         }
@@ -480,6 +491,11 @@ fn junction_two_links() {
 #[test]
 fn junction_workspace() {
     check("junction_workspace");
+}
+
+#[test]
+fn junction_roblox_types() {
+    check("junction_roblox_types");
 }
 
 #[test]
@@ -601,25 +617,23 @@ fn stockfix_jsx_entity() {
     assert!(!entity.is_clean() && !entity.written);
 }
 
-/// The JSX ordering's pure datatype constructors (`stockfix/src/shared/jsxConstructors.tsx`) recognised through a
-/// linked `@rbxts/types` without `preserveSymlinks` (a linked `node_modules` or package, as pnpm, bun and linked
-/// installs lay them out): the output is the same as with it (`expected/shared/jsxConstructors.luau`).
+/// The JSX ordering's pure datatype constructors (`stockfix/src/shared/jsxConstructors.tsx`) recognised through the
+/// linked `@rbxts/types` with `preserveSymlinks` too, where the program names its files by the link path instead of
+/// the real one: the output is the same (`expected/shared/jsxConstructors.luau`).
 #[test]
-fn stockfix_jsx_constructors_through_a_linked_types_package() {
+fn stockfix_jsx_constructors_with_preserve_symlinks() {
     let node_modules = match node_modules() {
         Ok(path) => path,
-        Err(why) => return skip("stockfix_jsx_constructors_through_a_linked_types_package", &why),
+        Err(why) => return skip("stockfix_jsx_constructors_with_preserve_symlinks", &why),
     };
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/stockfix");
-    let mut project = TempProject::copy_of(&fixture, "stockfix_jsx_links");
+    let mut project = TempProject::copy_of(&fixture, "stockfix_jsx_preserve");
     project.link("node_modules", &node_modules);
     let tsconfig = project.root.join("tsconfig.json");
     let text = std::fs::read_to_string(&tsconfig).unwrap();
-    // the option's line, whatever its indentation and line end
-    let without: String =
-        text.split_inclusive('\n').filter(|line| line.trim() != "\"preserveSymlinks\": true,").collect();
-    assert_ne!(without, text, "the fixture's tsconfig sets preserveSymlinks");
-    std::fs::write(&tsconfig, without).unwrap();
+    let with = text.replacen("\"compilerOptions\": {", "\"compilerOptions\": {\n\t\t\"preserveSymlinks\": true,", 1);
+    assert_ne!(with, text, "the fixture's tsconfig has compilerOptions");
+    std::fs::write(&tsconfig, with).unwrap();
     let report = build(&project.root, false, &[]);
     let file = report.files.iter().find(|f| f.file_name.ends_with("jsxConstructors.tsx")).expect("jsxConstructors.tsx");
     let expected = std::fs::read_to_string(fixture.join("expected/shared/jsxConstructors.luau")).unwrap();

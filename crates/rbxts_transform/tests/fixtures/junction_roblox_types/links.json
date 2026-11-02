@@ -1,0 +1,19 @@
+{
+	"layouts": {
+		"linked-node-modules": [["node_modules", "@node_modules"]],
+		"linked-scope": [["node_modules/@rbxts", "@node_modules/@rbxts"]],
+		"linked-packages": [
+			["node_modules/@rbxts/types", "@shared/types"],
+			["node_modules/@rbxts/compiler-types", "@shared/compiler-types"],
+			["node_modules/@rbxts/services", "@shared/services"]
+		],
+		"pnpm-store": [
+			["node_modules/.pnpm/@rbxts+types@1.0.0/node_modules/@rbxts/types", "@shared/types"],
+			["node_modules/.pnpm/@rbxts+compiler-types@1.0.0/node_modules/@rbxts/compiler-types", "@shared/compiler-types"],
+			["node_modules/.pnpm/@rbxts+services@1.0.0/node_modules/@rbxts/services", "@shared/services"],
+			["node_modules/@rbxts/types", "node_modules/.pnpm/@rbxts+types@1.0.0/node_modules/@rbxts/types"],
+			["node_modules/@rbxts/compiler-types", "node_modules/.pnpm/@rbxts+compiler-types@1.0.0/node_modules/@rbxts/compiler-types"],
+			["node_modules/@rbxts/services", "node_modules/.pnpm/@rbxts+services@1.0.0/node_modules/@rbxts/services"]
+		]
+	}
+}
