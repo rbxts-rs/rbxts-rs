@@ -9,9 +9,10 @@
 //!
 //! With `--divergences FILE --corpus NAME` (the manifest `parity/divergences.json`, see [`crate::divergences`]), two
 //! more classes: `known-fix`, a differing file whose output is the one the manifest lists, with the rbxts-rs fixes
-//! of roblox-ts bugs that explain it (it passes); and `stale`, a listed file that is identical to the reference
+//! of roblox-ts bugs that explain it (it passes); `ts7-accepted`, the same for a file listed only for TypeScript 7
+//! differences the manifest accepts (it passes); and `stale`, a listed file that is identical to the reference
 //! again (it fails: a fix no longer shows there). `--record-divergences FIX` writes the run's differing files into the
-//! manifest under the fix `FIX`, after they were checked by hand.
+//! manifest under the fix (or accepted TypeScript 7 difference) `FIX`, after they were checked by hand.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -24,7 +25,8 @@ use rbxts_transform::{CompileOptions, CompileReport, PluginOptions, compile_proj
 use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
 use tsrs_diagnostics::Category;
 
-pub const USAGE: &str = "usage: rbxts-bench build [-p tsconfig.json] [--out-dir DIR] [--optimizedLoops] [--allowCommentDirectives]\n                         [--write-partial] [--no-write] [--parity REF_DIR] [--report FILE] [--show N] [--json]\n                         [--divergences FILE --corpus NAME [--record-divergences FIX]]\n  --divergences, --corpus: files that differ from the reference by known fixes of roblox-ts bugs pass as known-fix;\n  --record-divergences FIX: add this run's other differing files to the manifest under FIX (after checking them);\n                         [--plugin NAME]... [--timings] [--ignore-unknown-plugins] [--claims-all] [--checkers N]\n  --plugin NAME: register a test plugin (rbxts_test_plugins), in claim order; --timings: plugin hook times;\n  --ignore-unknown-plugins: a tsconfig plugins entry no registered plugin claims is not an error;\n  --claims-all: ask every matching plugin and report double claims (as RBXTS_PLUGIN_CLAIMS=all);\n  --checkers N: type checkers, each checking and transforming its files on a thread (default: rbxtsc's)";
+pub const USAGE: &str = "usage: rbxts-bench build [-p tsconfig.json] [--out-dir DIR] [--optimizedLoops] [--allowCommentDirectives]\n                         [--write-partial] [--no-write] [--parity REF_DIR] [--report FILE] [--show N] [--json]\n                         [--divergences FILE --corpus NAME [--record-divergences FIX]]\n  --divergences, --corpus: files that differ from the reference by known fixes of roblox-ts bugs pass as known-fix
+                         (listed only for accepted TypeScript 7 differences: ts7-accepted);\n  --record-divergences FIX: add this run's other differing files to the manifest under FIX (after checking them);\n                         [--plugin NAME]... [--timings] [--ignore-unknown-plugins] [--claims-all] [--checkers N]\n  --plugin NAME: register a test plugin (rbxts_test_plugins), in claim order; --timings: plugin hook times;\n  --ignore-unknown-plugins: a tsconfig plugins entry no registered plugin claims is not an error;\n  --claims-all: ask every matching plugin and report double claims (as RBXTS_PLUGIN_CLAIMS=all);\n  --checkers N: type checkers, each checking and transforming its files on a thread (default: rbxtsc's)";
 
 struct Args {
     tsconfig: String,
@@ -110,6 +112,8 @@ enum Class {
     Identical,
     /// Differing, by the fixes the divergence manifest lists for exactly this output.
     KnownFix,
+    /// Differing, by accepted TypeScript 7 differences only, which the manifest lists for exactly this output.
+    Ts7Accepted,
     /// Listed in the divergence manifest, but identical to the reference.
     Stale,
     Differing,
@@ -122,6 +126,7 @@ impl Class {
         match self {
             Class::Identical => "identical",
             Class::KnownFix => "known-fix",
+            Class::Ts7Accepted => "ts7-accepted",
             Class::Stale => "stale",
             Class::Differing => "differing",
             Class::Failed => "failed",
@@ -197,7 +202,9 @@ fn parity(
                     None => (Class::Identical, String::new()),
                 },
                 (Some(ours), Some(_)) if listed.is_some_and(|e| e.output == divergences::hash(ours)) => {
-                    (Class::KnownFix, listed.expect("listed").fixes.join(", "))
+                    let entry = listed.expect("listed");
+                    let only_ts7 = divergences.is_some_and(|d| d.only_ts7(entry));
+                    (if only_ts7 { Class::Ts7Accepted } else { Class::KnownFix }, entry.fixes.join(", "))
                 }
                 (Some(ours), Some(reference)) => {
                     output = Some(ours.clone());
@@ -383,21 +390,22 @@ pub fn run(args: impl Iterator<Item = String>) -> i32 {
         }
         let mut text = String::new();
         let summary: Vec<String> =
-            [Class::Identical, Class::KnownFix, Class::Stale, Class::Differing, Class::Failed, Class::Missing]
+            [Class::Identical, Class::KnownFix, Class::Ts7Accepted, Class::Stale, Class::Differing, Class::Failed, Class::Missing]
                 .iter()
-                .filter(|c| divergences.is_some() || !matches!(c, Class::KnownFix | Class::Stale))
+                .filter(|c| divergences.is_some() || !matches!(c, Class::KnownFix | Class::Ts7Accepted | Class::Stale))
                 .map(|c| format!("{} {}", c.label(), counts.get(c).copied().unwrap_or(0)))
                 .collect();
         let _ = writeln!(text, "parity vs {reference_dir}: {}", summary.join(", "));
         if let Some(d) = &divergences {
             let mut by_fix: BTreeMap<&str, usize> = BTreeMap::new();
-            for r in results.iter().filter(|r| r.class == Class::KnownFix) {
+            for r in results.iter().filter(|r| matches!(r.class, Class::KnownFix | Class::Ts7Accepted)) {
                 for fix in r.detail.split(", ") {
                     *by_fix.entry(fix).or_default() += 1;
                 }
             }
             for (fix, files) in by_fix {
-                let _ = writeln!(text, "  known fix {fix}: {files} files ({})", d.describe(fix).unwrap_or("not described"));
+                let kind = if d.is_ts7(fix) { "ts7 accepted" } else { "known fix" };
+                let _ = writeln!(text, "  {kind} {fix}: {files} files ({})", d.describe(fix).unwrap_or("not described"));
             }
         }
         let mut full = text.clone();
@@ -437,7 +445,10 @@ pub fn run(args: impl Iterator<Item = String>) -> i32 {
                 }
             }
         }
-        let passing = counts.get(&Class::Identical).copied().unwrap_or(0) + counts.get(&Class::KnownFix).copied().unwrap_or(0);
+        let passing = [Class::Identical, Class::KnownFix, Class::Ts7Accepted]
+            .iter()
+            .map(|c| counts.get(c).copied().unwrap_or(0))
+            .sum::<usize>();
         if passing != results.len() {
             status = status.max(1);
         }

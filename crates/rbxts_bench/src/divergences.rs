@@ -1,5 +1,6 @@
 //! Known divergences from a parity reference: the outputs that differ from stock roblox-ts's on purpose, because
-//! rbxts-rs fixes a roblox-ts bug there (`parity/divergences.json`).
+//! rbxts-rs fixes a roblox-ts bug there, or because rbxts-rs follows TypeScript 7.1 where stock follows TypeScript 5
+//! (`parity/divergences.json`).
 //!
 //! Byte parity with a stock reference is the main regression check, and a fix makes some files differ from it. The
 //! manifest records, per reference corpus, each such file with the fixes that explain it and the hash of the exact
@@ -8,6 +9,10 @@
 //! as before; it also reports a listed file that is identical to the reference again as `stale` (a fix no longer
 //! shows there). A known-fix file passes; a stale or differing one fails the run, so any further change to a listed
 //! file is looked at again.
+//!
+//! Two kinds of reason explain a listed file: the manifest's `fixes` (a roblox-ts bug rbxts-rs fixes) and its `ts7`
+//! (a TypeScript 5 behaviour rbxts-rs does not reproduce, accepted: docs/tsrs.md). A file listed only for `ts7`
+//! reasons is reported as `ts7-accepted` instead of `known-fix`; both pass.
 //!
 //! The manifest stores hashes only (`rbxts_project::text_hash`, FNV-1a), not outputs, and, for a corpus with
 //! `"hash_paths": true` (a private project), the hash of each file's path instead of the path.
@@ -83,9 +88,19 @@ impl Divergences {
         self.files.iter()
     }
 
-    /// The description of a fix id, if the manifest has one.
+    /// The description of a fix id or an accepted TypeScript 7 difference, if the manifest has one.
     pub fn describe(&self, fix: &str) -> Option<&str> {
-        self.document["fixes"][fix].as_str()
+        self.document["fixes"][fix].as_str().or_else(|| self.document["ts7"][fix].as_str())
+    }
+
+    /// Whether `reason` is an accepted TypeScript 7 difference (the manifest's `ts7`), not a fix.
+    pub fn is_ts7(&self, reason: &str) -> bool {
+        self.document["ts7"][reason].is_string()
+    }
+
+    /// Whether every reason of `entry` is an accepted TypeScript 7 difference.
+    pub fn only_ts7(&self, entry: &Entry) -> bool {
+        !entry.fixes.is_empty() && entry.fixes.iter().all(|f| self.is_ts7(f))
     }
 
     /// Records the run (see the module doc): `differing` holds each differing file and its output, `identical` the
@@ -178,6 +193,21 @@ mod tests {
         let changes = d.record("b", &[], &["x.luau".into()]).unwrap();
         assert_eq!(changes, ["dropped x.luau (identical to the reference again)"]);
         assert_eq!(Divergences::load(&path, "p").unwrap().listed().count(), 0);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn tells_ts7_reasons_from_fixes() {
+        let path = std::env::temp_dir().join(format!("rbxts-bench-divergences-ts7-{}.json", std::process::id()));
+        let path = path.to_string_lossy().into_owned();
+        std::fs::write(&path, "{\"fixes\": {\"a\": \"fix a\"}, \"ts7\": {\"t\": \"accepted t\"}}").unwrap();
+        let d = Divergences::load(&path, "p").unwrap();
+        assert!(d.is_ts7("t") && !d.is_ts7("a"));
+        assert_eq!(d.describe("t"), Some("accepted t"));
+        let entry = |fixes: &[&str]| Entry { fixes: fixes.iter().map(|f| f.to_string()).collect(), output: String::new() };
+        assert!(d.only_ts7(&entry(&["t"])));
+        assert!(!d.only_ts7(&entry(&["a", "t"])));
+        assert!(!d.only_ts7(&entry(&[])));
         std::fs::remove_file(&path).unwrap();
     }
 }

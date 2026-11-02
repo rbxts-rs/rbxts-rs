@@ -1,5 +1,5 @@
 {
-  "comment": "Outputs that differ from stock roblox-ts's on purpose: see crates/rbxts_bench/src/divergences.rs.",
+  "comment": "Outputs that differ from stock roblox-ts's on purpose: see crates/rbxts_bench/src/divergences.rs. fixes: roblox-ts bugs rbxts-rs fixes (known-fix); ts7: TypeScript 5 behaviour rbxts-rs no longer reproduces, accepted (ts7-accepted, docs/tsrs.md). No dropped TypeScript 5 layer changes the Luau of either corpus, so ts7 lists no reason yet.",
   "fixes": {
     "if-or": "An if-expression left of `or` is parenthesized (roblox-ts's renderer left it bare, so `or` joined its `else` branch).",
     "temp-names": "Temporary names never capture or hide the program's identifiers (luau-ast's solveTempIds / fallback names).",
@@ -17,6 +17,7 @@
     "switch-continue": "`continue` inside a switch continues the loop (roblox-ts continued the switch's `repeat … until true` block, like `break`).",
     "control-strings": "Strings with a NUL or carriage return, and decoded values (enum constants, export names), are escaped where Luau would misread them."
   },
+  "ts7": {},
   "corpora": {
     "real-noplugin": {
       "hash_paths": true,
