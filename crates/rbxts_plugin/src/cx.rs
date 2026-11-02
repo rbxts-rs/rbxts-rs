@@ -391,7 +391,9 @@ pub trait CxBackend {
     /// existing targets (`for ([a = 1] of list)`, `for (obj[key()] of list)`), the temporaries of its defaults, nested
     /// patterns and target expressions (roblox-ts lowers the head after the body; a head that declares its variables
     /// is foreseen in full); in a class expression's static block, the prerequisites its statement emitted before
-    /// the class.
+    /// the class. Those cases can count a few locals too few, so a plugin that budgets against Luau's limits keeps a
+    /// small margin; the load check (`rbxts_luau_check::ROBLOX_LEVELS`) compiles every file a plugin touched and
+    /// stops a build whose Luau does not load.
     ///
     /// Same phases as `insert_before_statement` (claim hooks and `class`).
     ///

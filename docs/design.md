@@ -1,4 +1,3 @@
-| `live_before_statement`: the Luau locals and registers live where `insert_before_statement` places statements, exact | Luau limits (row 8): how much room the code a plugin places there has |
 # rbxts-rs design
 
 The design of rbxts-rs, roblox-ts rewritten in Rust on tsrs, with Flamework's transformer as an in-process Rust
@@ -222,6 +221,7 @@ chains, `super`, prereqs.
 | `import_named(specifier, export) -> LuauExpr`, deduped, placed with roblox-ts's imports, plus `mark_import_used(alias)` so elision keeps a reused import | row 6 |
 | temp ids (roblox-ts's unique names), reserved-name and global-shadow checks, Luau comments | rows 9, 10 |
 | local-count queries on the Luau being built (function and main chunk) | Luau limits (row 8): counting the real AST replaces Flamework's 1,456-line estimator |
+| `live_before_statement`: the Luau locals and registers live where `insert_before_statement` places statements, exact | Luau limits (row 8): how much room the code a plugin places there has |
 | UTF-16 position of a node; file id and path; Rojo resolver and path translator | callsite uuid, `Caller`, paths (rows 2a, 2b) |
 | the file's checker diagnostics; `add_diagnostic` with related info | §7 |
 | `&mut Checker` access for type queries | everywhere |

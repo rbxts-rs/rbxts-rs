@@ -349,6 +349,11 @@ fn case_clause_hoists(state: &mut TransformState<'_>, clause: P<Node>) -> u32 {
     if let Some(&total) = state.plugin_file.live_hoists.get(&clause) {
         return total;
     }
+    // roblox-ts hoists a case block's shared variables only out of a `case` clause, never out of `default`
+    // (`checkVariableHoist`): a default clause's declarations stay where they are
+    if clause.kind() != Kind::CaseClause {
+        return 0;
+    }
     let mut total = state.hoists_by_statement.get(&clause).map_or(0, |h| h.len() as u32);
     let case_block = clause.parent().expect("a case clause is inside a case block");
     let file = state.source_file;
