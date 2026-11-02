@@ -1,0 +1,14 @@
+[96msrc/index.ts[0m:[93m3[0m:[93m26[0m - [91merror[0m[90m TS roblox-ts: [0mThe `instanceof` operator can only be used on roblox-ts classes!
+Suggestion: Use `typeIs(myThing, "TypeToCheck") instead
+
+[7m3[0m  return value instanceof CFrame;
+[7m [0m [91m                         ~~~~~~[0m
+
+[96msrc/index.ts[0m:[93m7[0m:[93m10[0m - [91merror[0m[90m TS roblox-ts: [0mOperator `...` is not allowed on Roblox types!
+
+[7m7[0m  const { ...rest } = position;
+[7m [0m [91m         ~~~~~~~[0m
+
+
+Found 2 errors in the same file, starting at: src/index.ts[90m:3[0m
+

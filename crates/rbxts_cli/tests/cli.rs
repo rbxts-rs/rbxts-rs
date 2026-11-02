@@ -328,3 +328,45 @@ fn the_tsconfig_pretty_option_wins_over_the_environment() {
         assert_eq!(build(option, env), (Some(1), expected.clone()), "pretty {option:?}, environment {env:?}");
     }
 }
+
+/// The Roblox-type diagnostics through a linked install (`roblox_types_through_links`): `instanceof` on a Roblox
+/// type and `...` on one are errors whether `node_modules`, `node_modules/@rbxts` or each `@rbxts` package is a link
+/// (junction), as with a copied `node_modules` (stock roblox-ts tests the declaration file's real path against the
+/// link path and reports neither through a link).
+#[test]
+fn roblox_type_errors_are_reported_through_linked_installs() {
+    let Some(node_modules) = node_modules_or_skip("cli::roblox_types_through_links") else { return };
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/roblox_types_through_links");
+    let expected = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
+    assert!(expected.contains("The `instanceof` operator can only be used on roblox-ts classes!"));
+    assert!(expected.contains("Operator `...` is not allowed on Roblox types!"));
+    let packages: Vec<String> = std::fs::read_dir(node_modules.join("@rbxts"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    for layout in ["node_modules", "@rbxts", "packages"] {
+        let mut root = TempDir::new(&format!("cli-links-{layout}"));
+        for name in ["src", "tsconfig.json", "package.json"] {
+            let from = fixture.join(name);
+            if from.is_dir() {
+                copy_dir(&from, &root.path().join(name));
+            } else {
+                std::fs::copy(&from, root.path().join(name)).unwrap();
+            }
+        }
+        match layout {
+            "node_modules" => {
+                root.link("node_modules", &node_modules);
+            }
+            "@rbxts" => {
+                root.link("node_modules/@rbxts", &node_modules.join("@rbxts"));
+            }
+            _ => {
+                for package in &packages {
+                    root.link(&format!("node_modules/@rbxts/{package}"), &node_modules.join("@rbxts").join(package));
+                }
+            }
+        }
+        assert_eq!(rbxtsc_build(root.path(), "1"), (Some(1), expected.clone()), "{layout} linked");
+    }
+}
