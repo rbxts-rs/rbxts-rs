@@ -16,6 +16,7 @@ use tsrs_core::P;
 
 use crate::classes::prereqs::{Prereqs, as_any_identifier, temp_id};
 use crate::classes::transform_state::TransformState;
+use crate::plugins::live::LiveFrame;
 use crate::nodes::class::transform_class_constructor::{
     transform_class_constructor, transform_implicit_class_constructor,
 };
@@ -174,10 +175,12 @@ fn transform_static_declarations(
             let body = declaration.as_class_static_block_declaration().body;
             // rbxts-rs: the block is a statement a TS transformer sees (TypeScript's `isStatement`), lowered here rather
             // than through `transformStatement`: offered to the plugins' statement hooks first (docs/design.md §11.5)
+            let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
             match crate::plugins::dispatch::claim_statement(state, body) {
                 Some(claimed) => statements.extend(claimed),
                 None => statements.extend(transform_block(state, body)),
             }
+            crate::plugins::live::pop(state, live);
         } else {
             let mut property_prereqs = Prereqs::new();
             let property = transform_property_declaration(state, &mut property_prereqs, declaration, internal_name);
@@ -315,7 +318,14 @@ pub fn transform_class_like_declaration(state: &mut TransformState<'_>, node: P<
         ));
     }
 
-    statements_inner.extend(transform_static_declarations(state, node, &static_declarations, &internal_name));
+    // rbxts-rs: static blocks are `do` blocks in the class's block, after `local Class` and what precedes them, for
+    // plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
+    let inner = crate::plugins::live::push(state, || LiveFrame::block(&statements_inner));
+    let static_statements = transform_static_declarations(state, node, &static_declarations, &internal_name);
+    crate::plugins::live::pop(state, inner);
+    crate::plugins::live::pop(state, live);
+    statements_inner.extend(static_statements);
 
     // if using internal name, assign to return var
     if should_use_internal_name {

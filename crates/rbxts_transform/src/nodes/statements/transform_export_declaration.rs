@@ -32,7 +32,7 @@ fn is_export_specifier_value(state: &mut TransformState<'_>, element: P<Node>) -
     false
 }
 
-fn count_import_exp_uses(state: &mut TransformState<'_>, export_clause: Option<P<Node>>) -> usize {
+pub(crate) fn count_import_exp_uses(state: &mut TransformState<'_>, export_clause: Option<P<Node>>) -> usize {
     match export_clause {
         Some(clause) if clause.kind() == Kind::NamedExports => {
             let mut uses = 0;

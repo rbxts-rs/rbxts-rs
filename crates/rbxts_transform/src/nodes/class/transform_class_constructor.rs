@@ -12,6 +12,7 @@ use crate::nodes::expressions::transform_identifier::transform_identifier_define
 use crate::nodes::transform_parameters::{TransformedParameters, transform_parameters};
 use crate::nodes::transform_property_name::transform_property_name;
 use crate::nodes::transform_statement_list::transform_statement_list;
+use crate::plugins::live::LiveFrame;
 use crate::shared::diagnostics::errors;
 use crate::util::symbols::{get_extends_node, get_statements};
 
@@ -90,6 +91,9 @@ pub fn transform_class_constructor(state: &mut TransformState<'_>, node: P<Node>
     // `findIndex` gives -1 when absent, so the first part is empty
     let split = super_index.map_or(0, |i| i + 1);
 
+    // rbxts-rs: `function Class:constructor(…)` (with `self`), for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::function(parameters.len() + 1, &statements));
+    let prologue = statements.len();
     statements.extend(transform_statement_list(state, Some(body), &body_statements[..split]));
 
     for &parameter in node.parameters() {
@@ -107,7 +111,10 @@ pub fn transform_class_constructor(state: &mut TransformState<'_>, node: P<Node>
 
     statements.extend(transform_property_initializers(state, node.parent().expect("a constructor has a class")));
 
+    // the statements after `super(…)` see those before it and the initializers
+    crate::plugins::live::grow(state, live, &statements[prologue..]);
     statements.extend(transform_statement_list(state, Some(body), &body_statements[split..]));
+    crate::plugins::live::pop(state, live);
 
     vec![create::method_declaration(name.clone().into(), CONSTRUCTOR, parameters, has_dot_dot_dot, statements)]
 }

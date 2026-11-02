@@ -25,11 +25,13 @@ pub fn transform_function_expression(state: &mut TransformState<'_>, node: P<Nod
     let TransformedParameters { parameters, mut statements, has_dot_dot_dot } = transform_parameters(state, node);
 
     let body = node.body().expect("a function expression has a body");
+    let live = crate::plugins::live::push_function(state, node, parameters.len(), &statements);
     if body.kind() == Kind::Block {
         statements.extend(transform_statement_list(state, Some(body), body.statements()));
     } else {
         statements.extend(transform_return_statement_inner(state, body));
     }
+    crate::plugins::live::pop(state, live);
 
     let is_async = has_syntactic_modifier(node, ModifierFlags::Async);
     let is_generator = node.body_data().is_some_and(|b| b.asterisk_token.is_some());

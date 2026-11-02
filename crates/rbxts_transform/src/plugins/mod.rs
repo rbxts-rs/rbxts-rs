@@ -182,6 +182,7 @@ mod hoist_check;
 mod identifiers;
 mod lowering;
 mod luau_walk;
+pub(crate) mod live;
 pub(crate) mod spill;
 
 /// The source a plugin diagnostic names (`PluginDiagnostic::source`, else its plugin's `diagnostic_source()`), for

@@ -35,7 +35,9 @@ pub fn transform_function_declaration(state: &mut TransformState<'_>, node: P<No
     };
 
     let TransformedParameters { parameters, mut statements, has_dot_dot_dot } = transform_parameters(state, node);
+    let live = crate::plugins::live::push_function(state, node, parameters.len(), &statements);
     statements.extend(transform_statement_list(state, Some(body), body.statements()));
+    crate::plugins::live::pop(state, live);
 
     let mut localize = is_export_default;
     let symbol = name_node.map(|n| state.checker.get_symbol_at_location_exported(n).expect("a function has a symbol"));

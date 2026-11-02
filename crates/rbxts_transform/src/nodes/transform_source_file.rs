@@ -10,6 +10,7 @@ use crate::classes::prereqs::as_any_identifier;
 use crate::classes::transform_state::TransformState;
 use crate::nodes::expressions::transform_identifier::transform_identifier_defined;
 use crate::nodes::transform_property_name::property_name_key;
+use crate::nodes::statements::transform_export_declaration::count_import_exp_uses;
 use crate::nodes::transform_statement_list::transform_statement_list;
 use crate::shared::constants::COMPILER_VERSION;
 use crate::util::symbols::{get_original_symbol_of_node, is_symbol_mutable, is_symbol_of_value};
@@ -182,7 +183,9 @@ pub fn transform_source_file(state: &mut TransformState<'_>, node: P<SourceFile>
     // the statements of the source file
     let file_node = node.as_node();
     crate::plugins::dispatch::begin_file(state);
+    let live = crate::plugins::live::push(state, crate::plugins::live::LiveFrame::main);
     let mut statements = transform_statement_list(state, Some(file_node), node.get().statements.nodes());
+    crate::plugins::live::pop(state, live);
     // rbxts-rs: plugin end_file, import elision decided on the whole file, plugin imports and header
     // (docs/design.md §11)
     crate::plugins::dispatch::end_file(state, &mut statements);
@@ -226,4 +229,38 @@ pub fn transform_source_file(state: &mut TransformState<'_>, node: P<SourceFile>
     crate::plugins::dispatch::check_main_chunk(state, &mut statements);
 
     statements
+}
+
+/// rbxts-rs: whether the file's main chunk will start with `local exports = {}` ([`handle_exports`]), foreseen before
+/// the file is lowered, for plugins (`live_before_statement`): not with `export =`, else when it re-exports from a
+/// module (`export … from`) or exports a mutable variable (`export let`).
+pub(crate) fn has_exports_table(state: &mut TransformState<'_>) -> bool {
+    let source_file = state.source_file;
+    let file_statements = source_file.get().statements.nodes();
+    if file_statements.iter().any(|s| s.kind() == Kind::ExportAssignment && s.as_export_assignment().is_export_equals)
+    {
+        return false;
+    }
+    // `transform_export_from`: a re-export with a value to take
+    let exports_from = file_statements.iter().any(|&s| {
+        s.kind() == Kind::ExportDeclaration
+            && !s.as_export_declaration().is_type_only
+            && s.as_export_declaration().module_specifier.is_some()
+            && count_import_exp_uses(state, s.as_export_declaration().export_clause) > 0
+    });
+    if state.has_export_from || exports_from {
+        return true;
+    }
+    let Some(symbol) = state.checker.get_symbol_at_location_exported(source_file.as_node()) else { return false };
+    let ignored = get_ignored_export_symbols(state, source_file);
+    for &export_symbol in state.get_module_exports(symbol).iter() {
+        if ignored.contains(&export_symbol) || is_export_symbol_from_export_from(export_symbol) {
+            continue;
+        }
+        let original_symbol = state.checker.skip_alias(export_symbol);
+        if is_symbol_of_value(original_symbol) && is_symbol_mutable(state, original_symbol) {
+            return true;
+        }
+    }
+    false
 }

@@ -87,10 +87,13 @@ pub fn transform_statement_list_with_exports(
     let remove_comments = state.compiler_options.remove_comments.is_true();
     // rbxts-rs: a function body's locals, for plugins (`locals().function`)
     let function_body = crate::plugins::dispatch::function_body_of(state, parent);
+    // rbxts-rs: the statements lowered so far, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || crate::plugins::live::LiveFrame::block(&[]));
 
     for &statement in statements {
         let plugin_mark = crate::plugins::dispatch::root_statement_start(state, parent);
         let before = result.len();
+        crate::plugins::live::begin_statement(state, live, statement);
         let mut transformed_statements = transform_statement(state, statement);
         let mut leading_comments = if remove_comments { Vec::new() } else { state.get_leading_comments(statement) };
         // rbxts-rs: plugin statements for before the statement (root insertions, `insert_before_statement`, a leading
@@ -121,6 +124,7 @@ pub fn transform_statement_list_with_exports(
         if let Some(body) = function_body {
             crate::plugins::dispatch::count_function_locals(state, body, &result[before..]);
         }
+        crate::plugins::live::end_statement(state, live, &result[before..]);
         if is_final {
             break;
         }
@@ -138,6 +142,8 @@ pub fn transform_statement_list_with_exports(
             }
         }
     }
+
+    crate::plugins::live::pop(state, live);
 
     if !remove_comments {
         let last_token = match statements.last() {

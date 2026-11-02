@@ -314,6 +314,8 @@ fn seam_additions_fall_back_to_the_older_primitives() {
     assert_eq!(render_expr(&member, &LateStrings::default()), "TS.Promise.is");
     // synthesized_string needs no backend
     assert_eq!(render_expr(&cx.synthesized_string("é"), &LateStrings::default()), r#""\u{00E9}""#);
+    // live_before_statement: the function's locals as `locals` counts them (the mock's: none)
+    assert_eq!(cx.live_before_statement(), rbxts_plugin::LiveLocals { locals: 0, registers: 0 });
     assert_eq!(backend.hoisted.len(), 2, "the insertion and the hoist");
     assert!(backend.diagnostics.is_empty());
 }

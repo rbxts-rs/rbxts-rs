@@ -8,6 +8,7 @@ use tsrs_core::P;
 use crate::classes::prereqs::{as_any_identifier, temp_id};
 use crate::classes::diagnostic_service::{OnceCache, ReportOnce};
 use crate::classes::transform_state::TransformState;
+use crate::plugins::live::LiveFrame;
 use crate::nodes::expressions::transform_identifier::transform_identifier_defined;
 use crate::nodes::transform_statement_list::{ExportInfo, transform_statement_list_with_exports};
 use crate::shared::diagnostics::errors;
@@ -88,17 +89,24 @@ fn transform_namespace(state: &mut TransformState<'_>, name: P<Node>, body: P<No
             }
         }
         let export_info = ExportInfo { id: container_id.into(), mapping: &exports_map };
-        do_statements.extend(transform_statement_list_with_exports(
-            state,
-            Some(body),
-            body.statements(),
-            Some(&export_info),
-        ));
+        // rbxts-rs: the block sees `local Name` and `_container`, for plugins (`live_before_statement`)
+        let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
+        let inner = crate::plugins::live::push(state, || LiveFrame::block(&do_statements));
+        let body_statements =
+            transform_statement_list_with_exports(state, Some(body), body.statements(), Some(&export_info));
+        crate::plugins::live::pop(state, inner);
+        crate::plugins::live::pop(state, live);
+        do_statements.extend(body_statements);
     } else {
         // `namespace A.B {}`: the inner namespace is declared in the outer one's block
         let inner = body.as_module_declaration();
         let inner_body = body.body().expect("a nested namespace has a body");
-        do_statements.extend(transform_namespace(state, inner.name(), inner_body));
+        let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
+        let inner_live = crate::plugins::live::push(state, || LiveFrame::block(&do_statements));
+        let inner_statements = transform_namespace(state, inner.name(), inner_body);
+        crate::plugins::live::pop(state, inner_live);
+        crate::plugins::live::pop(state, live);
+        do_statements.extend(inner_statements);
         let inner_value = transform_identifier_defined(state, inner.name());
         do_statements.push(create::assignment(
             create::property(Expr::TemporaryIdentifier(container_id), inner.name().text()),

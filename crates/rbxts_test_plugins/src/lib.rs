@@ -16,6 +16,8 @@
 //!   was not offered; `inert`, active with no interest, the baseline of a plugin build.
 //! - [`inputs`]: `probe-inputs`, every build input and persistence method of docs/design.md §14 (environment, globs,
 //!   recorded finish reads, `remove_empty_dir`, encoded file parts, a diagnostic source).
+//! - [`live`]: marks where `Cx::live_before_statement` was asked, with its answer (`live-all`: before every
+//!   statement with an identifier), for the exactness test.
 //! - [`transformer`]: claims a tsconfig transform and does nothing (the `--writeTransformedFiles` fixture).
 //! - [`scan`]: a `Shared` that depends on whether the plugin's own state file exists, as Flamework's candidate scan's;
 //!   `scan-reader`, one that depends on the bytes of `scan`'s state file.
@@ -29,6 +31,7 @@ pub mod stamp;
 pub mod decline;
 pub mod identity;
 pub mod inputs;
+pub mod live;
 pub mod probe;
 pub mod scan;
 pub mod transformer;
@@ -63,6 +66,8 @@ pub const NAMES: &[&str] = &[
     "decline-audit",
     "inert",
     "probe-inputs",
+    "live",
+    "live-all",
     "scan",
     "scan-reader",
     "transformer",
@@ -98,6 +103,8 @@ pub fn by_name(name: &str) -> Option<Box<dyn DynPlugin>> {
         "decline-audit" => erase(decline::DeclineAll { audit: true, inert: false }),
         "inert" => erase(decline::DeclineAll { audit: false, inert: true }),
         "probe-inputs" => erase(inputs::InputsProbe),
+        "live" => erase(live::Live { everywhere: false }),
+        "live-all" => erase(live::Live { everywhere: true }),
         "scan" => erase(scan::Scan),
         "scan-reader" => erase(scan::ScanReader),
         "transformer" => erase(transformer::Transformer),

@@ -9,6 +9,7 @@ use tsrs_core::P;
 use crate::classes::macro_manager::symbol_names;
 use crate::classes::prereqs::{Prereqs, temp_id};
 use crate::classes::transform_state::TransformState;
+use crate::plugins::live::LiveFrame;
 use crate::nodes::binding::transform_array_assignment_pattern::transform_array_assignment_pattern;
 use crate::nodes::binding::transform_binding_name::transform_binding_name;
 use crate::nodes::binding::transform_object_assignment_pattern::transform_object_assignment_pattern;
@@ -476,6 +477,21 @@ impl LoopBuilder {
 
 /// `getLoopBuilder`
 fn get_loop_builder(state: &mut TransformState<'_>, node: P<Node>, t: P<Type>) -> LoopBuilder {
+    let builder = loop_builder_of(state, t);
+    if matches!(builder, LoopBuilder::None) {
+        if is_definitely_type(state, t, &[&is_iterable_type]) {
+            state.add_diagnostic(errors::no_iterable_iteration(node));
+        } else if t.flags().intersects(TypeFlags::Union) {
+            state.add_diagnostic(errors::no_macro_union(node));
+        } else {
+            state.add_diagnostic(errors::no_unsupported_iteration(node));
+        }
+    }
+    builder
+}
+
+/// The loop builder for a value of type `t` (`getLoopBuilder` without its diagnostics); `None` when it reports one.
+fn loop_builder_of(state: &mut TransformState<'_>, t: P<Type>) -> LoopBuilder {
     if is_definitely_type(state, t, &[&is_array_type]) {
         LoopBuilder::Array
     } else if is_definitely_type(state, t, &[&is_set_type]) {
@@ -490,14 +506,7 @@ fn get_loop_builder(state: &mut TransformState<'_>, node: P<Node>, t: P<Type>) -
         LoopBuilder::IterableFunction
     } else if is_definitely_type(state, t, &[&is_generator_type]) {
         LoopBuilder::Generator
-    } else if is_definitely_type(state, t, &[&is_iterable_type]) {
-        state.add_diagnostic(errors::no_iterable_iteration(node));
-        LoopBuilder::None
-    } else if t.flags().intersects(TypeFlags::Union) {
-        state.add_diagnostic(errors::no_macro_union(node));
-        LoopBuilder::None
     } else {
-        state.add_diagnostic(errors::no_unsupported_iteration(node));
         LoopBuilder::None
     }
 }
@@ -530,7 +539,15 @@ pub fn transform_for_of_range_macro(state: &mut TransformState<'_>, node: P<Node
         (range.next().expect("$range has a start"), range.next().expect("$range has an end"), range.next());
     result.extend(range_prereqs.statements);
 
+    // rbxts-rs: the body sees the range's prerequisites (before the loop), the loop variable, what binds it and the
+    // registers the loop holds, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::block(&result));
+    let inner = crate::plugins::live::push(state, || {
+        LiveFrame::looped(&statements, 1, crate::plugins::live::NUMERIC_FOR_HIDDEN)
+    });
     statements.extend(transform_body(state, for_of.statement));
+    crate::plugins::live::pop(state, inner);
+    crate::plugins::live::pop(state, live);
 
     let step_node = arguments.get(2).map(|&a| skip_downwards(a));
     let step_is_negation = step_node.is_some_and(|s| {
@@ -574,7 +591,13 @@ pub fn transform_for_of_statement(state: &mut TransformState<'_>, node: P<Node>)
     let exp = transform_expression(state, &mut exp_prereqs, for_of.expression);
 
     let exp_type = state.get_type(for_of.expression);
+    // rbxts-rs: the body sees the iterable's prerequisites and what the loop builder emits around it, which is built
+    // after the body: foreseen on demand (`live_head`), for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || {
+        LiveFrame::with_extra(&exp_prereqs.statements, crate::plugins::live::Extra::ForOf(node))
+    });
     let statements = transform_body(state, for_of.statement);
+    crate::plugins::live::pop(state, live);
 
     let loop_builder = get_loop_builder(state, for_of.expression, exp_type);
     let mut loop_prereqs = Prereqs::new();
@@ -586,4 +609,210 @@ pub fn transform_for_of_statement(state: &mut TransformState<'_>, node: P<Node>)
     result.extend(loop_prereqs.statements);
     result.extend(loop_statements);
     result
+}
+
+/// rbxts-rs: what the loop around a `for … of` body (`node`, not a `$range` loop) declares and holds, for plugins
+/// (`live_before_statement`): the locals live at the body's start besides the iterable's prerequisites (the loop
+/// variables, the locals its initializers bind, a `while` loop's iterator local before it), and the registers the
+/// loop holds besides them. The loop builder runs after the body is lowered, so this foresees it, builder by builder.
+///
+/// Destructuring is counted as `transform_binding_name` lowers it (with each array pattern's accessor, by the type
+/// it destructures). A head that assigns to existing targets (`for ([a = 1, b] of …)`, `for (o[k()] of …)`) counts
+/// only its pattern's own temporary: the temporaries of its defaults, nested patterns and target expressions are not
+/// counted (`live_before_statement` documents it).
+pub(crate) fn live_head(state: &mut TransformState<'_>, node: P<Node>) -> (u32, u32) {
+    let for_of = node.as_for_in_or_of_statement();
+    let initializer = for_of.initializer;
+    let t = state.get_type(for_of.expression);
+    let (variables, locals) = match loop_builder_of(state, t) {
+        LoopBuilder::Array => (2, for_initializer_locals(state, initializer)),
+        LoopBuilder::Set | LoopBuilder::IterableFunction | LoopBuilder::String => {
+            (1, for_initializer_locals(state, initializer))
+        }
+        LoopBuilder::Map => match in_line_pattern(initializer) {
+            Some(pattern) => (pattern.elements().len() as u32, in_line_pattern_locals(state, pattern)),
+            None => (2, value_binding_locals(state, initializer)),
+        },
+        LoopBuilder::IterableFunctionLuaTuple(t) => match in_line_pattern(initializer) {
+            Some(pattern) => (pattern.elements().len() as u32, in_line_pattern_locals(state, pattern)),
+            None => match fixed_tuple_length(state, t, initializer) {
+                // `local tuple = { … }`, then what binds it
+                Some(length) => (length, 1 + for_initializer_locals(state, initializer)),
+                // `local _iterFunc = iter` before a `while` loop, `local value = { iter() }` in it
+                None => return (2 + for_initializer_locals(state, initializer), 0),
+            },
+        },
+        // `local x = result.value`, or the pattern's temporary
+        LoopBuilder::Generator => (1, value_binding_locals(state, initializer)),
+        LoopBuilder::None => return (0, 0),
+    };
+    (variables + locals, crate::plugins::live::generic_for_hidden(variables))
+}
+
+/// The pattern a map or `LuaTuple` loop binds in line (`for (const [k, v] of …)`, `for ([k, v] of …)`): its elements
+/// are the loop variables.
+fn in_line_pattern(initializer: P<Node>) -> Option<P<Node>> {
+    let pattern =
+        if is_variable_declaration_list(initializer) { first_declaration_name(initializer) } else { initializer };
+    (matches!(pattern.kind(), Kind::ArrayBindingPattern | Kind::ArrayLiteralExpression)
+        && !array_like_expression_contains_spread(pattern))
+    .then_some(pattern)
+}
+
+/// The locals an in-line pattern's elements bind besides the loop variables (`transform_in_line_array_binding_pattern`:
+/// nested patterns).
+fn in_line_pattern_locals(state: &mut TransformState<'_>, pattern: P<Node>) -> u32 {
+    if pattern.kind() != Kind::ArrayBindingPattern {
+        return 0;
+    }
+    let mut locals = 0;
+    for &element in pattern.elements() {
+        if element.kind() == Kind::BindingElement
+            && let Some(name) = element.as_binding_element().name()
+        {
+            locals += binding_name_locals(state, name);
+        }
+    }
+    locals
+}
+
+/// The locals `transform_for_initializer` pushes to the loop's initializers.
+fn for_initializer_locals(state: &mut TransformState<'_>, initializer: P<Node>) -> u32 {
+    if is_variable_declaration_list(initializer) { binding_name_locals(state, first_declaration_name(initializer)) } else { 0 }
+}
+
+/// The locals binding a loop's value to the initializer (`local left = value`, then what binds `left`): map loops
+/// without an in-line pattern and generator loops.
+fn value_binding_locals(state: &mut TransformState<'_>, initializer: P<Node>) -> u32 {
+    if is_variable_declaration_list(initializer) {
+        1 + binding_name_locals(state, first_declaration_name(initializer))
+    } else {
+        // `transform_for_initializer_expression_direct`: a pattern's `local _binding = value`
+        u32::from(matches!(initializer.kind(), Kind::ArrayLiteralExpression | Kind::ObjectLiteralExpression))
+    }
+}
+
+/// The element count of the tuple an `IterableFunction<LuaTuple<T>>` loop binds element by element
+/// (`build_iterable_function_lua_tuple_loop`): a variable declaration over a fixed-length tuple.
+fn fixed_tuple_length(state: &mut TransformState<'_>, t: P<Type>, initializer: P<Node>) -> Option<u32> {
+    if !is_variable_declaration_list(initializer) {
+        return None;
+    }
+    let signature = *state.checker.get_signatures_of_type_exported(t, SignatureKind::Call).first()?;
+    let lua_tuple_type = state.checker.get_return_type_of_signature_exported(signature);
+    let alias_type_arguments = lua_tuple_type.alias().map(|a| a.type_arguments()).unwrap_or_default();
+    let &[tuple_arg_type] = alias_type_arguments else { return None };
+    if !tsrs_checker::is_tuple_type_exported(tuple_arg_type) {
+        return None;
+    }
+    let tuple_type = tuple_arg_type.target()?.as_tuple_type();
+    (!tuple_type.combined_flags.get().intersects(ElementFlags::Variable))
+        .then(|| tuple_type.element_infos().len() as u32)
+}
+
+/// The locals `transform_binding_name` pushes for a binding name: none for an identifier (the loop variable itself),
+/// a pattern's destructuring.
+fn binding_name_locals(state: &mut TransformState<'_>, name: P<Node>) -> u32 {
+    match name.kind() {
+        Kind::ArrayBindingPattern => array_pattern_locals(state, name),
+        Kind::ObjectBindingPattern => object_pattern_locals(state, name),
+        _ => 0,
+    }
+}
+
+/// The locals `transform_array_binding_pattern` declares: each name's, a nested pattern's temporary, and what the
+/// accessor for the destructured type declares (`create_array_binding_accessor`).
+fn array_pattern_locals(state: &mut TransformState<'_>, pattern: P<Node>) -> u32 {
+    use crate::nodes::binding::transform_array_binding_pattern::is_omitted_binding_element;
+    use crate::util::binding::create_array_binding_accessor::has_callable_next;
+    #[derive(Clone, Copy, PartialEq)]
+    enum Access {
+        Array,
+        String,
+        /// An iterator whose step declares one local (`_value`, `_result`).
+        Step,
+        Collection { map: bool },
+        Unsupported,
+    }
+    let t = state.get_type(pattern);
+    // the accessor, and the locals it declares first
+    let (access, mut locals) = if is_definitely_type(state, t, &[&is_array_type]) {
+        (Access::Array, 0)
+    } else if is_definitely_type(state, t, &[&is_string_type]) {
+        (Access::String, 1)
+    } else if is_definitely_type(state, t, &[&is_set_type]) || is_definitely_type(state, t, &[&is_map_type]) {
+        (Access::Collection { map: is_definitely_type(state, t, &[&is_map_type]) }, 1)
+    } else if is_definitely_type(state, t, &[&is_shared_table_type]) {
+        (Access::Step, 2)
+    } else if is_definitely_type(state, t, &[&is_iterable_function_type]) {
+        (Access::Step, 0)
+    } else if is_definitely_type(state, t, &[&has_callable_next]) {
+        (Access::Step, 1)
+    } else {
+        (Access::Unsupported, 0)
+    };
+    let elements = pattern.elements();
+    let (mut read, mut consumed) = (false, false);
+    for (index, &element) in elements.iter().enumerate() {
+        let omitted = is_omitted_binding_element(element);
+        let spread = !omitted && element.as_binding_element().dot_dot_dot_token().is_some();
+        locals += match access {
+            Access::Array | Access::Unsupported => 0,
+            Access::String => u32::from(spread),
+            // `local _rest`, and `local _length` unless it goes inside `if not _done`
+            _ if spread => 1 + u32::from(!read),
+            Access::Step | Access::Collection { .. } => {
+                let step = match access {
+                    Access::Collection { map } => u32::from(map && !omitted),
+                    _ => 1,
+                };
+                // the first read declares its step's locals and `_done`; later ones `_value` before `if not _done`
+                let value = if read { u32::from(!omitted) } else { step + 1 };
+                read = true;
+                // a collection's reads before the last record their key in `_consumed`
+                let record = matches!(access, Access::Collection { .. }) && index + 1 != elements.len() && !consumed;
+                consumed |= record;
+                value + u32::from(record)
+            }
+        };
+        if omitted {
+            continue;
+        }
+        let name = element.as_binding_element().name().expect("a binding element has a name");
+        // `local name = value`, or `local _binding = value` and the nested pattern
+        locals += 1 + binding_name_locals(state, name);
+    }
+    locals
+}
+
+/// The locals `transform_object_binding_pattern` declares: each name's, a computed key's (`object_accessor`), a nested
+/// pattern's temporary, and a rest's (`create_object_rest`).
+fn object_pattern_locals(state: &mut TransformState<'_>, pattern: P<Node>) -> u32 {
+    let key_local = |name: P<Node>| {
+        u32::from(name.kind() == Kind::ComputedPropertyName && {
+            let key = skip_downwards(name.as_computed_property_name().expression);
+            !matches!(
+                key.kind(),
+                Kind::StringLiteral
+                    | Kind::NumericLiteral
+                    | Kind::NoSubstitutionTemplateLiteral
+                    | Kind::TrueKeyword
+                    | Kind::FalseKeyword
+            )
+        })
+    };
+    let (mut locals, mut keys) = (0, 0);
+    for &element in pattern.elements() {
+        let binding_element = element.as_binding_element();
+        let name = binding_element.name().expect("a binding element has a name");
+        if binding_element.dot_dot_dot_token().is_some() {
+            // `local _rest = {}`, and `local _extracted` for two keys or more
+            locals += 1 + u32::from(keys > 1);
+        } else {
+            locals += key_local(binding_element.property_name().unwrap_or(name));
+            keys += 1;
+        }
+        locals += 1 + binding_name_locals(state, name);
+    }
+    locals
 }

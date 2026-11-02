@@ -9,7 +9,7 @@ use rbxts_luau::{AnyIdentifier, Effects, Expr, Stmt, create};
 use rbxts_plugin::erased::DynInstance;
 use rbxts_plugin::{
     Aborted, AccessPosition, Arg, BinOp, CallKind, CallSite, Callee, Cx, CxBackend, FileInfo, GlobMatcher, JsDocTag,
-    LocalCounts, LuauIdent, ObjectEdits, PResult, PluginDiagnostic, Utf16Pos, text_literal,
+    LiveLocals, LocalCounts, LuauIdent, ObjectEdits, PResult, PluginDiagnostic, Utf16Pos, text_literal,
 };
 use rustc_hash::FxHashMap;
 use rbxts_project::{PackageInfo, ProjectServices, ResolvedModuleInfo};
@@ -1018,6 +1018,27 @@ impl CxBackend for HookBackend<'_, '_> {
             None => main_chunk,
         };
         LocalCounts { function, main_chunk }
+    }
+
+    fn live_before_statement(&mut self) -> LiveLocals {
+        if self.refused("live_before_statement", Row::Lowering) {
+            return LiveLocals::default();
+        }
+        let Some(statement) = dispatch::enclosing_statement(self.anchor) else {
+            self.misuse("live_before_statement: its node is in no statement");
+            return LiveLocals::default();
+        };
+        match super::live::live_before(self.state, statement) {
+            Some((locals, registers)) => LiveLocals { locals, registers },
+            None => {
+                // every statement is lowered in a statement list or an `else` block (`insert_before_statement`
+                // reports one that is not, at the end of the file)
+                let message = "live_before_statement: the statement around this node is not being lowered in a \
+                               statement list";
+                self.state.plugin_internal_error(statement, message);
+                LiveLocals::default()
+            }
+        }
     }
 
     fn late_string(&mut self, key: &str) -> Expr {

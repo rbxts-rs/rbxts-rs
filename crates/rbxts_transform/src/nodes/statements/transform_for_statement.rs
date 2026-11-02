@@ -8,6 +8,7 @@ use tsrs_core::P;
 
 use crate::classes::prereqs::{Prereqs, as_any_identifier, temp_id};
 use crate::classes::transform_state::TransformState;
+use crate::plugins::live::LiveFrame;
 use crate::nodes::expressions::transform_expression::transform_expression;
 use crate::nodes::expressions::transform_identifier::transform_identifier_defined;
 use crate::nodes::statements::transform_expression_statement::transform_expression_statement_inner;
@@ -231,7 +232,13 @@ fn transform_for_statement_fallback(state: &mut TransformState<'_>, node: P<Node
         condition_exp = create::bool(true);
     }
 
+    // rbxts-rs: the body sees the initializer's locals (in the `do` block) and the loop's own, for plugins
+    // (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::block(&result));
+    let inner = crate::plugins::live::push(state, || LiveFrame::block(&while_statements));
     while_statements.extend(transform_body(state, statement));
+    crate::plugins::live::pop(state, inner);
+    crate::plugins::live::pop(state, live);
 
     if !while_statements.is_empty() && !finalizer_statements.is_empty() {
         add_finalizers(&mut while_statements, &finalizer_statements);
@@ -441,7 +448,10 @@ fn transform_for_statement_optimized(state: &mut TransformState<'_>, node: P<Nod
         }
     }
 
+    // rbxts-rs: the loop variable and the registers the loop holds, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::looped(&[], 1, crate::plugins::live::NUMERIC_FOR_HIDDEN));
     let statements = transform_body(state, statement);
+    crate::plugins::live::pop(state, live);
 
     if operator == Kind::LessThanToken {
         end = offset(end, -1.0);

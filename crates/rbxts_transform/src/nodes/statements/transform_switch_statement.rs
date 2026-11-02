@@ -9,6 +9,7 @@ use tsrs_core::P;
 
 use crate::classes::prereqs::{Prereqs, temp_id};
 use crate::classes::transform_state::TransformState;
+use crate::plugins::live::{Extra, LiveFrame};
 use crate::nodes::expressions::transform_expression::transform_expression;
 use crate::nodes::statements::transform_continue_statement::create_continue;
 use crate::nodes::transform_statement_list::transform_statement_list;
@@ -110,8 +111,11 @@ fn transform_case_clause(
         can_fall_through_to,
     );
 
+    // rbxts-rs: the body sees the clause's prerequisites, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::block(&prereq_statements));
     let (clause_statements, can_fall_through_from) =
         transform_case_clause_body(state, node, condition, fall_through_flag_id, should_update_fall_through_flag);
+    crate::plugins::live::pop(state, live);
     CaseClause { can_fall_through_from, prereqs: prereq_statements, clause_statements }
 }
 
@@ -127,10 +131,13 @@ fn transform_case_clause_body(
     let clause_body = node.statements();
     let non_empty_statements: Vec<P<Node>> =
         clause_body.iter().copied().filter(|s| s.kind() != Kind::EmptyStatement).collect();
+    // rbxts-rs: the clause's shared variables are declared before its `if`, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::with_extra(&[], Extra::CaseHoists(node)));
     let mut statements = match non_empty_statements.as_slice() {
         [first] if first.kind() == Kind::Block => crate::nodes::transform_statement_list::transform_body(state, *first),
         _ => transform_statement_list(state, Some(node), clause_body),
     };
+    crate::plugins::live::pop(state, live);
 
     let can_fall_through_from = statements.last().is_none_or(|last| !last.is_final());
     if can_fall_through_from && should_update_fall_through_flag {
@@ -170,6 +177,7 @@ fn transform_switch_middle_default(
     // the clauses before the default, each setting the flag when control can fall through to the next
     let mut can_fall_through_to = false;
     for &case_clause_node in &clauses[..default_index] {
+        let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
         let CaseClause { can_fall_through_from, prereqs, clause_statements } = transform_case_clause(
             state,
             case_clause_node,
@@ -178,6 +186,7 @@ fn transform_switch_middle_default(
             can_fall_through_to,
             true,
         );
+        crate::plugins::live::pop(state, live);
         statements.extend(prereqs);
         statements.extend(clause_statements);
         can_fall_through_to = can_fall_through_from;
@@ -223,6 +232,7 @@ fn transform_switch_middle_default(
 
     // the default: when no later case matched (or control fell into it)
     let default_clause = clauses[default_index];
+    let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
     let (default_statements, can_fall_through_from) = transform_case_clause_body(
         state,
         default_clause,
@@ -230,6 +240,7 @@ fn transform_switch_middle_default(
         &fall_through_flag_id,
         true,
     );
+    crate::plugins::live::pop(state, live);
     statements.extend(default_statements);
     can_fall_through_to = can_fall_through_from;
     is_fall_through_flag_needed |= can_fall_through_from;
@@ -244,6 +255,7 @@ fn transform_switch_middle_default(
         if can_fall_through_to {
             condition = create::binary(fall_through_flag.clone(), BinaryOperator::Or, condition);
         }
+        let live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
         let (clause_statements, can_fall_through_from) = transform_case_clause_body(
             state,
             case_clause_node,
@@ -251,6 +263,7 @@ fn transform_switch_middle_default(
             &fall_through_flag_id,
             i + 1 < later.len(),
         );
+        crate::plugins::live::pop(state, live);
         statements.extend(clause_statements);
         can_fall_through_to = can_fall_through_from;
         is_fall_through_flag_needed |= can_fall_through_from && i + 1 < later.len();
@@ -291,6 +304,8 @@ fn transform_switch_statement_inner(state: &mut TransformState<'_>, node: P<Node
     };
     let mut result = prereqs.statements;
     let fall_through_flag_id = temp_id("fallthrough");
+    // rbxts-rs: inside the switch, its prerequisites and flags are live, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::with_extra(&result, Extra::Switch(node)));
 
     let mut is_fall_through_flag_needed = false;
 
@@ -304,11 +319,13 @@ fn transform_switch_statement_inner(state: &mut TransformState<'_>, node: P<Node
             transform_switch_middle_default(state, &expression, clauses, default_index),
             Expr::True,
         ));
+        crate::plugins::live::pop(state, live);
         return result;
     }
     for (i, &case_clause_node) in clauses.iter().enumerate() {
         if case_clause_node.kind() == Kind::CaseClause {
             let should_update_fall_through_flag = i < clauses.len() - 1 && clauses[i + 1].kind() == Kind::CaseClause;
+            let clause_live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
             let CaseClause { can_fall_through_from, prereqs, clause_statements } = transform_case_clause(
                 state,
                 case_clause_node,
@@ -317,6 +334,7 @@ fn transform_switch_statement_inner(state: &mut TransformState<'_>, node: P<Node
                 can_fall_through_to,
                 should_update_fall_through_flag,
             );
+            crate::plugins::live::pop(state, clause_live);
 
             statements.extend(prereqs);
             statements.extend(clause_statements);
@@ -327,7 +345,9 @@ fn transform_switch_statement_inner(state: &mut TransformState<'_>, node: P<Node
                 is_fall_through_flag_needed = true;
             }
         } else {
+            let clause_live = crate::plugins::live::push(state, || LiveFrame::block(&statements));
             statements.extend(transform_statement_list(state, Some(case_clause_node), case_clause_node.statements()));
+            crate::plugins::live::pop(state, clause_live);
             break;
         }
     }
@@ -336,6 +356,39 @@ fn transform_switch_statement_inner(state: &mut TransformState<'_>, node: P<Node
         statements.insert(0, create::local(fall_through_flag_id, Some(Expr::False)));
     }
 
+    crate::plugins::live::pop(state, live);
     result.push(create::repeat_stmt(statements, Expr::True));
     result
+}
+
+/// rbxts-rs: whether control can fall through from a clause (`can_fall_through_from`), foreseen from its statements
+/// for plugins (`live_before_statement`): unless one of them (or of its only block) is a `return`, `break` or
+/// `continue`, whose Luau ends the clause's (roblox-ts lowers nothing after it).
+fn clause_can_fall_through(clause: P<Node>) -> bool {
+    let body = clause.statements();
+    let non_empty: Vec<P<Node>> = body.iter().copied().filter(|s| s.kind() != Kind::EmptyStatement).collect();
+    let statements = match non_empty.as_slice() {
+        [first] if first.kind() == Kind::Block => first.statements(),
+        _ => body,
+    };
+    !statements
+        .iter()
+        .any(|s| matches!(s.kind(), Kind::ReturnStatement | Kind::BreakStatement | Kind::ContinueStatement))
+}
+
+/// rbxts-rs: whether the switch's block starts with `local _fallthrough = false` (`is_fall_through_flag_needed`),
+/// foreseen before its clauses are lowered, for plugins (`live_before_statement`).
+pub(crate) fn needs_fallthrough_flag(switch: P<Node>) -> bool {
+    let clauses = switch.as_switch_statement().case_block.as_case_block().clauses.nodes();
+    match clauses.iter().position(|clause| clause.kind() == Kind::DefaultClause) {
+        Some(default_index) if default_index + 1 < clauses.len() => {
+            let later = &clauses[default_index + 1..];
+            clauses[..=default_index].iter().any(|&clause| clause_can_fall_through(clause))
+                || later.iter().enumerate().any(|(i, &clause)| i + 1 < later.len() && clause_can_fall_through(clause))
+        }
+        _ => clauses
+            .iter()
+            .take_while(|clause| clause.kind() == Kind::CaseClause)
+            .any(|&clause| clause_can_fall_through(clause)),
+    }
 }

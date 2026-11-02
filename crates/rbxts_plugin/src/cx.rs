@@ -19,7 +19,7 @@ use tsrs_compiler::Program;
 use tsrs_core::{CompilerOptions, P};
 
 use crate::{
-    Abort, Arg, BinOp, CallSite, Callee, FileInfo, GlobMatcher, JsDocTag, LocalCounts, LuauExpr,
+    Abort, Arg, BinOp, CallSite, Callee, FileInfo, GlobMatcher, JsDocTag, LiveLocals, LocalCounts, LuauExpr,
     LuauIdent, LuauStmt, ObjectEdits, PResult, PluginDiagnostic, Utf16Pos,
 };
 
@@ -40,7 +40,7 @@ pub struct Aborted;
 /// | primitives | claim hooks, `class` | `begin_file`, `end_file` | `classify_symbol` | `explain_checker_diagnostic` |
 /// | --- | --- | --- | --- | --- |
 /// | program, file, checker, project, module and package queries, source facts | yes | yes | yes | yes |
-/// | lowering: `compile_*`, `compile_receiver`, `prereq`, `push_to_var`, capture, `insert_before_root_statement`, `insert_before_statement`, `hoist`, `hoist_spillable`, `hoist_spillable_named`, `comment` | yes | refused | refused | refused |
+/// | lowering: `compile_*`, `compile_receiver`, `prereq`, `push_to_var`, capture, `insert_before_root_statement`, `insert_before_statement`, `live_before_statement`, `hoist`, `hoist_spillable`, `hoist_spillable_named`, `comment` | yes | refused | refused | refused |
 /// | file-level: `header`, `import_named`, `import_named_at`, `mark_import_used`, `request_import_elision`, `runtime_member`, `temp_id`, `late_string`, `late_string_synthesized` | yes | yes | refused | refused |
 /// | `report` (and `Cx::error` / `warning`) | yes | yes | refused | yes |
 /// | `is_usable_local_name`, `locals` | yes | yes | yes | yes |
@@ -357,6 +357,49 @@ pub trait CxBackend {
     /// `main_chunk`). It counts the Luau built so far, so it is exact only for code already emitted: statements after
     /// the current node, and the rest of the current statement, are not in the count.
     fn locals(&self) -> LocalCounts;
+    /// The Luau locals live at the point where [`CxBackend::insert_before_statement`] would place statements for the
+    /// current node: before the Luau of the nearest TS statement that contains it, after the statements already
+    /// inserted there, in the innermost Luau function around that point ([`LiveLocals`]).
+    ///
+    /// **What counts.** The function's parameters (`self` included, `...` not); the locals declared earlier in each
+    /// enclosing Luau block: roblox-ts's own and its temporaries, `local function`s, the statements plugins inserted
+    /// so far (prereqs, `insert_before_statement`, root insertions, hoists) and the declarations roblox-ts hoists
+    /// ahead of an enclosing statement (`local x` for a function used before its declaration, a `case` clause's
+    /// shared variables), whether or not the use was lowered yet; the variables of each enclosing `for` loop, the
+    /// locals a `for … of` head binds (destructuring included) and the fallthrough flag of an enclosing `switch`. The
+    /// Luau of a node roblox-ts moves counts where it goes: a statement of a constructor's body after `super(…)`
+    /// counts the field initializers' temporaries, which roblox-ts places before it. A node of a class field
+    /// initializer, a decorator or a parameter's default value places statements before the class or function
+    /// statement, and counts there (see `insert_before_statement`).
+    ///
+    /// **Registers** add the registers the enclosing loops hold besides their variables, as Luau 0.740 allocates them
+    /// (checked against its compiler in `rbxts_luau_check`'s tests): 2 per numeric `for` (limit and step; the
+    /// variable is the index), 3 per generic `for` (generator, state, index) and one more when it has one variable
+    /// (Luau reserves two variable registers).
+    ///
+    /// **In the main chunk** it counts the main chunk's locals at that point: earlier statements, hoists, root
+    /// insertions, header statements, plugin imports and `local TS` once asked for, and `local exports` when the
+    /// file will have it. What is decided only at the end of the file is not foreseen: a plugin import or header
+    /// statement asked for later, a first use of the runtime library later in the file (its `local TS`), and the
+    /// elision of a user import a plugin asked for (`request_import_elision`), which removes its local.
+    ///
+    /// **Exact** for the Luau emitted, as Luau compiles it without optimisation (the exactness test compiles the
+    /// output with Luau's compiler and reads its debug information): Luau's own optimisations (constant locals at
+    /// optimisation level 1 and 2 with debug level 1 or less, loop unrolling and inlining at level 2) only lower it.
+    /// Not in it: statements inserted later before the same statement or an enclosing one (by a hook that runs later,
+    /// such as a `for` head's condition after its incrementor); in the body of a `for … of` whose head assigns to
+    /// existing targets (`for ([a = 1] of list)`, `for (obj[key()] of list)`), the temporaries of its defaults, nested
+    /// patterns and target expressions (roblox-ts lowers the head after the body; a head that declares its variables
+    /// is foreseen in full); in a class expression's static block, the prerequisites its statement emitted before
+    /// the class.
+    ///
+    /// Same phases as `insert_before_statement` (claim hooks and `class`).
+    ///
+    /// **Default:** the function's top-level locals so far, as [`CxBackend::locals`] counts them, for both.
+    fn live_before_statement(&mut self) -> LiveLocals {
+        let function = self.locals().function;
+        LiveLocals { locals: function, registers: function }
+    }
     /// A string literal whose text the calling plugin provides in `finish` under the same key
     /// ([`crate::FinishCx::resolve_late`]).
     ///
@@ -742,6 +785,12 @@ impl<'a> Cx<'a> {
     /// Local counts of the Luau built so far, exact only for code already emitted ([`CxBackend::locals`]).
     pub fn locals(&self) -> LocalCounts {
         self.backend.locals()
+    }
+
+    /// The Luau locals and registers live where [`Cx::insert_before_statement`] would place statements, in the
+    /// innermost Luau function around that point ([`CxBackend::live_before_statement`]).
+    pub fn live_before_statement(&mut self) -> LiveLocals {
+        self.backend.live_before_statement()
     }
 
     /// A string literal filled in by this plugin's `finish` ([`crate::FinishCx::resolve_late`]) under the same

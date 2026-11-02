@@ -293,6 +293,12 @@ pub struct PluginFileState {
     pub main_chunk_locals: u32,
     /// The hooks running now, innermost last.
     pub frames: Vec<HookFrame>,
+    /// The Luau blocks being built, innermost last, for `live_before_statement` (`super::live`).
+    pub(crate) live: Vec<super::live::LiveFrame>,
+    /// `live_before_statement`: the declarations hoisted ahead of a statement or `case` clause, foreseen.
+    pub(crate) live_hoists: FxHashMap<P<Node>, u32>,
+    /// `live_before_statement`: whether the main chunk gets `local exports`, foreseen.
+    pub(crate) live_exports_table: Option<bool>,
     /// Names `is_usable_local_name` approved: the plugin may declare them anywhere, so no seam temporary or
     /// plugin import takes them.
     approved_names: RefCell<FxHashSet<String>>,

@@ -308,7 +308,7 @@ impl CollectionAccessor {
     }
 }
 
-fn has_callable_next(state: &mut TransformState<'_>, t: P<Type>) -> bool {
+pub(crate) fn has_callable_next(state: &mut TransformState<'_>, t: P<Type>) -> bool {
     match state.checker.get_type_of_property_of_type_exported(t, "next") {
         Some(next) => !state.checker.get_call_signatures(next).is_empty(),
         None => false,

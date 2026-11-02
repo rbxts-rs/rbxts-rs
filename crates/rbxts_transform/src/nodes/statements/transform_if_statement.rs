@@ -6,6 +6,7 @@ use tsrs_core::P;
 
 use crate::classes::prereqs::Prereqs;
 use crate::classes::transform_state::TransformState;
+use crate::plugins::live::LiveFrame;
 use crate::nodes::expressions::transform_expression::transform_expression;
 use crate::nodes::transform_statement_list::transform_body;
 use crate::util::create_truthiness_checks::create_truthiness_checks;
@@ -21,14 +22,20 @@ pub fn transform_if_statement_inner(
     let condition = create_truthiness_checks(state, prereqs, expression, if_statement.expression);
 
     let then_statement = if_statement.then_statement;
+    // rbxts-rs: the branches see the condition's prerequisites, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::block(&prereqs.statements));
     let statements = transform_body(state, then_statement);
+    crate::plugins::live::pop(state, live);
 
     let else_body = match if_statement.else_statement {
         None => ElseBody::default(),
         Some(else_statement) if else_statement.kind() == Kind::IfStatement => {
             // rbxts-rs: the `else if` is a statement a TS transformer sees, which roblox-ts lowers into this `if`: it is
             // offered to the plugins' statement hooks first (docs/design.md §11.5), and a claim is the `else` block
+            // the `else if` is lowered into the `else` block, after the outer condition's prerequisites
+            let live = crate::plugins::live::push(state, || LiveFrame::else_if(&prereqs.statements, else_statement));
             if let Some(claimed) = crate::plugins::dispatch::claim_statement(state, else_statement) {
+                crate::plugins::live::pop(state, live);
                 let mut else_statements = Vec::new();
                 crate::plugins::dispatch::else_if_before_statement(state, else_statement, &mut else_statements);
                 else_statements.extend(claimed);
@@ -36,6 +43,7 @@ pub fn transform_if_statement_inner(
             }
             let mut else_if_prereqs = Prereqs::new();
             let else_if = transform_if_statement_inner(state, &mut else_if_prereqs, else_statement);
+            crate::plugins::live::pop(state, live);
             // rbxts-rs: a plugin's `insert_before_statement` for the `else if` (docs/design.md §11)
             crate::plugins::dispatch::else_if_before_statement(state, else_statement, &mut else_if_prereqs.statements);
             if else_if_prereqs.statements.is_empty() {
@@ -47,7 +55,10 @@ pub fn transform_if_statement_inner(
             }
         }
         Some(else_statement) => {
-            ElseBody::Block(transform_body(state, else_statement))
+            let live = crate::plugins::live::push(state, || LiveFrame::block(&prereqs.statements));
+            let statements = transform_body(state, else_statement);
+            crate::plugins::live::pop(state, live);
+            ElseBody::Block(statements)
         }
     };
 

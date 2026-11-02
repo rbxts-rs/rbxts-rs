@@ -30,7 +30,10 @@ pub fn transform_while_statement(state: &mut TransformState<'_>, node: P<Node>) 
         condition_exp = create::bool(true);
     }
 
+    // rbxts-rs: the body sees the condition's prerequisites, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || crate::plugins::live::LiveFrame::block(&while_statements));
     while_statements.extend(transform_body(state, statement));
+    crate::plugins::live::pop(state, live);
 
     vec![create::while_stmt(condition_exp, while_statements)]
 }

@@ -471,6 +471,19 @@ pub struct LocalCounts {
     pub main_chunk: u32,
 }
 
+/// The Luau locals live where [`crate::Cx::insert_before_statement`] would place statements
+/// ([`crate::Cx::live_before_statement`]), in the innermost Luau function around that point. Luau allows 200 locals
+/// and 255 registers per function.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LiveLocals {
+    /// The function's parameters (`self` included, `...` not), the locals declared earlier in each enclosing block,
+    /// and the variables of each enclosing `for` loop.
+    pub locals: u32,
+    /// `locals` plus the registers the enclosing loops hold besides their variables, as Luau 0.740 allocates them: 2
+    /// per numeric `for`; 3 per generic `for`, and one more when it has a single variable.
+    pub registers: u32,
+}
+
 /// A JSDoc tag on a declaration ([`crate::Cx::jsdoc_tags`]).
 #[derive(Clone, Debug)]
 pub struct JsDocTag {

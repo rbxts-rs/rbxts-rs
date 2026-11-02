@@ -36,7 +36,9 @@ pub fn transform_method_declaration(
     }
 
     let TransformedParameters { mut parameters, mut statements, has_dot_dot_dot } = transform_parameters(state, node);
+    let live = crate::plugins::live::push_function(state, node, parameters.len(), &statements);
     statements.extend(transform_statement_list(state, Some(body), body.statements()));
+    crate::plugins::live::pop(state, live);
 
     let mut name = transform_property_name(state, prereqs, name_node);
 

@@ -7,6 +7,7 @@ use tsrs_core::P;
 
 use crate::classes::prereqs::{as_any_identifier, temp_id};
 use crate::classes::transform_state::{TransformState, TryUse, TryUses};
+use crate::plugins::live::LiveFrame;
 use crate::nodes::binding::transform_binding_name::transform_binding_name;
 use crate::nodes::transform_statement_list::transform_statement_list;
 use crate::nodes::statements::transform_continue_statement::create_continue;
@@ -22,7 +23,10 @@ fn transform_catch_clause(state: &mut TransformState<'_>, node: P<Node>) -> Expr
         parameters.push(transform_binding_name(state, name, &mut statements));
     }
 
+    // rbxts-rs: `function(e)`, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::function(parameters.len(), &statements));
     statements.extend(transform_statement_list(state, Some(clause.block), clause.block.statements()));
+    crate::plugins::live::pop(state, live);
 
     create::function(parameters, false, statements)
 }
@@ -32,11 +36,11 @@ fn transform_try_call_args(state: &mut TransformState<'_>, node: P<Node>) -> Vec
     let statement = node.as_try_statement();
     let mut try_call_args = Vec::new();
 
-    try_call_args.push(create::function(
-        Vec::new(),
-        false,
-        transform_statement_list(state, Some(statement.try_block), statement.try_block.statements()),
-    ));
+    // rbxts-rs: the blocks are functions, for plugins (`live_before_statement`)
+    let live = crate::plugins::live::push(state, || LiveFrame::function(0, &[]));
+    let try_statements = transform_statement_list(state, Some(statement.try_block), statement.try_block.statements());
+    crate::plugins::live::pop(state, live);
+    try_call_args.push(create::function(Vec::new(), false, try_statements));
 
     match statement.catch_clause {
         Some(catch_clause) => try_call_args.push(transform_catch_clause(state, catch_clause)),
@@ -47,11 +51,10 @@ fn transform_try_call_args(state: &mut TransformState<'_>, node: P<Node>) -> Vec
     }
 
     if let Some(finally_block) = statement.finally_block {
-        try_call_args.push(create::function(
-            Vec::new(),
-            false,
-            transform_statement_list(state, Some(finally_block), finally_block.statements()),
-        ));
+        let live = crate::plugins::live::push(state, || LiveFrame::function(0, &[]));
+        let finally_statements = transform_statement_list(state, Some(finally_block), finally_block.statements());
+        crate::plugins::live::pop(state, live);
+        try_call_args.push(create::function(Vec::new(), false, finally_statements));
     }
 
     try_call_args

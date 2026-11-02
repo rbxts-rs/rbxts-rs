@@ -1,3 +1,4 @@
+| `live_before_statement`: the Luau locals and registers live where `insert_before_statement` places statements, exact | Luau limits (row 8): how much room the code a plugin places there has |
 # rbxts-rs design
 
 The design of rbxts-rs, roblox-ts rewritten in Rust on tsrs, with Flamework's transformer as an in-process Rust
@@ -234,6 +235,20 @@ Also, from §11.7 (the full signatures are §11.3):
 - `late_string`, resolved in plugin finish, which puts render after finish (§4);
 - `hoist_spillable`. The compiler owns the main-chunk 200-local check for all code, its own output included, and
   spills spillable hoists into one table local before it reports the limit;
+- `hoist_spillable_named` and `insert_before_root_statement` share one list: what one hook (or several) asks for goes
+  before the root statement in call order, a named hoist's `local name = value` among the root insertions as asked.
+  A spill keeps that order: the declaration becomes `_spill.name = value` in place, `local _spill = {}` goes right
+  before the first spilled one, and every use, root insertions' included, becomes `_spill.name`
+  (`tests/plugins.rs`, `hoists_and_root_insertions_keep_call_order`);
+- `live_before_statement` (`plugins/live.rs`): the locals and registers live at `insert_before_statement`'s point,
+  in the innermost Luau function there. The lowering keeps a stack of the Luau blocks it is building (functions,
+  blocks a statement's lowering enters, statement lists), only with plugins, and a query sums it, with what is still
+  pending ahead of each statement being lowered and what roblox-ts decides only after lowering a block (a `for … of`
+  head, `switch` flags, hoisted declarations), foreseen on demand. `tests/live.rs` checks it against Luau's compiler
+  (debug information at optimisation level 0, debug level 2) at every mark of the `live` test plugin;
+- `rbxts_luau_check::function_stats` (each prototype's registers, parameters and upvalues, read from the bytecode)
+  and `rbxts_luau_check::ROBLOX_LEVELS` (the levels the load check compiles at, and how it judges each), for
+  plugins that check their own Luau as the load check will;
 - `explain_checker_diagnostic` on failing files (§7);
 - the interest tables and the per-checker `(symbol, role)` classification memo, with marker checks on the apparent
   type;
@@ -654,6 +669,7 @@ impl Cx<'_> {
     pub fn temp_id(&mut self, hint: &str) -> LuauIdent;
     pub fn is_usable_local_name(&self, name: &str) -> bool;                  // reserved words, shadowed globals
     pub fn locals(&self) -> LocalCounts;                                      // { function, main_chunk } so far
+    pub fn live_before_statement(&mut self) -> LiveLocals;                   // { locals, registers } at insert_before_statement's point
     pub fn late_string(&mut self, key: &str) -> LuauExpr;                     // filled in finish (resolve_late)
     pub fn comment(&mut self, text: &str);                                    // Luau comment before the next stmt
 
