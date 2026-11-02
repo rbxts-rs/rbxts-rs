@@ -391,8 +391,12 @@ pub fn compare_dump(dump: &Value, max_diffs: usize, timing_runs: usize) -> Repor
         } else {
             p["setup"]["warnings"].as_array().cloned().unwrap_or_default()
         };
-        let rs_warnings: Vec<&String> =
-            if is_root { s.warnings.iter().collect() } else { s.rojo_resolver.warnings().iter().collect() };
+        // rbxts-rs's TypeScript 7 warning for a tsconfig without `types` has no stock counterpart
+        let rs_warnings: Vec<&String> = if is_root {
+            s.warnings.iter().filter(|w| *w != rbxts_project::MISSING_TYPES_HINT).collect()
+        } else {
+            s.rojo_resolver.warnings().iter().collect()
+        };
         diff.compare("setup.warnings", &Value::Array(js_warnings), &json!(rs_warnings));
         let diagnostics: Vec<Value> = setup
             .diagnostics

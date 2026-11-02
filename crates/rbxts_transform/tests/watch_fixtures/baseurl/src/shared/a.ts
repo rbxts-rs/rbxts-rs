@@ -1,5 +1,5 @@
-// `baseUrl` (tests/fixtures.rs, `base_url`): a name only `baseUrl` resolves, a `paths` pattern whose substitution is
-// relative to `baseUrl`, and a declaration that names a type of a module it does not import.
+// A TypeScript 5 `baseUrl` project moved to TypeScript 7 (tests/watch.rs, `baseurl`): a name only the `"*"` pattern
+// resolves, a `paths` pattern, and a declaration that names a type of a module it does not import.
 import { m } from "shared/mod";
 import { t, getThing } from "@lib/thing";
 

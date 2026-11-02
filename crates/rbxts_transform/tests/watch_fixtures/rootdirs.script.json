@@ -5,7 +5,7 @@
 			"do": [{ "patch": { "file": "src/b/y.ts", "find": "y = 2", "replace": "y = 4" } }]
 		},
 		{
-			"name": "a source in a third folder: the common source directory stays src",
+			"name": "a source in a third folder",
 			"do": [{ "write": { "file": "src/c/z.ts", "text": "export const z = 1;\n" } }]
 		},
 		{
@@ -13,7 +13,7 @@
 			"do": [{ "delete": "src/c" }]
 		},
 		{
-			"name": "every source in src/a: the common source directory moves there, and the outputs with it",
+			"name": "every source in src/a: the layout stays rootDir's",
 			"do": [{ "rename": { "from": "src/b/y.ts", "to": "src/a/y.ts" } }]
 		},
 		{
@@ -23,6 +23,23 @@
 		{
 			"name": "back in src/b",
 			"do": [{ "rename": { "from": "src/a/y.ts", "to": "src/b/y.ts" } }]
+		},
+		{
+			"name": "rootDir removed: TS5011, the common source directory (src) is not the tsconfig's",
+			"do": [{ "patch": { "file": "tsconfig.json", "find": "\n\t\t\"rootDir\": \"src\",", "replace": "" } }],
+			"expect": "error"
+		},
+		{
+			"name": "rootDir back",
+			"do": [
+				{
+					"patch": {
+						"file": "tsconfig.json",
+						"find": "\"rootDirs\": [",
+						"replace": "\"rootDir\": \"src\",\n\t\t\"rootDirs\": ["
+					}
+				}
+			]
 		}
 	]
 }

@@ -13,6 +13,7 @@
 		"typeRoots": ["node_modules/@rbxts"],
 		"types": ["types", "compiler-types"],
 		"experimentalDecorators": true,
+		"rootDir": "src",
 		"rootDirs": ["src/a", "src/b"],
 		"outDir": "out",
 		"declaration": true

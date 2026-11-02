@@ -607,7 +607,9 @@ pub fn validate_compiler_options(opts: &CompilerOptions, project_path: &str) -> 
     }
 
     let default_roots = vec!["node_modules/@rbxts".to_string()];
-    for types_location in opts.types.iter().flatten() {
+    // rbxts-rs: TypeScript 7's `"*"` (every package of the type roots, TypeScript 5's rule without `types`) names no
+    // folder; roblox-ts on TypeScript 5 never met it
+    for types_location in opts.types.iter().flatten().filter(|t| *t != "*") {
         let roots = opts.type_roots.as_ref().unwrap_or(&default_roots);
         let found = roots.iter().any(|root| {
             let types_path = nodepath::resolve(&[project_path, root, types_location]);

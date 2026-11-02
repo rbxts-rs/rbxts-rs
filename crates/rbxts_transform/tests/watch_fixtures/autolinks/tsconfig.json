@@ -11,6 +11,7 @@
 		"strict": true,
 		"target": "ESNext",
 		"typeRoots": ["node_modules/@rbxts"],
+		"types": ["*"],
 		"experimentalDecorators": true,
 		"rootDir": "src",
 		"outDir": "out",

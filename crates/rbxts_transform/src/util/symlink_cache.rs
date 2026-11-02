@@ -242,8 +242,8 @@ impl<'p> Walk<'p> {
         else {
             return;
         };
-        // `getAutomaticTypeDirectiveNames`: the `types` option as written, its `"*"` (which `rbxts_project` puts
-        // there for a tsconfig without `types`, TypeScript 5's rule) standing for the type roots' packages
+        // `getAutomaticTypeDirectiveNames`: the `types` option as written, its `"*"` (TypeScript 7's way to TypeScript
+        // 5's rule without `types`) standing for the type roots' packages
         let mut names: Vec<(&str, P<_>)> = resolutions.iter().map(|(key, resolved)| (key.name, *resolved)).collect();
         let order = automatic_type_directive_order(program);
         names.sort_by_key(|(name, _)| order.iter().position(|t| t == name));

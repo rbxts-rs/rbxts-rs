@@ -97,6 +97,23 @@
 					"delete": "src/shared/c.ts"
 				}
 			]
+		},
+		{
+			"name": "`types` removed: TypeScript 7 loads no type-root package (roblox-ts finds no compiler types; the warning names the line to add)",
+			"do": [{ "patch": { "file": "tsconfig.json", "find": "\n\t\t\"types\": [\"*\"],", "replace": "" } }],
+			"expect": "error"
+		},
+		{
+			"name": "`types` back as the warning gives it",
+			"do": [
+				{
+					"patch": {
+						"file": "tsconfig.json",
+						"find": "\"typeRoots\": [\"node_modules/@rbxts\"],",
+						"replace": "\"typeRoots\": [\"node_modules/@rbxts\"],\n\t\t\"types\": [\"types\", \"compiler-types\"],"
+					}
+				}
+			]
 		}
 	]
 }

@@ -1,11 +1,11 @@
 {
 	"steps": [
 		{
-			"name": "an edit of a module only baseUrl resolves",
+			"name": "an edit of a module only the \"*\" pattern resolves",
 			"do": [{ "patch": { "file": "src/shared/mod.ts", "find": "m = 1", "replace": "m = 3" } }]
 		},
 		{
-			"name": "a new module only baseUrl resolves, imported",
+			"name": "a new module only \"*\" resolves, imported",
 			"do": [
 				{ "write": { "file": "src/shared/extra.ts", "text": "export const e = 5;\n" } },
 				{
@@ -18,13 +18,13 @@
 			]
 		},
 		{
-			"name": "a paths pattern that matches the name: no fallback to baseUrl",
+			"name": "a paths pattern that matches the name and resolves nothing: no fallback to \"*\"",
 			"do": [
 				{
 					"patch": {
 						"file": "tsconfig.json",
-						"find": "\"paths\": { \"@lib/*\": [\"lib/*\"] }",
-						"replace": "\"paths\": { \"@lib/*\": [\"lib/*\"], \"shared/*\": [\"lib/*\"] }"
+						"find": "\"@lib/*\": [\"./src/lib/*\"],",
+						"replace": "\"@lib/*\": [\"./src/lib/*\"], \"shared/*\": [\"./src/lib/*\"],"
 					}
 				}
 			],
@@ -32,23 +32,10 @@
 		},
 		{
 			"name": "the pattern removed",
-			"do": [
-				{
-					"patch": {
-						"file": "tsconfig.json",
-						"find": ", \"shared/*\": [\"lib/*\"]",
-						"replace": ""
-					}
-				}
-			]
+			"do": [{ "patch": { "file": "tsconfig.json", "find": " \"shared/*\": [\"./src/lib/*\"],", "replace": "" } }]
 		},
 		{
-			"name": "baseUrl removed: the names it resolved fail, the paths substitution is relative to the tsconfig",
-			"do": [{ "patch": { "file": "tsconfig.json", "find": "\"baseUrl\": \"./src\",", "replace": "" } }],
-			"expect": "error"
-		},
-		{
-			"name": "baseUrl back",
+			"name": "baseUrl added: TS5102, TypeScript 7 removed it",
 			"do": [
 				{
 					"patch": {
@@ -57,7 +44,12 @@
 						"replace": "\"outDir\": \"out\",\n\t\t\"baseUrl\": \"./src\","
 					}
 				}
-			]
+			],
+			"expect": "error"
+		},
+		{
+			"name": "baseUrl removed again",
+			"do": [{ "patch": { "file": "tsconfig.json", "find": "\n\t\t\"baseUrl\": \"./src\",", "replace": "" } }]
 		},
 		{
 			"name": "the new module deleted",

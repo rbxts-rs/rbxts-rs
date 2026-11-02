@@ -726,7 +726,7 @@ fn watched_set(session: &BuildSession<'_>) -> Option<Watched> {
         }
     }
     // every package in a type root is read by the setup (its package.json for the path mapping, its folders for
-    // nested Rojo projects) and, without `types`, loaded by TypeScript
+    // nested Rojo projects) and, with `"types": ["*"]`, loaded by TypeScript
     for type_root in &services.type_roots {
         watched.add_module_dir(type_root, &mut dirs);
         if let Ok(entries) = std::fs::read_dir(type_root) {

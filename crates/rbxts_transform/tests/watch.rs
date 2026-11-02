@@ -8,8 +8,9 @@
 //!   referenced project, errors, new and deleted files, hand-deleted outputs, a referenced tsconfig edit, projects
 //!   skipped while not dirty, edits made while a reference fails); `midsolution.script.json` on
 //!   `tests/watch_fixtures/midsolution`: the same through a solution config in the middle of the graph;
-//! - `baseurl`, `rootdirs` and `autolinks` (`.script.json` on the fixtures of those names): `baseUrl`, `rootDirs`
-//!   without `rootDir`, and a package linked into the type root under several names, as TypeScript 5 has them;
+//! - `baseurl`, `rootdirs` and `autolinks` (`.script.json` on the fixtures of those names): `paths` in place of
+//!   `baseUrl` (and `baseUrl` itself, TS5102), `rootDirs` with `rootDir` (and without, TS5011), and a package linked
+//!   into the type root under several names with `"types": ["*"]`;
 //! - the kept-`Shared` contract, with a plugin that counts its `setup` and `rebuild_start` calls;
 //! - the clean of a declaration build over a used output directory, against roblox-ts's keep set, with a junction.
 //!
@@ -274,9 +275,10 @@ fn an_internal_error_stop_rebuilds_as_clean_builds() {
     run_script("plugindiag", "stopped", "stopped-inc", &["stamp", "probe-panic"], true);
 }
 
-/// A tsconfig without `types` (`autotypes.script.json`): every package of the type roots is in the program, as in
-/// TypeScript 5, and a package appearing, changing, turning `"typings": null` or going is a change the watcher and the
-/// incremental state see.
+/// `"types": ["*"]` (`autotypes.script.json`): every package of the type roots is in the program, and a package
+/// appearing, changing, turning `"typings": null` or going is a change the watcher and the incremental state see;
+/// then `types` removed (TypeScript 7 loads no type-root package: roblox-ts finds no compiler types, after rbxts-rs's
+/// warning) and back.
 #[test]
 fn automatic_type_packages_rebuild_as_clean_builds() {
     run_fixture("autotypes", "autotypes", &[], false);
@@ -286,26 +288,25 @@ fn automatic_type_packages_rebuild_as_clean_builds() {
 /// Also: the first rebuild of the session keeps the program, though the first build made the output and include
 /// folders (the tsconfig parse lists the folder they are made in, and the Rojo resolver searches them): the parse and
 /// the setup are made again, and find the same; an asset added, which the include globs do not take, keeps it too.
-/// `baseUrl` (TypeScript 5's resolution, which TypeScript 7 dropped) in watch (`baseurl.script.json`): an edit of a
-/// module only `baseUrl` resolves, a new one, a `paths` pattern that matches without falling back to `baseUrl`,
-/// `baseUrl` removed (the `paths` substitution then relative to the tsconfig) and back.
+/// A `baseUrl` project moved to TypeScript 7's `paths` in watch (`baseurl.script.json`): an edit of a module only the
+/// `"*"` pattern resolves, a new one, a `paths` pattern that matches without falling back to `"*"`, and `baseUrl`
+/// added (TS5102, which TypeScript 7 reports for it) and removed.
 #[test]
 fn base_url_rebuilds_as_clean_builds() {
     run_fixture("baseurl", "baseurl", &[], false);
     run_fixture("baseurl", "baseurl-inc", &[], true);
 }
 
-/// `rootDirs` without `rootDir` in watch (`rootdirs.script.json`): TypeScript 5's common source directory as the
-/// layout, kept when a source is added in a third folder, moved when every source ends up in one folder (the outputs
-/// move with it) and back.
+/// `rootDirs` with `rootDir` in watch (`rootdirs.script.json`): a source added in a third folder, every source in one
+/// folder and back (the layout stays `rootDir`'s), then `rootDir` removed (TS5011: TypeScript 7 lays the outputs out
+/// under the tsconfig's directory and refuses another common source directory) and back.
 #[test]
 fn root_dirs_rebuild_as_clean_builds() {
     run_fixture("rootdirs", "rootdirs", &[], false);
     run_fixture("rootdirs", "rootdirs-inc", &[], true);
 }
 
-/// A package linked into the type root under several names, with automatic type directives
-/// (`autolinks.script.json`): the import goes through the first link in the type root's order, and through the next
+/// A package linked into the type root under several names, with `"types": ["*"]` (`autolinks.script.json`): the import goes through the first link in the type root's order, and through the next
 /// one when that link goes, through a new one that sorts first, and through the package's own path when none is left.
 #[test]
 fn type_root_links_rebuild_as_clean_builds() {

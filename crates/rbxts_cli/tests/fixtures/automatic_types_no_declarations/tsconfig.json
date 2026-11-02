@@ -17,6 +17,7 @@
 			"node_modules/@rbxts",
 			"typings"
 		],
+		"types": ["*"],
 		"rootDir": "src",
 		"outDir": "out",
 		"allowUnreachableCode": false

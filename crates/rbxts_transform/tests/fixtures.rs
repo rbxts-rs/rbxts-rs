@@ -34,11 +34,12 @@
 //!   5's: the first overload it is checked against in full, which may then be rejected. Also with an arrow argument
 //!   before it, generic overloads, a spread argument, type arguments, an optional chain, an object literal method in
 //!   another argument and `new` with construct overloads (`expected/` is stock's).
-//! - `base_url`: `baseUrl` with `paths` (TypeScript 5's resolution, which TypeScript 7 dropped), a declaration build;
-//!   checked as the written output tree (`expected/` is stock `rbxtsc build`'s `out`).
-//! - `root_dirs`: `rootDirs` (`src/a`, `src/b`) without `rootDir`, a declaration build: the written output tree is
-//!   laid out under the common source directory, as TypeScript 5 lays it out (`expected/` is stock `rbxtsc build`'s
-//!   `out`).
+//! - `base_url_as_paths`: a project stock built with `baseUrl` and `paths`, moved to TypeScript 7 (which removed
+//!   `baseUrl`): its `paths` relative to the tsconfig, and `"*"` for the names `baseUrl` resolved; a declaration
+//!   build, checked as the written output tree (`expected/` is stock `rbxtsc build`'s `out` with `baseUrl`).
+//! - `root_dirs`: `rootDirs` (`src/a`, `src/b`) with the `rootDir` (`src`) TypeScript 7 asks for (stock built it
+//!   without, from the common source directory), a declaration build: the written output tree (`expected/` is
+//!   stock `rbxtsc build`'s `out`).
 //! - `declarations`: a package with `declaration` and `declarationMap`: the `.d.ts` / `.d.ts.map` of each source
 //!   (`paths` specifiers rewritten to relative ones, a `types` reference directive to `@rbxts/types`), a declaration
 //!   file under `src` printed again as an asset, a Luau asset. Checked as a written output tree; its maps are
@@ -62,9 +63,10 @@
 //!   in the shared `node_modules`, and `@rbxts/greeter` (the fixture's `packages/greeter`) outside any
 //!   `node_modules`, with either the packages or the whole `node_modules` linked. Imports keep their `node_modules`
 //!   paths, as with stock roblox-ts (`guessVirtualPath`).
-//! - `junction_automatic_types`: a package imported by relative path and linked into the type root several times, the
-//!   tsconfig without `types`: every type root package is an automatic type directive, and TypeScript 5 meets their
-//!   links in the type root's directory order, so the import goes through the first (`alpha`).
+//! - `junction_automatic_types`: a package imported by relative path and linked into the type root several times,
+//!   with `"types": ["*"]` (TypeScript 7's way to every type root package, stock's rule without `types`): every type
+//!   root package is an automatic type directive, met in the type root's directory order, so the import goes through
+//!   the first link (`alpha`).
 //! - `junction_augmentation`: a module augmentation of a linked package, first in root order: its resolution counts
 //!   like an import's, so another file's import through a second link to the package goes through the augmented one.
 //! - `junction_interleaved_imports`, `junction_interleaved_type_refs`: a file's resolutions (imports, or
@@ -521,15 +523,15 @@ fn overload_this() {
     check("overload_this");
 }
 
-/// `baseUrl`, which TypeScript 7 removed: names resolved against it, `paths` substitutions relative to it, and the
-/// declarations' import types (`rbxts_project::emulate_base_url`).
+/// A `baseUrl` project moved to TypeScript 7's `paths` (`"*"` for the names `baseUrl` resolved): the same output as
+/// stock's with `baseUrl`, declarations' import types included.
 #[test]
-fn base_url() {
-    check_tree("base_url");
+fn base_url_as_paths() {
+    check_tree("base_url_as_paths");
 }
 
-/// `rootDirs` without `rootDir`: TypeScript 5 lays the outputs (Luau, declarations, a copied asset) out under the
-/// files' common source directory (`src`), where TypeScript 7 alone stops at TS5011 (`Project::options`).
+/// `rootDirs` with `rootDir` (`src`), which TypeScript 7 needs where stock took the common source directory: the
+/// outputs (Luau, declarations, a copied asset) laid out as stock's without it.
 #[test]
 fn root_dirs() {
     check_tree("root_dirs");

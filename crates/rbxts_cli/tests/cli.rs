@@ -48,7 +48,8 @@ fn builds_with_registered_plugins_and_returns_roblox_ts_exit_codes() {
     assert_eq!(status, 1);
 }
 
-/// `rbxtsc build` in a copy of `tests/fixtures/<name>`: stdout as stock prints it, exit code 1.
+/// `rbxtsc build` in a copy of `tests/fixtures/<name>`: stdout as `expected-stdout.txt` has it (stock's, unless the
+/// fixture keeps stock's as `stock-stdout.txt`), exit code 1.
 fn diagnostics_like_stock(name: &str) -> Option<TempDir> {
     let node_modules = node_modules_or_skip(&format!("cli::{name}"))?;
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
@@ -160,8 +161,8 @@ fn diagnostics_stop_at_the_first_file_with_an_error_as_stock() {
     diagnostics_like_stock("diagnostics_first_error");
 }
 
-/// A type-root package without declarations, the tsconfig without `types`: TypeScript 5's TS2688 wording ("Entry point
-/// for implicit type library").
+/// A type-root package without declarations, with `"types": ["*"]` (every type root package, stock's rule without
+/// `types`): TypeScript 5's TS2688 wording ("Entry point for implicit type library"), which TypeScript 7 keeps for it.
 #[test]
 fn a_type_root_package_without_declarations_reports_as_stock() {
     diagnostics_like_stock("automatic_types_no_declarations");
@@ -174,11 +175,20 @@ fn empty_types_stop_at_the_macro_manager_as_stock() {
     diagnostics_like_stock("types_empty");
 }
 
-/// `baseUrl` with `paths`: a name a `paths` pattern matches is not tried against `baseUrl` when no substitution resolves
-/// (TypeScript 5's rule, which `rbxts_project`'s `baseUrl` emulation keeps): TS2307 as stock.
+/// `baseUrl`, which TypeScript 7 removed: TS5102 (with TypeScript 7's hint, the `paths` entry to write instead),
+/// and TS2307 for each import only it resolved. Not emulated (docs/tsrs.md). `expected-stdout.txt` is rbxts-rs's.
 #[test]
-fn base_url_does_not_back_a_matched_paths_pattern_as_stock() {
-    diagnostics_like_stock("base_url_paths_no_fallback");
+fn base_url_is_a_tsconfig_error() {
+    diagnostics_like_stock("base_url_removed");
+}
+
+/// `rootDirs` without `rootDir`, the sources in `src`: TS5011 (TypeScript 7 lays the outputs out under the tsconfig's
+/// directory and asks for `rootDir` where the common source directory is another). Not emulated (docs/tsrs.md).
+/// `expected-stdout.txt` is rbxts-rs's.
+#[test]
+fn root_dirs_without_root_dir_is_a_tsconfig_error() {
+    let Some(root) = diagnostics_like_stock("root_dirs_no_root_dir") else { return };
+    assert!(!root.path().join("out").exists(), "nothing is written");
 }
 
 /// `"types": []` and no source to transform (a declaration file alone): stock still makes its MacroManager, so its
@@ -188,22 +198,23 @@ fn empty_types_without_sources_stop_at_the_macro_manager_as_stock() {
     diagnostics_like_stock("types_empty_no_sources");
 }
 
-/// Without `types` in the tsconfig, every package of the type roots is in the program, as in TypeScript 5: a project
-/// whose sources import no package still sees `@rbxts/compiler-types` (TypeScript 7 would load none: TS2318).
+/// A tsconfig without `types` whose sources import no package: TypeScript 7 loads no type-root package, so roblox-ts
+/// finds no compiler types, and rbxtsc warns first with the line to add (`expected-stdout.txt` is rbxts-rs's). With
+/// that line the project builds.
 #[test]
-fn a_tsconfig_without_types_loads_every_type_root_package_as_stock() {
-    let Some(node_modules) = node_modules_or_skip("cli::automatic_types") else { return };
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/automatic_types");
-    let mut root = TempDir::new("cli-automatic-types");
-    for name in ["src", "tsconfig.json", "package.json"] {
-        let from = fixture.join(name);
-        if from.is_dir() {
-            copy_dir(&from, &root.path().join(name));
-        } else {
-            std::fs::copy(&from, root.path().join(name)).unwrap();
-        }
-    }
-    root.link("node_modules", &node_modules);
+fn a_tsconfig_without_types_gets_the_line_to_add() {
+    let Some(root) = diagnostics_like_stock("types_missing") else { return };
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/types_missing");
+    let expected = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
+    assert!(expected.contains("Add \"types\": [\"types\", \"compiler-types\"]"), "the warning names the line");
+    let tsconfig = std::fs::read_to_string(root.path().join("tsconfig.json")).unwrap();
+    let fixed = tsconfig.replacen(
+        "\"typeRoots\": [",
+        "\"types\": [\"types\", \"compiler-types\"],\n\t\t\"typeRoots\": [",
+        1,
+    );
+    assert_ne!(fixed, tsconfig);
+    std::fs::write(root.path().join("tsconfig.json"), fixed).unwrap();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_rbxtsc"))
         .arg("build")
         .current_dir(root.path())

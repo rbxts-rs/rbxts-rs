@@ -15,8 +15,7 @@
 		"experimentalDecorators": true,
 		"rootDir": "src",
 		"outDir": "out",
-		"baseUrl": "./src",
-		"paths": { "@lib/*": ["lib/*"] },
+		"paths": { "@lib/*": ["./src/lib/*"], "*": ["./src/*"] },
 		"declaration": true
 	}
 }

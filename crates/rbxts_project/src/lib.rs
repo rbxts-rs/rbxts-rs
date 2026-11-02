@@ -37,6 +37,12 @@ use tsrs_core::{CompilerOptions, P, tspath};
 use tsrs_tsoptions::{ParseConfigHost, ParsedCommandLine, get_parsed_command_line_of_config_file};
 use tsrs_vfs::{FS, bundled, osvfs};
 
+/// rbxts-rs's warning for a tsconfig without `types` whose program lacks the compiler types (TypeScript 7 loads no
+/// type-root package on its own): a setup warning, which stock roblox-ts (TypeScript 5) never gives.
+pub const MISSING_TYPES_HINT: &str = "TypeScript 7 no longer loads the packages of \"typeRoots\" on its own, and this \
+    tsconfig has no \"types\". Add \"types\": [\"types\", \"compiler-types\"] to its \"compilerOptions\" (with any other \
+    package of \"typeRoots\" whose globals the project uses).";
+
 /// Stack size for any thread that loads, checks or transforms: checking recurses deeply (tsrs's CLI uses the same).
 pub const STACK_SIZE: usize = 512 << 20;
 
@@ -75,13 +81,6 @@ pub struct Project {
     pub cwd: String,
     /// What the tsconfig parse and the program load read from the file system, when the load was asked to record it.
     pub reads: Option<Arc<ReadLog>>,
-    /// The tsconfig has no `types`, and the program has TypeScript 5's automatic type directives (`"types": ["*"]`).
-    pub automatic_types: bool,
-    /// The tsconfig has no `rootDir`, and the program has TypeScript 5's common source directory as its `rootDir`
-    /// ([`ts5_root_dir`]).
-    pub ts5_root_dir: bool,
-    /// [`Project::options`], made once.
-    user_options: OnceLock<P<CompilerOptions>>,
     module_resolver: OnceLock<ModuleResolver>,
     /// The file system the program reads through (each program gets its own caching layer over it).
     fs: Arc<dyn FS>,
@@ -150,107 +149,6 @@ impl ParseConfigHost for ConfigHost {
     fn get_current_directory(&self) -> &str {
         &self.cwd
     }
-}
-
-/// TypeScript 5's automatic type directives (`getAutomaticTypeDirectiveNames`): without `types` in the tsconfig,
-/// every package of the type roots is in the program (one whose package.json has `"typings": null` excepted, and
-/// names starting with a dot). TypeScript 7 includes none then, so a project, or a referenced project, whose sources
-/// import no package would not see the Roblox globals of `@rbxts/compiler-types`. TypeScript 7's `"types": ["*"]` is
-/// TypeScript 5's rule, with TypeScript 5's wording where it differs (TS2688's "Entry point for implicit type library",
-/// "Cannot find name 'process'" without "add node to the types field"): it goes into the parsed options when the
-/// tsconfig has no `types`, and roblox-ts's own check of `types` sees the tsconfig's (`Project::automatic_types`).
-/// Whether it did.
-fn add_automatic_type_directives(parsed: &mut ParsedCommandLine) -> bool {
-    let Some(options) = parsed.parsed_config.compiler_options.as_ref() else { return false };
-    if options.types.is_some() {
-        return false;
-    }
-    let mut options = CompilerOptions::clone(options);
-    options.types = Some(vec!["*".to_owned()]);
-    parsed.parsed_config.compiler_options = Some(P::new(options));
-    true
-}
-
-/// TypeScript 5's output layout without `rootDir`: the common source directory of the files it emits
-/// (`getCommonSourceDirectory`). TypeScript 7 lays the outputs out under the tsconfig's directory instead, and refuses
-/// a project whose files have another common directory (`TS5011: The common source directory of 'tsconfig.json' is
-/// './src'. The 'rootDir' setting must be explicitly set`), as a tsconfig with `rootDirs` but no `rootDir` meets
-/// whenever its files share a folder below the tsconfig. So that such a project builds as with stock roblox-ts, that
-/// directory goes into the program's options as `rootDir` when it is not the tsconfig's own: the outputs (the
-/// declarations TypeScript emits included) are laid out as TypeScript 5 lays them out. roblox-ts sees the tsconfig's
-/// options ([`Project::options`]).
-///
-/// `files` are the files TypeScript 5 would emit (its `sourceFileMayBeEmitted` ones, declarations excepted); `None`
-/// when TypeScript 7 lays the outputs out by `rootDir` or the tsconfig anyway (tsrs's condition for TS5011: an output
-/// directory, no `rootDir`, not composite). Returns the `rootDir` to set, if any.
-fn ts5_root_dir(options: &CompilerOptions, user_root_dir: bool, files: &[String], cwd: &str) -> Option<String> {
-    let laid_out_by_config = !options.no_emit.is_true()
-        && !options.composite.is_true()
-        && !user_root_dir
-        && !options.config_file_path.is_empty()
-        && (!options.out_dir.is_empty()
-            || (options.get_emit_declarations() && !options.declaration_dir.is_empty())
-            || !options.out_file.is_empty());
-    if !laid_out_by_config {
-        return None;
-    }
-    let case_sensitive = osvfs::fs().use_case_sensitive_file_names();
-    let common = tsrs_tsoptions::outputpaths::get_computed_common_source_directory(files, cwd, case_sensitive);
-    let config_dir = tspath::ensure_trailing_directory_separator(&tspath::get_directory_path(&options.config_file_path));
-    (!common.is_empty()
-        && tspath::get_canonical_file_name(&common, case_sensitive)
-            != tspath::get_canonical_file_name(&config_dir, case_sensitive))
-    .then(|| tspath::remove_trailing_directory_separator(&common).to_owned())
-}
-
-/// Sets the program's `rootDir` (`ts5_root_dir`), unless the tsconfig has one.
-fn set_root_dir_if(parsed: &mut ParsedCommandLine, user_root_dir: bool, root_dir: Option<&str>) {
-    let Some(root_dir) = root_dir.filter(|_| !user_root_dir) else { return };
-    let Some(options) = parsed.parsed_config.compiler_options.as_ref() else { return };
-    let mut options = CompilerOptions::clone(options);
-    options.root_dir = root_dir.to_owned();
-    parsed.parsed_config.compiler_options = Some(P::new(options));
-}
-
-/// The files of `program` TypeScript 5's `getCommonSourceDirectory` takes (as tsrs's TS5011 check takes them).
-fn emitted_files(program: &Program) -> Vec<String> {
-    program
-        .source_files()
-        .iter()
-        .filter(|&&f| !f.is_declaration_file.get() && program.source_file_may_be_emitted(f, false))
-        .map(|f| f.file_name().to_owned())
-        .collect()
-}
-
-/// TypeScript 5's `baseUrl`, which TypeScript 7 removed (`TS5102: Option 'baseUrl' has been removed`; an import that
-/// only resolves through it is `TS2307`). TypeScript 5 tries a non-relative module name against `paths` (whose
-/// substitutions are relative to `baseUrl` then), and only when no pattern matched it, against `baseUrl` itself
-/// (`tryLoadModuleUsingOptionalResolutionSettings`: a matched pattern whose substitutions all fail is the answer). The
-/// same as `paths` alone: each substitution made absolute against `baseUrl`, and `"*": ["<baseUrl>/*"]` for the names
-/// no pattern matches (a pattern matches by its longest prefix, so `*` only takes the rest; a `"*"` of the tsconfig's
-/// own leaves no name to `baseUrl`); then `baseUrl` is cleared. Returns whether the tsconfig had one.
-fn emulate_base_url(parsed: &mut ParsedCommandLine) -> bool {
-    let Some(options) = parsed.parsed_config.compiler_options.as_ref() else { return false };
-    if options.base_url.is_empty() {
-        return false;
-    }
-    let mut options = CompilerOptions::clone(options);
-    // absolute already (the parse resolves it against the tsconfig that sets it)
-    let base_url = std::mem::take(&mut options.base_url);
-    let under_base = |path: &str| tspath::normalize_path(&tspath::combine_paths(&base_url, &[path]));
-    let mut paths = options.paths.take().map(Arc::unwrap_or_clone).unwrap_or_default();
-    for substitutions in paths.values_mut() {
-        let Some(substitutions) = substitutions else { continue };
-        for substitution in substitutions.iter_mut() {
-            *substitution = under_base(substitution);
-        }
-    }
-    if !paths.contains_key("*") {
-        paths.insert("*".to_owned(), Some(vec![under_base("*")]));
-    }
-    options.paths = Some(Arc::new(paths));
-    parsed.parsed_config.compiler_options = Some(P::new(options));
-    true
 }
 
 /// Turns tsrs's fast preset on for this process, unless `TSRS_FAST=0` (for debugging: tsrs's reference checker
@@ -382,24 +280,16 @@ fn anonymous_function_named_at(file: P<SourceFile>, node: P<Node>, loc: tsrs_cor
     found
 }
 
-/// Parses the tsconfig as a load does: TypeScript 7's parse, with TypeScript 5's automatic type directives
-/// ([`add_automatic_type_directives`], whether it added them) and `baseUrl` ([`emulate_base_url`]). On the compiler's
-/// worker pool, as tsrs's CLI does: the include glob's parallel listing runs on it.
-fn parse_config(
-    tsconfig: &str,
-    checkers: usize,
-    host: &'static ConfigHost,
-) -> Result<(ParsedCommandLine, bool), Vec<P<Diagnostic>>> {
+/// Parses the tsconfig as a load does: TypeScript 7's parse, as it is (rbxts-rs follows TypeScript 7.1: no
+/// automatic type directives without `types`, no `baseUrl`, the output layout under the tsconfig's directory without
+/// `rootDir`; see `docs/tsrs.md`). On the compiler's worker pool, as tsrs's CLI does: the include glob's parallel
+/// listing runs on it.
+fn parse_config(tsconfig: &str, checkers: usize, host: &'static ConfigHost) -> Result<ParsedCommandLine, Vec<P<Diagnostic>>> {
     // Only the checker count: `single_threaded` would also make reading, parsing and binding serial.
     let overrides = CompilerOptions { checkers: Some(checkers as i64), ..CompilerOptions::default() };
     let (parsed, errors) = tsrs_compiler::worker_pool()
         .install(|| get_parsed_command_line_of_config_file(tsconfig, Some(&overrides), None, host, None));
-    let Some(mut parsed) = parsed.filter(|_| errors.is_empty()) else {
-        return Err(errors);
-    };
-    let automatic_types = add_automatic_type_directives(&mut parsed);
-    emulate_base_url(&mut parsed);
-    Ok((parsed, automatic_types))
+    parsed.filter(|_| errors.is_empty()).ok_or(errors)
 }
 
 /// [`load`] with parsed files kept in `cache` across loads (watch mode): a file whose stamp ([`stamp`]) and parse
@@ -418,46 +308,17 @@ pub fn load_cached(
     let host: &'static ConfigHost = Box::leak(Box::new(ConfigHost { fs: config_fs, cwd: cwd.clone() }));
 
     let start = Instant::now();
-    let parse = || parse_config(&opts.tsconfig, opts.checkers, host);
-    let (mut parsed, automatic_types) = parse()?;
+    let config = P::new(parse_config(&opts.tsconfig, opts.checkers, host)?);
     let config_time = start.elapsed();
-    let user_root_dir = parsed.compiler_options().is_some_and(|o| !o.root_dir.is_empty());
-    // TypeScript 5's common source directory, from the root files: the program's files are known once it is made,
-    // and a file outside the root files' directory that the program reaches (rare) makes it again, below
-    let roots: Vec<String> =
-        parsed.file_names().iter().filter(|f| !tspath::is_declaration_file_name(f)).cloned().collect();
-    let mut root_dir = parsed.compiler_options().and_then(|o| ts5_root_dir(&o, user_root_dir, &roots, &cwd));
-    set_root_dir_if(&mut parsed, user_root_dir, root_dir.as_deref());
-    let mut config = P::new(parsed);
 
     if opts.lazy_dts && tsrs_compiler::lazy_dts_allowed() {
         tsrs_compiler::enable_lazy_dts();
     }
     let start = Instant::now();
-    let make = |config: P<ParsedCommandLine>| {
-        let mut program_options = ProgramOptions::new(config, new_host(&cwd, &fs, cache, reads.as_ref()));
-        program_options.checker_regions = opts.regions;
-        program_options.checker_diagnostic_regions = opts.regions;
-        new_program(program_options)
-    };
-    let mut program = make(config);
-    if let Some(options) = config.compiler_options() {
-        let wanted = ts5_root_dir(&options, user_root_dir, &emitted_files(program), &cwd);
-        if wanted != root_dir {
-            let (mut parsed, _) = parse()?;
-            set_root_dir_if(&mut parsed, user_root_dir, wanted.as_deref());
-            config = P::new(parsed);
-            let first = program;
-            program = make(config);
-            // SAFETY: no checker of the first program was made, and nothing refers to it or its loader data
-            unsafe {
-                let lineage = Lineage(tsrs_compiler::shared_program_data(first));
-                tsrs_compiler::free_program(first);
-                lineage.0.free();
-            }
-            root_dir = wanted;
-        }
-    }
+    let mut program_options = ProgramOptions::new(config, new_host(&cwd, &fs, cache, reads.as_ref()));
+    program_options.checker_regions = opts.regions;
+    program_options.checker_diagnostic_regions = opts.regions;
+    let program = new_program(program_options);
     // bound here in any case: TypeScript 5's context sensitivity is marked on the bound files, before any checker
     program.bind_source_files();
     let files = program.source_files();
@@ -474,9 +335,6 @@ pub fn load_cached(
         tsconfig: opts.tsconfig.clone(),
         cwd,
         reads,
-        automatic_types,
-        ts5_root_dir: root_dir.is_some(),
-        user_options: OnceLock::new(),
         module_resolver: OnceLock::new(),
         lineage: Arc::new(Lineage(tsrs_compiler::shared_program_data(program))),
         fs,
@@ -576,20 +434,13 @@ impl Project {
         // leaked, as a load's is (the parse wants a host for the process): the caller empties the log it replaces
         let host: &'static ConfigHost =
             Box::leak(Box::new(ConfigHost { fs: recording_fs(Some(log)), cwd: self.cwd.clone() }));
-        let Ok((parsed, automatic_types)) = parse_config(&self.tsconfig, self.checkers, host) else { return false };
-        // the options too (the automatic type directives come from the type roots' listings), with the `rootDir` the
-        // program was given for TypeScript 5's layout
+        let Ok(parsed) = parse_config(&self.tsconfig, self.checkers, host) else { return false };
+        // the options too
         let same_options = match (parsed.compiler_options(), self.config.compiler_options()) {
-            (Some(new), Some(old)) => {
-                let mut new = CompilerOptions::clone(&new);
-                if self.ts5_root_dir {
-                    new.root_dir.clone_from(&old.root_dir);
-                }
-                new == *old
-            }
+            (Some(new), Some(old)) => *new == *old,
             (new, old) => new.is_none() && old.is_none(),
         };
-        same_options && automatic_types == self.automatic_types && parsed.file_names() == self.config.file_names()
+        same_options && parsed.file_names() == self.config.file_names()
     }
 
     /// A second owner of the program ([`ProgramOwner`]). While it lives, freeing the program through its
@@ -654,24 +505,12 @@ impl Project {
             fs: Arc::clone(&self.fs),
             source_cache: self.source_cache.clone(),
             lineage: Arc::clone(&self.lineage),
-            automatic_types: self.automatic_types,
-            ts5_root_dir: self.ts5_root_dir,
-            user_options: OnceLock::new(),
         })
     }
 
-    /// The compiler options as roblox-ts (and a plugin) sees them: the tsconfig's, without the `rootDir` rbxts-rs
-    /// gives the program for TypeScript 5's output layout ([`ts5_root_dir`]). The program's own (`program.options()`)
-    /// are what TypeScript sees.
+    /// The compiler options as roblox-ts (and a plugin) sees them: the program's, which are the tsconfig's.
     pub fn options(&self) -> P<CompilerOptions> {
-        if !self.ts5_root_dir {
-            return self.program.options();
-        }
-        *self.user_options.get_or_init(|| {
-            let mut options = CompilerOptions::clone(&self.program.options());
-            options.root_dir = String::new();
-            P::new(options)
-        })
+        self.program.options()
     }
 
     /// What [`IncludeMatcher`] checks, for this project's tsconfig.
@@ -859,6 +698,33 @@ impl Project {
         read_log::recording(reads, || self.setup_with_data_recorded(reads.map(|r| &**r), data))
     }
 
+    /// rbxts-rs: the warning for a tsconfig written for TypeScript 5 that relies on its automatic type directives.
+    /// TypeScript 5 put every package of the type roots into the program when the tsconfig has no `types`; TypeScript
+    /// 7 puts none, and then reports `TS2318: Cannot find global type 'Array'.` (and roblox-ts cannot find the
+    /// compiler types). Given only then: the tsconfig has no `types` and no program file is in a type root's
+    /// `compiler-types` package (a program that reaches it some other way builds). The `types` entries are named
+    /// relative to `typeRoots`, as roblox-ts's check of `types` wants them.
+    fn missing_types_hint(&self) -> Option<String> {
+        let options = self.program.options();
+        if options.types.is_some() {
+            return None;
+        }
+        let (type_roots, _) = options.get_effective_type_roots(self.program.get_current_directory());
+        let case_sensitive = self.program.use_case_sensitive_file_names();
+        let packages: Vec<String> = type_roots
+            .iter()
+            .map(|root| {
+                let dir = tspath::combine_paths(root, &["compiler-types/"]);
+                tspath::get_canonical_file_name(&tspath::normalize_path(&dir), case_sensitive)
+            })
+            .collect();
+        let loaded = self.program.source_files().iter().any(|f| {
+            let name = tspath::get_canonical_file_name(f.file_name(), case_sensitive);
+            packages.iter().any(|package| name.starts_with(package.as_str()))
+        });
+        (!loaded).then(|| MISSING_TYPES_HINT.to_owned())
+    }
+
     fn setup_with_data_recorded(&self, reads: Option<&ReadLog>, data: ProjectData) -> Result<ProjectSetup, ProjectError> {
         let tsconfig_path = data.tsconfig_path.clone();
         let raw_options = self.options();
@@ -868,11 +734,11 @@ impl Project {
         if options.composite.is_true() && options.root_dir.is_empty() {
             options.root_dir = nodepath::dirname(&tsconfig_path).to_owned();
         }
-        // roblox-ts checks the tsconfig's `types`, not the automatic type directives
-        if self.automatic_types {
-            options.types = None;
-        }
         setup::validate_compiler_options(&options, &data.project_path)?;
+        let mut data = data;
+        if let Some(hint) = self.missing_types_hint() {
+            data.warnings.push(hint);
+        }
         let case_sensitive = osvfs::fs().use_case_sensitive_file_names();
         let translator = setup::create_path_translator(&raw_options, self.config.file_names(), &data, case_sensitive);
         ProjectSetup::new_recorded(data, translator, &options, &self.input_files(), case_sensitive, reads)

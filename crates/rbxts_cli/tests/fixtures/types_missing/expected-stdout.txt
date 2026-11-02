@@ -1,0 +1,4 @@
+[33mTypeScript 7 no longer loads the packages of "typeRoots" on its own, and this tsconfig has no "types". Add "types": ["types", "compiler-types"] to its "compilerOptions" (with any other package of "typeRoots" whose globals the project uses).[0m
+[91merror[0m[90m TS roblox-ts: [0mMacroManager could not find symbol for Promise
+You may need to update your @rbxts/compiler-types!
+
