@@ -1162,6 +1162,80 @@ mod tests {
         rbxts_test_support::unlink_dir(&dir.path().join("project/broken"));
     }
 
+    /// [`RealKeys`]' shortcut (a path in a folder not found is not found) is taken only after a lookup that found
+    /// nothing, and only for paths without a component Windows rewrites: a link inside a folder whose own lookup is
+    /// refused (access denied) is found, and so is a link inside a folder named `t ` (a trailing space, made through a
+    /// verbatim path), which a lookup of `t ` itself does not find (Windows looks up `t`).
+    #[cfg(windows)]
+    #[test]
+    fn real_keys_past_a_refused_lookup_and_a_rewritten_folder() {
+        /// Takes this user's deny entries off the folders again (the parent first: a folder below one that refuses
+        /// reading its attributes cannot be changed), then removes the links, the test failing or not: a folder left
+        /// locked would outlive the temporary directory.
+        struct Undo {
+            denied: Vec<std::path::PathBuf>,
+            links: Vec<std::path::PathBuf>,
+        }
+        impl Drop for Undo {
+            fn drop(&mut self) {
+                let user = std::env::var("USERNAME").unwrap_or_default();
+                for folder in &self.denied {
+                    let _ = std::process::Command::new("icacls").arg(folder).args(["/remove:d", &user]).output();
+                }
+                for link in &self.links {
+                    rbxts_test_support::unlink_dir(link);
+                }
+            }
+        }
+        let dir = rbxts_test_support::TempDir::new("real-keys-shortcut");
+        let d = dir.path();
+        let root = d.to_string_lossy().replace('\\', "/");
+        let (locked, spaced) = (d.join("lp").join("locked"), d.join("p").join("t "));
+        std::fs::create_dir_all(d.join("elsewhere").join("inner")).unwrap();
+        std::fs::create_dir_all(&locked).unwrap();
+        std::fs::create_dir_all(d.join("p")).unwrap();
+        // made through a verbatim path: a plain one would make `t`
+        std::fs::create_dir(format!(r"\\?\{}", spaced.to_string_lossy())).unwrap();
+        let mut undo = Undo { denied: Vec::new(), links: Vec::new() };
+        for link in [locked.join("jn"), spaced.join("jn")] {
+            rbxts_test_support::link_dir(&link, &d.join("elsewhere"));
+            undo.links.push(link);
+        }
+        // the folder refuses this user, and its parent refuses listing it (which would grant its attributes)
+        let user = std::env::var("USERNAME").unwrap();
+        for (folder, rights) in [(d.join("lp"), "(RD,RA,REA)"), (locked.clone(), "(F)")] {
+            undo.denied.push(folder.clone());
+            let output =
+                std::process::Command::new("icacls").arg(&folder).args(["/deny", &format!("{user}:{rights}")]).output();
+            assert!(output.is_ok_and(|o| o.status.success()), "icacls /deny on {}", folder.display());
+        }
+        // the shapes hold: the lookup of each folder fails (refused, or not found), the link inside is found
+        let kind = |p: &str| std::fs::metadata(format!("{root}/{p}")).map(|_| ()).map_err(|e| e.kind());
+        assert_eq!(kind("lp/locked"), Err(std::io::ErrorKind::PermissionDenied));
+        assert_eq!(kind("lp/locked/jn"), Ok(()));
+        assert_eq!(kind("p/t "), Err(std::io::ErrorKind::NotFound));
+        assert_eq!(kind("p/t /jn"), Ok(()));
+        // each folder walked before the link in it (the shortcut's case), then the link's own contents
+        let paths: Vec<String> = [
+            "lp/locked/missing/h.luau",
+            "lp/locked",
+            "lp/locked/jn",
+            "lp/locked/jn/inner/q.luau",
+            "p/t ",
+            "p/t /missing/x.luau",
+            "p/t /jn",
+            "p/t /jn/inner/q.luau",
+        ]
+        .iter()
+        .map(|p| format!("{root}/{p}"))
+        .collect();
+        let mut shared = RealKeys::default();
+        for path in &paths {
+            assert_eq!(shared.real_path(path), RealKeys::default().real_path(path), "{path}");
+        }
+        drop(undo);
+    }
+
     /// The stamp of a committed file is made from the bytes written, with no time while the write is recent: a hand
     /// edit landing right after the commit (same size, same clock tick) is found by its bytes, never taken for the
     /// commit's.
