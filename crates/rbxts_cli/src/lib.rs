@@ -25,6 +25,21 @@
 //! checker resolved it first (tsrs `notes/open-history-dependence.md`).
 //!
 //! `RBXTS_PLUGIN_CLAIMS=all` asks every matching plugin for each claimable node and reports double claims.
+//!
+//! `--version` prints the roblox-ts version this port follows, as stock does. `--build-info` prints what the binary
+//! was built from instead ([`Cli::build_info`]), one `key: value` line each:
+//!
+//! ```text
+//! rbxts-rs-version: 0.0.0
+//! rbxts-rs-commit: <the git commit rbxts_cli was built from, or unknown>
+//! rbxts-rs-dirty: <true when tracked files differed from that commit, false, or unknown>
+//! tsrs-commit: <the tsrs fork commit the workspace pins, or unknown>
+//! roblox-ts-version: 3.0.0
+//! plugin: <name> <version>
+//! ```
+//!
+//! with one `plugin` line per registered plugin, in registration order (none for the plain `rbxtsc`). The commits are
+//! embedded at build time (`build.rs`). Lines may be added; the existing keys keep their meaning.
 #![warn(missing_docs)]
 
 pub mod locale_time;
@@ -65,6 +80,7 @@ Options:
       --luau                    emit files with .luau extension                [boolean]
       --timings                 print plugin hook and phase timings            [boolean]
       --checkers                type checkers (one thread each)    [number] [default: 4]
+      --build-info              print the commits and plugins of this binary   [boolean]
   -h, --help                    show help
   -v, --version                 show version number";
 
@@ -104,6 +120,8 @@ pub enum Command {
     Help,
     /// `--version`: print the version.
     Version,
+    /// `--build-info`: print what this binary was built from ([`Cli::build_info`]).
+    BuildInfo,
 }
 
 /// A path option as roblox-ts reads it: `path.resolve` of a string; an empty string or `false` (`--no-includePath`)
@@ -140,6 +158,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>, cwd: &str) -> Result<C
     let options = match yargs::parse(&args) {
         yargs::Parsed::Help => return Ok(Command::Help),
         yargs::Parsed::Version => return Ok(Command::Version),
+        yargs::Parsed::BuildInfo => return Ok(Command::BuildInfo),
         yargs::Parsed::Fail(message) => return Err(message),
         yargs::Parsed::Options(options) => options,
     };
@@ -206,6 +225,22 @@ impl Cli {
         self
     }
 
+    /// What `--build-info` prints: `key: value` lines, each ending with a line feed (module docs).
+    pub fn build_info(&self) -> String {
+        let mut out = String::new();
+        let mut line = |key: &str, value: &str| out.push_str(&format!("{key}: {value}\n"));
+        line("rbxts-rs-version", env!("CARGO_PKG_VERSION"));
+        line("rbxts-rs-commit", env!("RBXTS_RS_COMMIT"));
+        line("rbxts-rs-dirty", env!("RBXTS_RS_DIRTY"));
+        line("tsrs-commit", env!("RBXTS_RS_TSRS_COMMIT"));
+        line("roblox-ts-version", rbxts_transform::shared::constants::COMPILER_VERSION);
+        for plugin in &self.plugins {
+            let info = plugin.info();
+            line("plugin", &format!("{} {}", info.name, info.version));
+        }
+        out
+    }
+
     /// Runs with the process's arguments.
     pub fn run(self) -> ExitCode {
         let args: Vec<String> =
@@ -241,6 +276,10 @@ impl Cli {
             }
             Ok(Command::Version) => {
                 println!("{}", rbxts_transform::shared::constants::COMPILER_VERSION);
+                return 0;
+            }
+            Ok(Command::BuildInfo) => {
+                print!("{}", self.build_info());
                 return 0;
             }
             Err(message) => {
@@ -429,6 +468,11 @@ mod tests {
         assert_eq!(parse(&[]).unwrap(), Command::Build(BuildArgs { project: ".".into(), ..BuildArgs::default() }));
         assert_eq!(parse(&["--help"]).unwrap(), Command::Help);
         assert_eq!(parse(&["-v"]).unwrap(), Command::Version);
+        assert_eq!(parse(&["--build-info"]).unwrap(), Command::BuildInfo);
+        assert_eq!(parse(&["build", "--buildInfo", "--bogus"]).unwrap(), Command::BuildInfo);
+        assert_eq!(parse(&["--build-info", "--version"]).unwrap(), Command::Version);
+        assert_eq!(parse(&["--build-info", "-h"]).unwrap(), Command::Help);
+        assert!(matches!(parse(&["--build-info=false"]).unwrap(), Command::Build(_)));
         let Command::Build(watch) = parse(&["-w", "--usePolling", "--events", "json"]).unwrap() else { panic!() };
         assert!(watch.watch && watch.use_polling && watch.events_json);
         assert!(parse(&["--events", "xml"]).unwrap_err().contains("Choices"));

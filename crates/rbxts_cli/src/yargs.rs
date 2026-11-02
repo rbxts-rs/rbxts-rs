@@ -20,6 +20,9 @@
 //!   order, then the positionals after the command), `type`'s choices, `usePolling`'s implication of `watch`. Their
 //!   messages are yargs's English ones.
 //!
+//! rbxts-rs's own `--build-info` is a terminal flag as `--version` is: it wins over everything but help and
+//! version, before strict mode's checks.
+//!
 //! Not ported (no roblox-ts option uses them): arrays, `nargs`, counts, configuration files, environment variables.
 
 use std::collections::{HashMap, HashSet};
@@ -110,10 +113,12 @@ const fn spec(name: &'static str, kind: Kind, alias: Option<&'static str>, defau
 }
 
 /// roblox-ts's options (`build.ts`, plus yargs's `help` and `version`), and rbxts-rs's own: `--timings`,
-/// `--events` with watch mode, and `--checkers` (untyped, so that yargs-parser reads its number as for `type`).
+/// `--events` with watch mode, `--checkers` (untyped, so that yargs-parser reads its number as for `type`) and
+/// `--build-info` (a boolean that ends the command line as `--version` does).
 const BUILD_OPTIONS: &[Spec] = &[
     spec("help", Kind::Bool, Some("h"), None),
     spec("version", Kind::Bool, Some("v"), None),
+    spec("buildInfo", Kind::Bool, None, None),
     spec("project", Kind::Str, Some("p"), Some(".")),
     spec("watch", Kind::Bool, Some("w"), None),
     spec("usePolling", Kind::Bool, None, None),
@@ -133,9 +138,12 @@ const BUILD_OPTIONS: &[Spec] = &[
     spec("checkers", Kind::Untyped, None, None),
 ];
 
-/// The top-level parse knows only yargs's own options.
-const TOP_LEVEL_OPTIONS: &[Spec] =
-    &[spec("help", Kind::Bool, Some("h"), None), spec("version", Kind::Bool, Some("v"), None)];
+/// The top-level parse knows only yargs's own options (and `--build-info`, declared as `version` is).
+const TOP_LEVEL_OPTIONS: &[Spec] = &[
+    spec("help", Kind::Bool, Some("h"), None),
+    spec("version", Kind::Bool, Some("v"), None),
+    spec("buildInfo", Kind::Bool, None, None),
+];
 
 /// `type`'s choices.
 pub const TYPE_CHOICES: &[&str] = &["game", "model", "package"];
@@ -147,6 +155,9 @@ pub enum Parsed {
     Help,
     /// `--version` or `-v`.
     Version,
+    /// rbxts-rs: `--build-info` (`--buildInfo`), checked right after `--version` and like it before strict mode's
+    /// checks.
+    BuildInfo,
     /// yargs's failure message (the CLI prints it and exits with 1).
     Fail(String),
     /// The options given or defaulted, by declared name.
@@ -612,6 +623,9 @@ pub fn parse(args: &[String]) -> Parsed {
     }
     if truthy(parser.get("version")) {
         return Parsed::Version;
+    }
+    if truthy(parser.get("buildInfo")) {
+        return Parsed::BuildInfo;
     }
 
     // strict: unknown option keys, then the positionals after the command

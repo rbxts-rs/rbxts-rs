@@ -27,3 +27,18 @@
 {"args":["build","--checkers","4","--timings","--events=json","--verbose"],"ok":{"project":".","verbose":true,"timings":true,"events":"json","checkers":4}}
 {"args":["build","--timing"],"fail":"Unknown argument: timing"}
 {"args":["build","--event","json"],"fail":"Unknown argument: event"}
+{"args":["--build-info"],"other":"build-info"}
+{"args":["build","--build-info"],"other":"build-info"}
+{"args":["--buildInfo"],"other":"build-info"}
+{"args":["--build-info","-p","x"],"other":"build-info"}
+{"args":["--build-info","--bogus"],"other":"build-info"}
+{"args":["build","--build-info","extra"],"other":"build-info"}
+{"args":["--build-info=false"],"ok":{"project":"."}}
+{"args":["--build-info","false"],"ok":{"project":"."}}
+{"args":["--no-build-info"],"ok":{"project":"."}}
+{"args":["--build-info","true"],"other":"build-info"}
+{"args":["-w","--build-info"],"other":"build-info"}
+{"args":["--build-info","--usePolling"],"other":"build-info"}
+{"args":["--build-info","--type","place"],"other":"build-info"}
+{"args":["--build-info","-h"],"other":"help"}
+{"args":["help","--build-info"],"other":"help"}

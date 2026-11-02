@@ -4,6 +4,10 @@
 // `events` string, `checkers` untyped). The stock vectors (`yargs_cases.jsonl`) cannot hold them: stock's strict mode
 // refuses unknown options.
 //
+// `--build-info` is a terminal flag as yargs's `--version` is: its vectors are run with the flag spelled as
+// `--version` (`--build-info=x` as `--version=x`, `--no-build-info` as `--no-version`), and a version answer is
+// recorded as `"other": "build-info"`.
+//
 //   node tools/yargs-own-cases.cjs   (RBXTS_DIR: a roblox-ts checkout with `out/` built)
 
 "use strict";
@@ -55,17 +59,35 @@ const vectors = [
 	["build", "--timing"],
 	["build", "--event", "json"],
 ];
+const buildInfoVectors = [
+	["--build-info"],
+	["build", "--build-info"],
+	["--buildInfo"],
+	["--build-info", "-p", "x"],
+	["--build-info", "--bogus"],
+	["build", "--build-info", "extra"],
+	["--build-info=false"],
+	["--build-info", "false"],
+	["--no-build-info"],
+	["--build-info", "true"],
+	["-w", "--build-info"],
+	["--build-info", "--usePolling"],
+	["--build-info", "--type", "place"],
+	["--build-info", "-h"],
+	["help", "--build-info"],
+];
+const asVersion = arg => arg.replace(/^--(no-)?(build-info|buildInfo)(?==|$)/, "--$1version");
 
 const print = console.log;
 const lines = [];
 (async () => {
-	for (const args of vectors) {
+	for (const [args, buildInfo] of [...vectors.map(v => [v, false]), ...buildInfoVectors.map(v => [v, true])]) {
 		let result;
 		let logged = "";
 		console.log = console.error = (...a) => {
 			logged += a.join(" ");
 		};
-		await yargs(args)
+		await yargs(buildInfo ? args.map(asVersion) : args)
 			.usage("roblox-ts - A TypeScript-to-Luau Compiler for Roblox")
 			.help("help").alias("h", "help").describe("help", "show help information")
 			.version("3.0.0").alias("v", "version").describe("version", "show version information")
@@ -87,7 +109,7 @@ const lines = [];
 				result = { fail: String(e) };
 			});
 		console.log = print;
-		if (!result) result = { other: logged.trim() === "3.0.0" ? "version" : "help" };
+		if (!result) result = { other: logged.trim() === "3.0.0" ? (buildInfo ? "build-info" : "version") : "help" };
 		lines.push(JSON.stringify({ args, ...result }));
 	}
 	const target = path.join(__dirname, "..", "crates", "rbxts_cli", "tests", "fixtures", "yargs_own_cases.jsonl");

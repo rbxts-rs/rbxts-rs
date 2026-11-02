@@ -60,6 +60,7 @@ fn check(cases: &str, keys: &[&str]) -> usize {
             (Parsed::Fail(message), case) if case.get("fail").is_some() => case["fail"].as_str() == Some(message),
             (Parsed::Help, case) => case.get("other").and_then(Json::as_str) == Some("help"),
             (Parsed::Version, case) => case.get("other").and_then(Json::as_str) == Some("version"),
+            (Parsed::BuildInfo, case) => case.get("other").and_then(Json::as_str) == Some("build-info"),
             (Parsed::Options(options), case) if case.get("ok").is_some() => {
                 let ours: serde_json::Map<String, Json> = options
                     .iter()
@@ -84,9 +85,10 @@ fn every_vector_parses_as_roblox_ts_parses_it() {
 }
 
 /// rbxts-rs's own options (`--timings`, `--events`, `--checkers`) against roblox-ts's yargs with them declared as
-/// rbxts-rs declares them (`tools/yargs-own-cases.cjs` wrote the vectors).
+/// rbxts-rs declares them, and `--build-info` as yargs treats `--version` (`tools/yargs-own-cases.cjs` wrote the
+/// vectors).
 #[test]
 fn own_options_parse_as_yargs_would_parse_them() {
     let keys: Vec<&str> = KEYS.iter().copied().chain(["timings", "events", "checkers"]).collect();
-    assert_eq!(check(include_str!("fixtures/yargs_own_cases.jsonl"), &keys), 29);
+    assert_eq!(check(include_str!("fixtures/yargs_own_cases.jsonl"), &keys), 44);
 }
