@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+license.workspace = true
 description = "The plugin API of rbxts-rs: the traits plugins implement and the services the compiler offers them (DESIGN §11, §14)."
 
 # Only the Luau tree, the project services and tsrs's handle and checker types: the compiler (rbxts_transform)

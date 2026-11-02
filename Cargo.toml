@@ -7,6 +7,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 publish = false
+license = "MIT"
 
 # tsrs, pinned: the fork branch `rbxts-fork-0.20.1` (v0.20.1 plus visibility flips), as a git dependency pinned by rev so
 # rbxts-rs builds the same tsrs as a dependency of another workspace (flamework-rs) as in its own. The URL is the local
