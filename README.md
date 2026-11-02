@@ -100,8 +100,23 @@ flamework-rs repository is a complete example.
 
 ## Installing: one folder per version
 
+The main way to use rbxts-rs is now a project's own `compiler/` folder (below, "A project's own compiler"): its
+launcher downloads, or builds, the exact compiler the project pins, plugins included, on every machine and in CI. The
+ways in this section install a compiler outside any project: a plain `rbxtsc`, or a plugin build.
+
 Each version goes into a folder of its own, so projects on different versions live side by side (`<tools>` is any
 folder you keep them in). Install an exact version, never a range: upgrading is a deliberate change of folder.
+
+**Rokit (Windows x64): a release binary as a tool.** [Rokit](https://github.com/rojo-rbx/rokit) installs a release's
+binary and puts it on the path:
+
+```sh
+rokit add rbxts-rs/rbxts-rs@0.1.0 rbxtsc
+```
+
+That adds `rbxtsc = "rbxts-rs/rbxts-rs@0.1.0"` to the `rokit.toml` (the project's, or with `--global` the user's):
+the key names the command, `rbxtsc build`. Name an exact version; moving to another is editing that line (or `rokit
+add` again) and `rokit install`. It is the plain `rbxtsc`, without plugins.
 
 **Windows x64: download a release.** Each [release](https://github.com/rbxts-rs/rbxts-rs/releases) has
 `rbxts-rs-<version>-windows-x64.zip` (`rbxtsc.exe`, the license files and this README) and its SHA-256 in the
