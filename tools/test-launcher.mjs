@@ -12,7 +12,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { makeZip } from "./release-binary.mjs";
+import { makeZip, presetProblems } from "./release-binary.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SKELETON = path.join(REPO, "templates", "compiler");
@@ -457,6 +457,17 @@ main(["--build"]).then((r) => { console.log("result " + JSON.stringify(r)); proc
 			assert(fs.readdirSync(tmp).length === 0, "the target folder was left", fs.readdirSync(tmp).join());
 			assert(!fs.existsSync(path.join(dir, "bin", TRIPLE, EXE)), "a binary was installed");
 		}
+	});
+
+	await test("release tool: the preset must name the skeleton's hash and the pinned tag", async () => {
+		const hash = launcher.configHash(SKELETON);
+		const preset = JSON.parse(fs.readFileSync(path.join(SKELETON, "preset.json"), "utf8"));
+		const tag = /^rbxts_cli\s*=\s*\{[^}]*\btag\s*=\s*"v([^"]+)"/m.exec(fs.readFileSync(path.join(SKELETON, "Cargo.toml"), "utf8"))?.[1];
+		assert(presetProblems(preset, hash, tag).length === 0, "the committed skeleton's preset", presetProblems(preset, hash, tag).join("\n"));
+		const problems = presetProblems({ ...preset, config: "0".repeat(64), version: "9.9.9" }, hash, tag);
+		assert(problems.length === 2, "both problems", problems.join("\n"));
+		assert(problems[0] === `"config" is "${"0".repeat(64)}": set it to "${hash}" (\`node templates/compiler/rbxtsc.mjs --where\` prints it)`, "config", problems[0]);
+		assert(problems[1] === `"version" is "9.9.9": set it to "${tag}" (the tag rbxts_cli pins in Cargo.toml)`, "version", problems[1]);
 	});
 
 	await test("signal forwarding: the launcher's SIGINT/SIGTERM stops the binary and the launcher waits for it", async () => {

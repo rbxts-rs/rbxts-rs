@@ -6,11 +6,14 @@
 // `binaries` entry (url, sha256) and the config hash. It publishes nothing.
 //
 //   node tools/release-binary.mjs [--out <dir>] [--ref <git ref>] [--allow-dirty] [--allow-patch]
+//                                 [--allow-preset-mismatch]
 //
-//   --out          where the zips go (default target/release-binary)
-//   --ref          the commit the text files come from (default the tag the skeleton pins, v<version>)
-//   --allow-dirty  build a skeleton with uncommitted changes (a test build; its hash is not the committed one)
-//   --allow-patch  build a skeleton whose Cargo.toml has a [patch] (a test build, never a release)
+//   --out                    where the zips go (default target/release-binary)
+//   --ref                    the commit the text files come from (default the tag the skeleton pins, v<version>)
+//   --allow-dirty            build a skeleton with uncommitted changes (a test build; its hash is not the committed one)
+//   --allow-patch            build a skeleton whose Cargo.toml has a [patch] (a test build, never a release)
+//   --allow-preset-mismatch  build although preset.json's "config" is not the skeleton's hash, or its "version" not
+//                            the tag rbxts_cli pins (a test build: the preset would not download the binary)
 //
 // The binary is built from the skeleton package itself, so the preset's config hash (rbxtsc.mjs's configHash over
 // Cargo.toml, Cargo.lock, rust-toolchain.toml and src/) is the hash of the files it was built from. The skeleton pins
@@ -21,8 +24,9 @@
 //   1. push the tag v<version>;
 //   2. point the skeleton at it: in templates/compiler/Cargo.toml set rbxts_cli's `tag = "v<version>"`, refresh the
 //      lock (`cargo update -p rbxts_cli` in templates/compiler; this tool checks that every crate it shares with the
-//      workspace lock at the tag has the same version and source), set preset.json's "version" and "config" (printed
-//      below) and empty its "binaries", and commit;
+//      workspace lock at the tag has the same version and source), set preset.json's "version" to <version> and its
+//      "config" to the skeleton's hash (`node templates/compiler/rbxtsc.mjs --where` prints it as `config:` once the
+//      other edits are made), empty its "binaries", and commit (this tool refuses a preset that does not match);
 //   3. build with this tool;
 //   4. create the GitHub release for the tag with the two zips;
 //   5. write the url and sha256 this tool printed into preset.json's "binaries", and commit.
@@ -145,6 +149,22 @@ export function tarFiles(tar) {
 	return files;
 }
 
+/**
+ * What is wrong with the skeleton's preset.json for a release of `tag` from a skeleton hashing to `hash`: its "config"
+ * must be the hash (or the preset would not download the binary) and its "version" the tag rbxts_cli pins.
+ */
+export function presetProblems(preset, hash, tag) {
+	const problems = [];
+	if (preset.config !== hash) {
+		const where = "`node templates/compiler/rbxtsc.mjs --where` prints it";
+		problems.push(`"config" is ${JSON.stringify(preset.config)}: set it to "${hash}" (${where})`);
+	}
+	if (preset.version !== tag) {
+		problems.push(`"version" is ${JSON.stringify(preset.version)}: set it to "${tag}" (the tag rbxts_cli pins in Cargo.toml)`);
+	}
+	return problems;
+}
+
 /** `name -> version source` of each package of a Cargo.lock, without path packages. */
 export function lockPackages(text) {
 	const packages = new Map();
@@ -184,13 +204,20 @@ function git(args, options = {}) {
 }
 
 function parseArgs(argv) {
-	const options = { out: path.join(REPO, "target", "release-binary"), ref: undefined, allowDirty: false, allowPatch: false };
+	const options = {
+		out: path.join(REPO, "target", "release-binary"),
+		ref: undefined,
+		allowDirty: false,
+		allowPatch: false,
+		allowPresetMismatch: false,
+	};
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === "--out") options.out = path.resolve(argv[++i]);
 		else if (a === "--ref") options.ref = argv[++i];
 		else if (a === "--allow-dirty") options.allowDirty = true;
 		else if (a === "--allow-patch") options.allowPatch = true;
+		else if (a === "--allow-preset-mismatch") options.allowPresetMismatch = true;
 		else throw new Error(`unknown argument ${a} (usage in the header of tools/release-binary.mjs)`);
 	}
 	return options;
@@ -221,6 +248,13 @@ async function main(argv) {
 	const platform = PLATFORMS[triple] ?? triple;
 	const exeName = process.platform === "win32" ? `${preset.bin}.exe` : preset.bin;
 	const hash = configHash(SKELETON);
+	const problems = presetProblems(preset, hash, tag);
+	if (problems.length > 0 && !options.allowPresetMismatch) {
+		throw new Error(
+			`templates/compiler/preset.json does not match the skeleton (the release order's step 2):\n  ${problems.join("\n  ")}\n` +
+				"  Commit the fix and run this again (--allow-preset-mismatch builds anyway: a test build).",
+		);
+	}
 
 	const targetDir = path.join(os.tmpdir(), `rbxtsc-release-${hash.slice(0, 12)}`);
 	const env = { ...process.env };
@@ -266,7 +300,9 @@ async function main(argv) {
 	console.log(`  ${path.join(options.out, versioned)}`);
 	console.log(`  ${path.join(options.out, fixed)} (the same bytes)`);
 	console.log(`  ${zip.length} bytes, sha256 ${sha256}; ${exeName} ${exe.length} bytes`);
-	if (options.allowPatch || options.allowDirty) console.log("  A TEST BUILD (--allow-patch / --allow-dirty): do not release it.");
+	if (options.allowPatch || options.allowDirty || problems.length > 0) {
+		console.log("  A TEST BUILD (--allow-patch / --allow-dirty / --allow-preset-mismatch): do not release it.");
+	}
 	console.log(`config hash: ${hash}`);
 	console.log(`preset.json "binaries" entry:`);
 	console.log(JSON.stringify(entry, null, "\t"));

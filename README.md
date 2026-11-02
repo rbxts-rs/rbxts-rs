@@ -191,7 +191,9 @@ hash). The order:
 
 1. push the tag `v<version>`;
 2. point `templates/compiler` at it (`rbxts_cli`'s `tag`, `cargo update -p rbxts_cli` there, `preset.json`'s
-   `version` and `config`, `binaries` emptied) and commit;
+   `version` and `config`, `binaries` emptied) and commit: `node templates/compiler/rbxtsc.mjs --where` prints the
+   config hash (`config:`) once the other edits are made, and the release tool refuses a preset whose `config` or
+   `version` does not match the skeleton;
 3. build with `node tools/release-binary.mjs`;
 4. create the GitHub release for the tag with the two zips;
 5. write the printed url and sha256 into `preset.json`'s `binaries` and commit.
