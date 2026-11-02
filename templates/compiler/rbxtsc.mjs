@@ -291,12 +291,14 @@ function build(s) {
 	const env = buildEnv();
 	const cwd = s.dir;
 	// rustup installs the toolchain of rust-toolchain.toml if it is missing (older rustup versions do it on the
-	// first cargo command instead)
-	spawnSync("rustup", ["toolchain", "install"], { cwd, env, stdio: ["ignore", "ignore", "inherit"] });
+	// first cargo command instead), without updating rustup itself
+	spawnSync("rustup", ["toolchain", "install", "--no-self-update"], { cwd, env, stdio: ["ignore", "ignore", "inherit"] });
 	const metadataArgs = ["metadata", "--format-version", "1", "--manifest-path", path.join(cwd, "Cargo.toml")];
 	let locked = true;
 	let meta = spawnSync("cargo", [...metadataArgs, "--locked"], { cwd, env, encoding: "utf8", maxBuffer: 1 << 28 });
-	if (meta.status !== 0 && /needs to be updated but --locked was passed/.test(meta.stderr)) {
+	// "the lock file … needs to be updated but --locked was passed", or "cannot update the lock file … because
+	// --locked was passed" (newer cargo)
+	if (meta.status !== 0 && /lock file[\s\S]*--locked was passed/.test(meta.stderr ?? "")) {
 		locked = false;
 		say(`${NAME}: Cargo.lock does not match Cargo.toml (a changed dependency, such as an added plugin): building without`);
 		say("  --locked, which updates Cargo.lock. Commit the updated Cargo.lock with the change.");
@@ -304,7 +306,7 @@ function build(s) {
 	}
 	if (meta.status !== 0) {
 		process.stderr.write(meta.stderr ?? "");
-		say(`${NAME}: cargo could not read the compiler package (above).`);
+		say(`${NAME}: cargo could not read the compiler package${meta.error ? ` (${meta.error.message})` : " (above)"}.`);
 		return false;
 	}
 	for (const [name, sources] of rbxtsSources(JSON.parse(meta.stdout))) {
