@@ -98,19 +98,33 @@ flamework-rs repository is a complete example.
 
 ## Installing: one folder per version
 
-Binaries are installed with Cargo from a pinned commit, each version into a folder of its own, so projects on
-different versions live side by side (`<tools>` is any folder you keep them in):
+Each version goes into a folder of its own, so projects on different versions live side by side (`<tools>` is any
+folder you keep them in). Install an exact version, never a range: upgrading is a deliberate change of folder.
+
+**Windows x64: download a release.** Each [release](https://github.com/rbxts-rs/rbxts-rs/releases) has
+`rbxts-rs-<version>-windows-x64.zip` (`rbxtsc.exe`, the license files and this README) and its SHA-256 in the
+release notes. Unzip it into `<tools>/rbxtsc-<version>/bin/`, for example for 0.1.0:
+
+```powershell
+$v = "0.1.0"; $zip = "rbxts-rs-$v-windows-x64.zip"
+Invoke-WebRequest "https://github.com/rbxts-rs/rbxts-rs/releases/download/v$v/$zip" -OutFile $zip
+(Get-FileHash $zip -Algorithm SHA256).Hash   # compare with the release notes
+Expand-Archive $zip -DestinationPath "<tools>/rbxtsc-$v/bin"
+```
+
+**Any platform: build a release tag with Cargo.**
 
 ```sh
 # once: the Rust version rbxts-rs pins (rust-toolchain.toml)
 rustup toolchain install 1.99.1 --profile minimal
 # plain rbxtsc (no plugins), from this repository
-cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/rbxts-rs --rev <rev> rbxts_cli --root <tools>/rbxtsc-<rev>
-# a plugin build, for example Flamework's rbxtsc-fw from flamework-rs, one folder per Flamework version
-cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/flamework-rs --rev <rev> rbxtsc_fw --root <tools>/fw-<version>
+cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/rbxts-rs --tag v0.1.0 rbxts_cli --root <tools>/rbxtsc-0.1.0
+# a plugin build, for example Flamework's rbxtsc-fw from flamework-rs, one folder per version
+cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/flamework-rs --tag v<version> rbxtsc_fw --root <tools>/fw-<version>
 ```
 
-That gives `<tools>/rbxtsc-<rev>/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows).
+That gives `<tools>/rbxtsc-0.1.0/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows); `--rev
+<commit>` instead of `--tag` builds an unreleased commit.
 `+1.99.1` is the `channel` of the `rust-toolchain.toml` at the rev you install: `cargo install --git` builds with
 the toolchain of the folder it runs in, not the package's, so with an older default toolchain it fails with
 "requires rustc 1.99 or newer".
@@ -119,7 +133,7 @@ the toolchain of the folder it runs in, not the package's, so with an older defa
 afterwards.
 
 - **A project** points its `package.json` build script at its version's folder:
-  `"build": "<tools>/fw-<version>/bin/rbxtsc-fw build"` (or `<tools>/rbxtsc-<rev>/bin/rbxtsc build`), with the same
+  `"build": "<tools>/fw-<version>/bin/rbxtsc-fw build"` (or `<tools>/rbxtsc-<version>/bin/rbxtsc build`), with the same
   arguments as stock `rbxtsc` (`-w` for watch mode).
 - **Upgrading** is pointing the script at another folder (with a plugin build, together with the plugin's npm
   packages); **removing** a version is deleting its folder, or `cargo uninstall <crate> --root <dir>`.
@@ -127,7 +141,7 @@ afterwards.
   `--version` prints the roblox-ts version, as stock does.
 
 ```text
-rbxts-rs-version: 0.0.0
+rbxts-rs-version: 0.1.0
 rbxts-rs-commit: <the rbxts-rs commit it was built from, or unknown>
 rbxts-rs-dirty: <true when the tracked files it was built from had uncommitted changes, false, or unknown>
 tsrs-commit: <the tsrs fork commit>

@@ -31,7 +31,7 @@
 //! was built from instead ([`Cli::build_info`]), one `key: value` line each:
 //!
 //! ```text
-//! rbxts-rs-version: 0.0.0
+//! rbxts-rs-version: 0.1.0
 //! rbxts-rs-commit: <the git commit rbxts_cli was built from, or unknown>
 //! rbxts-rs-dirty: <true when the tracked files it was built from differed from that commit, false, or unknown>
 //! tsrs-commit: <the tsrs fork commit the workspace pins, or unknown>
