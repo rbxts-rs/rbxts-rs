@@ -37,10 +37,21 @@ cargo test --workspace --profile measure
 cargo clippy --workspace --all-targets --profile measure -- -D warnings
 ```
 
-Tests that build projects link in the `node_modules` of roblox-ts's tests project (a roblox-ts checkout with its
-`tests` packages installed): `RBXTS_RS_FIXTURE_NODE_MODULES` names it, or it is found as `roblox-ts/tests` beside
-the checkout or a directory above it. Without it those tests are skipped with a note, or fail when `CI` or
-`RBXTS_RS_FIXTURE_REQUIRE=1` is set ("Building a project" below).
+Tests that build projects link in the `node_modules` of roblox-ts's tests project (`@rbxts/compiler-types`, `types`,
+`testez` and `services`). To set it up, clone roblox-ts (<https://github.com/roblox-ts/roblox-ts>) and run
+`npm install` (or `bun install`) in its `tests` folder; both install the versions of its `package-lock.json`. Then
+give `@rbxts/compiler-types` the 3-parameter iterables TypeScript 7 needs (docs/design.md §5): in its
+`types/Iterable.d.ts`, `Iterable`, `IterableIterator`, `AsyncIterable` and `AsyncIterableIterator` take
+`<T, TReturn = any, TNext = any>` and pass all three on (`Iterator<T, TReturn, TNext>`, and so on).
+
+The tests look for that `node_modules` in this order:
+
+1. the directory `RBXTS_RS_FIXTURE_NODE_MODULES` names (an error when it lacks the packages);
+2. `roblox-ts/tests/node_modules` in the rbxts-rs checkout, in the folder holding it, or in a folder above that: a
+   roblox-ts checkout beside rbxts-rs or higher up (the nearest with the packages wins).
+
+Without one those tests are skipped with a note, or fail when `CI` or `RBXTS_RS_FIXTURE_REQUIRE=1` is set ("Building
+a project" below).
 
 Measuring a project's load and check, and its build:
 
