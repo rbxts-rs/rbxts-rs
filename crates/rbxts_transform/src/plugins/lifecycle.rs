@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::{Map, Value};
 
 use rbxts_luau::LateStrings;
@@ -425,24 +425,84 @@ fn has_rewritten_component(path: &str) -> bool {
 /// The path as the file system resolves it: its deepest existing ancestor canonicalised (junctions, symlinks,
 /// case), the rest appended. A comparison key like [`path_key`].
 fn real_key(services: &ProjectServices, path: &str) -> String {
-    let mut existing = PathBuf::from(nodepath::normalize(path));
-    let mut rest = Vec::new();
-    while !existing.exists() {
-        match existing.file_name() {
-            Some(name) => {
-                rest.push(name.to_owned());
-                existing.pop();
+    RealKeys::default().key(services, path)
+}
+
+/// What looking a path up found.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Lookup {
+    Found,
+    NotFound,
+    /// Failed otherwise (access denied, say): not there for [`real_key`], but what is under it is looked up itself.
+    Failed,
+}
+
+/// [`real_key`] for many paths, keeping what each walk found: the answers are [`real_key`]'s for the file system as
+/// it is during the calls. A walk stops at a path already walked, whose resolved path it extends, and a path in a
+/// folder not found is not found either, without a look (a lookup goes through its folder's). So a clean build's
+/// outputs, all under a missing outDir, cost one walk to the project directory, then nothing per file. That shortcut
+/// is not taken for a path with a component Windows rewrites (a trailing `.` or space), which Windows looks up
+/// otherwise than as a folder of its own.
+#[derive(Default)]
+struct RealKeys {
+    /// A path walked (as spelled, compared byte for byte) → what looking it up found, and its resolved path.
+    walked: FxHashMap<std::ffi::OsString, (Lookup, PathBuf)>,
+}
+
+impl RealKeys {
+    /// [`real_key`] of `path`.
+    fn key(&mut self, services: &ProjectServices, path: &str) -> String {
+        let real = self.real_path(&nodepath::normalize(path));
+        let text = real.to_string_lossy();
+        let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+        path_key(services, text)
+    }
+
+    /// The walk of [`real_key`]: up from the path while it is not there, then the path found canonicalised and the
+    /// rest appended.
+    fn real_path(&mut self, path: &str) -> PathBuf {
+        let shortcut = !has_rewritten_component(path);
+        let mut at = PathBuf::from(path);
+        let mut rest = Vec::new();
+        let mut real = loop {
+            if let Some((_, real)) = self.walked.get(at.as_os_str()) {
+                break real.clone();
             }
-            None => break,
+            let in_missing_folder = shortcut
+                && at
+                    .parent()
+                    .and_then(|parent| self.walked.get(parent.as_os_str()))
+                    .is_some_and(|(found, _)| *found == Lookup::NotFound);
+            let found = if in_missing_folder {
+                Lookup::NotFound
+            } else {
+                // what `Path::exists` looks at
+                match std::fs::metadata(&at) {
+                    Ok(_) => Lookup::Found,
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => Lookup::NotFound,
+                    Err(_) => Lookup::Failed,
+                }
+            };
+            if found == Lookup::Found {
+                let real = std::fs::canonicalize(&at).unwrap_or_else(|_| at.clone());
+                self.walked.insert(at.clone().into_os_string(), (found, real.clone()));
+                break real;
+            }
+            match at.file_name() {
+                Some(name) => {
+                    rest.push((name.to_owned(), at.as_os_str().to_owned(), found));
+                    at.pop();
+                }
+                None => break std::fs::canonicalize(&at).unwrap_or_else(|_| at.clone()),
+            }
+        };
+        // each path walked through, as spelled (a later path's folder is looked up as it spells it)
+        for (name, spelled, found) in rest.into_iter().rev() {
+            real.push(&name);
+            self.walked.insert(spelled, (found, real.clone()));
         }
+        real
     }
-    let mut real = std::fs::canonicalize(&existing).unwrap_or(existing);
-    for name in rest.iter().rev() {
-        real.push(name);
-    }
-    let text = real.to_string_lossy();
-    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
-    path_key(services, text)
 }
 
 // --- setup ---
@@ -997,12 +1057,14 @@ pub(crate) fn output_key(services: &ProjectServices, path: &str) -> String {
 /// enters no link), so its key is the root's real key with the rest of its own key appended, without a look at the
 /// file system per file (`real_key` canonicalises each path: a few hundred microseconds each on Windows, so most of a
 /// rebuild's time for a project of several hundred files). Any other path (not found, a link, outside the roots, the
-/// include folder the listing does not enter) gets [`output_key`].
+/// include folder the listing does not enter) gets [`output_key`], through one [`RealKeys`] (on a clean build, before
+/// the outDir exists, that is every path).
 pub(crate) fn output_keys<'p>(
     services: &ProjectServices,
     listing: &Listing,
     paths: impl IntoIterator<Item = &'p str>,
 ) -> FxHashSet<String> {
+    let mut real_keys = RealKeys::default();
     // the roots the listing entered (a directory, not a link), longest first: (key, real key)
     let mut roots: Vec<(String, OnceCell<String>, &str)> = listing
         .roots
@@ -1011,8 +1073,11 @@ pub(crate) fn output_keys<'p>(
         .map(|root| (path_key(services, root), OnceCell::new(), root.as_str()))
         .collect();
     roots.sort_by_key(|(key, _, _)| std::cmp::Reverse(key.len()));
+    // a path given more than once is keyed once (the build passes each Luau output up to three times)
+    let mut seen = FxHashSet::default();
     paths
         .into_iter()
+        .filter(|path| seen.insert(*path))
         .map(|path| {
             let key = path_key(services, path);
             if listing.found.contains_key(&key) && !listing.links.contains(&key) {
@@ -1024,19 +1089,71 @@ pub(crate) fn output_keys<'p>(
                         && key.as_bytes()[root.len()] == b'/'
                 });
                 if let Some((root, real, spelled)) = root {
-                    let real = real.get_or_init(|| real_key(services, spelled));
+                    let real = real.get_or_init(|| real_keys.key(services, spelled));
                     return format!("{real}{}", &key[root.len()..]);
                 }
             }
-            real_key(services, path)
+            real_keys.key(services, path)
         })
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{node_load, resolve_sync, settled_time, write_if_changed_timed};
+    use super::{RealKeys, node_load, resolve_sync, settled_time, write_if_changed_timed};
     use crate::build::outputs::{Found, Stamp, content_hash};
+
+    /// One [`RealKeys`] over many paths answers as a walk per path (`real_key`, a fresh one each): in missing
+    /// folders, under existing ones, through a junction and a link whose target is gone, spelled with either slash, a
+    /// folder after a path in it and before, and a component Windows rewrites.
+    #[test]
+    fn real_keys_answer_as_a_walk_per_path() {
+        let dir = rbxts_test_support::TempDir::new("real-keys");
+        let root = dir.path().to_string_lossy().replace('\\', "/");
+        std::fs::create_dir_all(dir.path().join("project/src/deep")).unwrap();
+        std::fs::create_dir_all(dir.path().join("elsewhere/inner")).unwrap();
+        std::fs::create_dir_all(dir.path().join("gone")).unwrap();
+        std::fs::write(dir.path().join("project/src/deep/a.ts"), "").unwrap();
+        std::fs::write(dir.path().join("elsewhere/inner/b.luau"), "").unwrap();
+        rbxts_test_support::link_dir(&dir.path().join("project/linked"), &dir.path().join("elsewhere"));
+        rbxts_test_support::link_dir(&dir.path().join("project/broken"), &dir.path().join("gone"));
+        std::fs::remove_dir(dir.path().join("gone")).unwrap();
+        let mut paths: Vec<String> = [
+            "project/out/client/x/y/a.luau",
+            "project/out/client/x/y/b.luau",
+            "project/out/client/x",
+            "project/out/client/x/z.luau",
+            "project/out",
+            "project/src/deep/a.ts",
+            "project/src/deep/missing.luau",
+            "project/src/deep",
+            "project/linked/inner/b.luau",
+            "project/linked/inner/new/c.luau",
+            "project/linked/missing/d.luau",
+            "project/broken/e.luau",
+            "project/broken/f/g.luau",
+            "project/out./client/h.luau",
+            "project/src./deep/a.ts",
+            "project/out/client/x/y/a.luau",
+        ]
+        .iter()
+        .map(|p| format!("{root}/{p}"))
+        .collect();
+        // a folder walked with one slash, looked up with the other (Windows's own separator)
+        let other = "project/out/client/x/y/c.luau".replace('/', std::path::MAIN_SEPARATOR_STR);
+        paths.insert(5, format!("{root}/{other}"));
+        let mut shared = RealKeys::default();
+        for path in &paths {
+            assert_eq!(shared.real_path(path), RealKeys::default().real_path(path), "{path}");
+        }
+        // the other way round too: folders first
+        let mut shared = RealKeys::default();
+        for path in paths.iter().rev() {
+            assert_eq!(shared.real_path(path), RealKeys::default().real_path(path), "{path}");
+        }
+        rbxts_test_support::unlink_dir(&dir.path().join("project/linked"));
+        rbxts_test_support::unlink_dir(&dir.path().join("project/broken"));
+    }
 
     /// The stamp of a committed file is made from the bytes written, with no time while the write is recent: a hand
     /// edit landing right after the commit (same size, same clock tick) is found by its bytes, never taken for the
