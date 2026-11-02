@@ -615,8 +615,9 @@ fn stockfix_jsx_constructors_through_a_linked_types_package() {
     project.link("node_modules", &node_modules);
     let tsconfig = project.root.join("tsconfig.json");
     let text = std::fs::read_to_string(&tsconfig).unwrap();
-    let without = text.replace("		\"preserveSymlinks\": true,
-", "");
+    // the option's line, whatever its indentation and line end
+    let without: String =
+        text.split_inclusive('\n').filter(|line| line.trim() != "\"preserveSymlinks\": true,").collect();
     assert_ne!(without, text, "the fixture's tsconfig sets preserveSymlinks");
     std::fs::write(&tsconfig, without).unwrap();
     let report = build(&project.root, false, &[]);
