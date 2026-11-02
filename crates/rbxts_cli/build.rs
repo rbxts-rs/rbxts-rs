@@ -2,9 +2,9 @@
 //!
 //! - `RBXTS_RS_COMMIT`: `git rev-parse HEAD` of the rbxts-rs checkout this crate is built from, and
 //!   `RBXTS_RS_DIRTY`: whether the tracked files the binary is built from differ from that commit (`git status` over
-//!   [`built_from`]'s paths, untracked files ignored): the workspace `Cargo.toml` and `Cargo.lock`, and this crate and
-//!   the workspace crates it depends on, without their `tests`, `benches` and `examples`. Edits elsewhere (another
-//!   crate such as `rbxts_bench`, tests, docs) do not count. A git dependency (`cargo install --git`, flamework-rs's
+//!   [`built_from`]'s paths, untracked files ignored): the workspace `Cargo.toml`, `Cargo.lock` and
+//!   `rust-toolchain.toml`, and this crate and the workspace crates it depends on, without their `tests`, `benches`
+//!   and `examples`. Edits elsewhere (another crate such as `rbxts_bench`, tests, docs) do not count. A git dependency (`cargo install --git`, flamework-rs's
 //!   dependency) is built from Cargo's checkout of the pinned rev, which is a git repository too, so its commit comes
 //!   out right. Without a repository of its own (a vendored or packaged copy, or no `git` on the PATH) both are
 //!   `unknown`; the version is `CARGO_PKG_VERSION` either way.
@@ -18,6 +18,10 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+mod build_manifest;
+
+use build_manifest::workspace_dependencies;
 
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("set by Cargo"));
@@ -90,13 +94,17 @@ fn rerun_on_git_state(dir: &Path) {
 }
 
 /// The existing paths, relative to the workspace root with `/` separators, that the binary is built from: the
-/// workspace `Cargo.toml` and `Cargo.lock`, and every top-level entry of this crate's folder and of the workspace
-/// crates it depends on, transitively (`[dependencies]` and `[build-dependencies]`, not `[dev-dependencies]`), except
-/// `tests`, `benches`, `examples` and `target*` folders. A dependency `rbxts_x` lives in `crates/rbxts_x`, as the
-/// workspace `Cargo.toml` places them.
+/// workspace `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml`, and every top-level entry of this crate's folder and
+/// of the workspace crates it depends on, transitively (`[dependencies]` and `[build-dependencies]`, not
+/// `[dev-dependencies]`), except `tests`, `benches`, `examples` and `target*` folders. A dependency `rbxts_x` (by
+/// package name, so a renamed one counts: [`workspace_dependencies`]) lives in `crates/rbxts_x`, as the workspace
+/// `Cargo.toml` places them.
 fn built_from(root: &Path, manifest_dir: &Path) -> Vec<String> {
-    let mut paths: Vec<String> =
-        ["Cargo.toml", "Cargo.lock"].into_iter().filter(|name| root.join(name).is_file()).map(str::to_owned).collect();
+    let mut paths: Vec<String> = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
+        .into_iter()
+        .filter(|name| root.join(name).is_file())
+        .map(str::to_owned)
+        .collect();
     let own = manifest_dir.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let mut crates = vec![own];
     let mut next = 0;
@@ -120,26 +128,6 @@ fn built_from(root: &Path, manifest_dir: &Path) -> Vec<String> {
         }
     }
     paths
-}
-
-/// The `rbxts_*` names of a crate manifest's `[dependencies]` and `[build-dependencies]` tables (target-specific ones
-/// included).
-fn workspace_dependencies(manifest: &str) -> Vec<String> {
-    let mut in_dependencies = false;
-    let mut names = Vec::new();
-    for line in manifest.lines().map(str::trim) {
-        if let Some(table) = line.strip_prefix('[') {
-            let table = table.trim_end_matches(']');
-            in_dependencies = ["dependencies", "build-dependencies"]
-                .iter()
-                .any(|kind| table == *kind || (table.starts_with("target.") && table.ends_with(&format!(".{kind}"))));
-            continue;
-        }
-        if in_dependencies && line.starts_with("rbxts_") {
-            names.push(line.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect());
-        }
-    }
-    names
 }
 
 /// `rev = "…"` of the `tsrs_core = { git = …, rev = … }` line of the workspace manifest.

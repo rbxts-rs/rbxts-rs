@@ -137,8 +137,9 @@ plugin: <name> <version>
 There is one `plugin` line per compiled-in plugin, none for the plain `rbxtsc`. Lines may be added later; the keys
 above keep their meaning. A build from a git dependency (`cargo install --git`, or a plugin workspace such as
 flamework-rs depending on rbxts-rs by rev) reports the pinned rbxts-rs commit; a copy without git history reports
-`unknown`. `rbxts-rs-dirty` looks at the workspace `Cargo.toml` and `Cargo.lock` and at `rbxts_cli` and the crates it
-depends on, without their tests (`crates/rbxts_cli/build.rs`); edits elsewhere in the checkout do not count.
+`unknown`. `rbxts-rs-dirty` looks at the workspace `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml` and at `rbxts_cli`
+and the crates it depends on, without their tests (`crates/rbxts_cli/build.rs`); edits elsewhere in the checkout do
+not count.
 
 ## The tsrs fork
 
