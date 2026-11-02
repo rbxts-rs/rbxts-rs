@@ -124,7 +124,7 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
   AST getters for fields 0.20.1 made private (`label()`, `name()`, `expression()`, `Node::text()` for `JSDocText`),
   and a copy of `tspath::resolve_tripleslash_reference` (`util/symlink_cache.rs`).
 
-  A depending workspace adapts the same way. flamework-rs (at 0be98d7) also needs: `get_signatures_of_type(t,
+  A depending workspace adapts the same way. flamework-rs also needs: `get_signatures_of_type(t,
   SignatureKind::Construct)` for the removed `get_construct_signatures`; the `SourceFile::end_of_file_token` field for
   its removed getter; `info.flags` for `tuple_element_flags()`; `TupleTypeNode::elements()` for the now private field;
   `Node::text()` for `as_jsdoc_text()`; and `rbxts_project::flatten_diagnostic_message` in its tests and examples.
@@ -256,6 +256,13 @@ value, or none, leaves it on. How each part of the preset meets rbxts-rs:
   asks (`enable_lazy_dts`; `ProgramOptions::leaf_files`). rbxts-rs asks only in the one-shot `rbxts-bench load
   --lazy-dts` and `rbxts-bench project-parity`; with `TSRS_FAST=0` those lose it too, unless `TSRS_LAZY_DTS=1` is
   set. So the declaration files rbxts-rs and Flamework read are parsed in full, as before.
+
+### What changed with tsrs 0.20.1
+- **#813, unused code removed:** it took public API rbxts-rs and flamework-rs used with it. The fork's flips and the
+  replacements in "The fork" (above) stand in for it.
+- **#816, checker threads reused:** one set of threads serves every work group, and an idle thread exits after 1 s.
+  Checked safe for rbxts-rs's thread-locals.
+- **#808, a `NoInfer` change reverted:** no effect on either corpus.
 
 ## TypeScript 5 behaviour rbxts-rs does not reproduce
 Known, accepted differences from stock roblox-ts on TypeScript 5, each inherent to TypeScript 7. A few make a build

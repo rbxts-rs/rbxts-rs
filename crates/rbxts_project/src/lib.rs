@@ -160,7 +160,7 @@ pub fn flatten_diagnostic_message(d: P<Diagnostic>, new_line: &str) -> String {
 
 /// The number of checkers `program`'s pool really has (tsrs caps the requested count by the file count). Panics on a
 /// program with an external checker pool, as tsrs 0.20.0's `Program::checker_count` did; tsrs 0.20.1 (#813) removed
-/// that method, so this reads the pool (fork flip 99850fa1).
+/// that method, so this reads the pool (fork flip 18638a0c).
 pub fn checker_count(program: &Program) -> usize {
     program.pool().checker_count
 }
@@ -168,7 +168,7 @@ pub fn checker_count(program: &Program) -> usize {
 /// The index (as passed to `for_each_checker_parallel`) of the checker the pool assigned `file` to, i.e. the checker
 /// `for_each_checker_group` runs it on. Creates the checkers on first use. None when the program has no checker pool
 /// of its own or `file` is not one of its files. tsrs 0.20.0's `Program::checker_index_of_file`, which tsrs 0.20.1
-/// (#813) removed (fork flip 99850fa1).
+/// (#813) removed (fork flip 18638a0c).
 pub fn checker_index_of_file(program: &Program, file: P<SourceFile>) -> Option<usize> {
     program.compiler_checker_pool()?.state().owner_of(file)
 }

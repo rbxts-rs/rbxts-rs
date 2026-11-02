@@ -261,6 +261,7 @@ impl<'p> Walk<'p> {
 
 /// TypeScript's `resolveTripleslashReference`: a `/// <reference path>` against the referencing file's folder. A copy of
 /// tsrs 0.20.0's `tspath::resolve_tripleslash_reference`, which tsrs 0.20.1 (#813) removed.
+/// Keep it in step with tsrs's `fileloader::tripleslash_reference_lookup`, which resolves the same references.
 fn resolve_tripleslash_reference(module_name: &str, containing_file: &str) -> String {
     let base_path = tspath::get_directory_path(containing_file);
     if tspath::is_rooted_disk_path(module_name) {
