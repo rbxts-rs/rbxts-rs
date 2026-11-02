@@ -32,7 +32,7 @@
 //! ```text
 //! rbxts-rs-version: 0.0.0
 //! rbxts-rs-commit: <the git commit rbxts_cli was built from, or unknown>
-//! rbxts-rs-dirty: <true when tracked files differed from that commit, false, or unknown>
+//! rbxts-rs-dirty: <true when the tracked files it was built from differed from that commit, false, or unknown>
 //! tsrs-commit: <the tsrs fork commit the workspace pins, or unknown>
 //! roblox-ts-version: 3.0.0
 //! plugin: <name> <version>

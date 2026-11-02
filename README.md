@@ -128,7 +128,7 @@ afterwards.
 ```text
 rbxts-rs-version: 0.0.0
 rbxts-rs-commit: <the rbxts-rs commit it was built from, or unknown>
-rbxts-rs-dirty: <true when that checkout had uncommitted changes to tracked files, false, or unknown>
+rbxts-rs-dirty: <true when the tracked files it was built from had uncommitted changes, false, or unknown>
 tsrs-commit: <the tsrs fork commit>
 roblox-ts-version: 3.0.0
 plugin: <name> <version>
@@ -137,7 +137,8 @@ plugin: <name> <version>
 There is one `plugin` line per compiled-in plugin, none for the plain `rbxtsc`. Lines may be added later; the keys
 above keep their meaning. A build from a git dependency (`cargo install --git`, or a plugin workspace such as
 flamework-rs depending on rbxts-rs by rev) reports the pinned rbxts-rs commit; a copy without git history reports
-`unknown`.
+`unknown`. `rbxts-rs-dirty` looks at the workspace `Cargo.toml` and `Cargo.lock` and at `rbxts_cli` and the crates it
+depends on, without their tests (`crates/rbxts_cli/build.rs`); edits elsewhere in the checkout do not count.
 
 ## The tsrs fork
 

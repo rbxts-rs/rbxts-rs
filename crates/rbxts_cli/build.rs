@@ -1,16 +1,20 @@
 //! Embeds what `rbxtsc --build-info` prints besides the package version (`Cli::build_info`):
 //!
 //! - `RBXTS_RS_COMMIT`: `git rev-parse HEAD` of the rbxts-rs checkout this crate is built from, and
-//!   `RBXTS_RS_DIRTY`: whether its tracked files differ from that commit (`git status`, untracked files ignored).
-//!   A git dependency (`cargo install --git`, flamework-rs's dependency) is built from Cargo's checkout of the pinned
-//!   rev, which is a git repository too, so its commit comes out right. Without a repository of its own (a vendored
-//!   or packaged copy, or no `git` on the PATH) both are `unknown`; the version is `CARGO_PKG_VERSION` either way.
+//!   `RBXTS_RS_DIRTY`: whether the tracked files the binary is built from differ from that commit (`git status` over
+//!   [`built_from`]'s paths, untracked files ignored): the workspace `Cargo.toml` and `Cargo.lock`, and this crate and
+//!   the workspace crates it depends on, without their `tests`, `benches` and `examples`. Edits elsewhere (another
+//!   crate such as `rbxts_bench`, tests, docs) do not count. A git dependency (`cargo install --git`, flamework-rs's
+//!   dependency) is built from Cargo's checkout of the pinned rev, which is a git repository too, so its commit comes
+//!   out right. Without a repository of its own (a vendored or packaged copy, or no `git` on the PATH) both are
+//!   `unknown`; the version is `CARGO_PKG_VERSION` either way.
 //! - `RBXTS_RS_TSRS_COMMIT`: the tsrs fork commit, the `rev` of the workspace `Cargo.toml`'s `tsrs_core` dependency,
 //!   else the commit `Cargo.lock` resolved it to, else `unknown`. A `[patch]` of tsrs in a dependent workspace is not
 //!   seen.
 //!
-//! The script runs again when the git HEAD, the branch it points at or the index moves, and when a crate's sources,
-//! a crate manifest or the workspace's `Cargo.toml` / `Cargo.lock` change, so the dirty flag follows source edits.
+//! The script runs again when the git HEAD, the branch it points at, the packed refs or the index change, and when a
+//! path of [`built_from`] changes, so the dirty flag follows the edits that change the binary and no others: an edit
+//! in a crate `rbxts_cli` does not depend on neither reruns it nor recompiles `rbxts_cli`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -19,13 +23,15 @@ fn main() {
     let manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("set by Cargo"));
     let root = manifest_dir.join("..").join("..");
     println!("cargo:rerun-if-changed=build.rs");
+    let paths = built_from(&root, &manifest_dir);
 
     let (commit, dirty) = match git_repository(&manifest_dir, &root) {
         Some(()) => {
             let commit = git(&manifest_dir, &["rev-parse", "HEAD"]).filter(|c| is_commit(c));
             // `--no-optional-locks`: no index refresh written, which would make Cargo run this script on every build
-            let status = git(&manifest_dir, &["--no-optional-locks", "status", "--porcelain", "--untracked-files=no"]);
-            let dirty = match (&commit, status) {
+            let mut args = vec!["--no-optional-locks", "status", "--porcelain", "--untracked-files=no", "--"];
+            args.extend(paths.iter().map(String::as_str));
+            let dirty = match (&commit, git(&root, &args)) {
                 (Some(_), Some(status)) => if status.is_empty() { "false" } else { "true" }.to_owned(),
                 _ => "unknown".to_owned(),
             };
@@ -34,7 +40,9 @@ fn main() {
         }
         None => ("unknown".to_owned(), "unknown".to_owned()),
     };
-    rerun_on_sources(&root);
+    for path in &paths {
+        println!("cargo:rerun-if-changed={}", root.join(path).display());
+    }
 
     let tsrs = std::fs::read_to_string(root.join("Cargo.toml"))
         .ok()
@@ -81,23 +89,57 @@ fn rerun_on_git_state(dir: &Path) {
     }
 }
 
-/// Reruns when the workspace manifest or lock file, a crate manifest or a crate's `src` changes.
-fn rerun_on_sources(root: &Path) {
-    for name in ["Cargo.toml", "Cargo.lock"] {
-        let path = root.join(name);
-        if path.is_file() {
-            println!("cargo:rerun-if-changed={}", path.display());
+/// The existing paths, relative to the workspace root with `/` separators, that the binary is built from: the
+/// workspace `Cargo.toml` and `Cargo.lock`, and every top-level entry of this crate's folder and of the workspace
+/// crates it depends on, transitively (`[dependencies]` and `[build-dependencies]`, not `[dev-dependencies]`), except
+/// `tests`, `benches`, `examples` and `target*` folders. A dependency `rbxts_x` lives in `crates/rbxts_x`, as the
+/// workspace `Cargo.toml` places them.
+fn built_from(root: &Path, manifest_dir: &Path) -> Vec<String> {
+    let mut paths: Vec<String> =
+        ["Cargo.toml", "Cargo.lock"].into_iter().filter(|name| root.join(name).is_file()).map(str::to_owned).collect();
+    let own = manifest_dir.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    let mut crates = vec![own];
+    let mut next = 0;
+    while let Some(name) = crates.get(next).cloned() {
+        next += 1;
+        let dir = root.join("crates").join(&name);
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let mut entries: Vec<String> =
+            entries.flatten().map(|entry| entry.file_name().to_string_lossy().into_owned()).collect();
+        entries.sort();
+        for entry in entries {
+            if !matches!(entry.as_str(), "tests" | "benches" | "examples") && !entry.starts_with("target") {
+                paths.push(format!("crates/{name}/{entry}"));
+            }
         }
-    }
-    let Ok(crates) = std::fs::read_dir(root.join("crates")) else { return };
-    for entry in crates.flatten() {
-        for name in ["Cargo.toml", "src"] {
-            let path = entry.path().join(name);
-            if path.exists() {
-                println!("cargo:rerun-if-changed={}", path.display());
+        let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap_or_default();
+        for dependency in workspace_dependencies(&manifest) {
+            if !crates.contains(&dependency) {
+                crates.push(dependency);
             }
         }
     }
+    paths
+}
+
+/// The `rbxts_*` names of a crate manifest's `[dependencies]` and `[build-dependencies]` tables (target-specific ones
+/// included).
+fn workspace_dependencies(manifest: &str) -> Vec<String> {
+    let mut in_dependencies = false;
+    let mut names = Vec::new();
+    for line in manifest.lines().map(str::trim) {
+        if let Some(table) = line.strip_prefix('[') {
+            let table = table.trim_end_matches(']');
+            in_dependencies = ["dependencies", "build-dependencies"]
+                .iter()
+                .any(|kind| table == *kind || (table.starts_with("target.") && table.ends_with(&format!(".{kind}"))));
+            continue;
+        }
+        if in_dependencies && line.starts_with("rbxts_") {
+            names.push(line.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect());
+        }
+    }
+    names
 }
 
 /// `rev = "…"` of the `tsrs_core = { git = …, rev = … }` line of the workspace manifest.
