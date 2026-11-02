@@ -32,8 +32,8 @@ use crate::nodepath;
 use crate::path_translator::PathTranslator;
 use crate::rojo::{RbxPath, RojoResolver};
 use crate::setup::{
-    self, ProjectData, ProjectError, ProjectOptionLayer, ProjectOptions, ProjectType, create_path_translator,
-    get_root_dirs, is_path_descendant_of, ts5_build_info_path,
+    self, ProjectData, ProjectError, ProjectOptionLayer, ProjectOptions, ProjectType, build_info_path,
+    create_path_translator, get_root_dirs, is_path_descendant_of,
 };
 
 /// `projectPathKey`: `getCanonicalFileName(path.normalize(filePath))`, the key of every path the graph compares.
@@ -67,7 +67,7 @@ pub struct ProjectNode {
     pub dependencies: Vec<String>,
     /// None for a solution config.
     pub path_translator: Option<PathTranslator>,
-    /// tsc's own build info (`getTsBuildInfoEmitOutputFilePath` before roblox-ts renames it).
+    /// tsc's own build info (TypeScript 7.1's `GetBuildInfoFileName`, before roblox-ts renames it).
     pub tsc_build_info_path: Option<String>,
     /// Its tsconfig sets `rbxts.rojo`.
     pub own_rojo: bool,
@@ -240,7 +240,7 @@ impl ProjectGraph {
             };
 
             let mut options = config.compiler_options().map(|o| (*o).clone()).unwrap_or_default();
-            let tsc_build_info_path = ts5_build_info_path(&options).map(|p| nodepath::normalize(&p));
+            let tsc_build_info_path = build_info_path(&options).map(|p| nodepath::normalize(&p));
             let path_translator = if is_solution_config(&config) {
                 if *node_key != root_key || !shared_deployment {
                     // editor solutions may sit beside a package Rojo file unrelated to their test games

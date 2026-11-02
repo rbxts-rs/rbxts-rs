@@ -682,36 +682,16 @@ pub fn incremental_state_path(build_info: &str) -> String {
     format!("{}.rbxts-rs.buildinfo", base.unwrap_or(build_info))
 }
 
-/// TypeScript 5's `getTsBuildInfoEmitOutputFilePath` (the build info of an incremental or composite build): tsc's
-/// own file, which roblox-ts's clean keeps beside its `.rbxtsc.tsbuildinfo`.
-pub fn ts5_build_info_path(opts: &CompilerOptions) -> Option<String> {
-    if !(opts.incremental.is_true() || opts.composite.is_true()) {
-        return None;
-    }
-    if !opts.ts_build_info_file.is_empty() {
-        return Some(opts.ts_build_info_file.clone());
-    }
-    let extensionless = if !opts.out_file.is_empty() {
-        tspath::remove_file_extension(&opts.out_file).to_owned()
-    } else {
-        if opts.config_file_path.is_empty() {
-            return None;
-        }
-        let config = tspath::remove_file_extension(&opts.config_file_path).to_owned();
-        if opts.out_dir.is_empty() {
-            config
-        } else if !opts.root_dir.is_empty() {
-            let compare =
-                tspath::ComparePathsOptions { use_case_sensitive_file_names: false, current_directory: String::new() };
-            tspath::resolve_path(
-                &opts.out_dir,
-                &[&tspath::get_relative_path_from_directory(&opts.root_dir, &config, &compare)],
-            )
-        } else {
-            tspath::combine_paths(&opts.out_dir, &[&tspath::get_base_file_name(&config)])
-        }
+/// The build info of an incremental or composite build, TypeScript 7.1's `GetBuildInfoFileName` (tsrs's
+/// `outputpaths::get_build_info_file_name`): tsc's own file, which roblox-ts's clean keeps beside its
+/// `.rbxtsc.tsbuildinfo`. `tsBuildInfoFile`, else the tsconfig's name (`tsconfig.tsbuildinfo`) beside it, or in
+/// `outDir` (below it as the tsconfig lies below `rootDir`). `None` for a build with none.
+pub fn build_info_path(opts: &CompilerOptions) -> Option<String> {
+    let compare = tspath::ComparePathsOptions {
+        use_case_sensitive_file_names: crate::os_case_sensitive_file_names(),
+        current_directory: String::new(),
     };
-    Some(format!("{extensionless}.tsbuildinfo"))
+    Some(tsrs_tsoptions::outputpaths::get_build_info_file_name(opts, &compare)).filter(|path| !path.is_empty())
 }
 
 /// The path translator `ProjectGraph` makes for a (non-solution) project.
@@ -719,7 +699,7 @@ pub fn ts5_build_info_path(opts: &CompilerOptions) -> Option<String> {
 /// - `rootDir`: the common ancestor of TypeScript 5's common source directory of the config (`rootDir`; for a
 ///   composite project without one, the tsconfig's directory; else computed from the config's non-declaration
 ///   files, which is not TypeScript 7's rule) and the root dirs.
-/// - Build info: TypeScript 5's path, renamed to `*.rbxtsc.tsbuildinfo` as roblox-ts does.
+/// - Build info: TypeScript 7.1's path ([`build_info_path`]), renamed to `*.rbxtsc.tsbuildinfo` as roblox-ts does.
 pub fn create_path_translator(
     opts: &CompilerOptions,
     config_file_names: &[String],
@@ -755,7 +735,7 @@ pub fn create_path_translator(
     }
     let root_dir = find_ancestor_dir(&dirs);
 
-    let build_info = ts5_build_info_path(opts).map(|p| {
+    let build_info = build_info_path(opts).map(|p| {
         let base = p.strip_suffix(".tsbuildinfo").unwrap_or(&p);
         nodepath::normalize(&format!("{base}.rbxtsc.tsbuildinfo"))
     });

@@ -83,7 +83,7 @@ pub struct OutputInputs<'a> {
     pub out_dir_override: Option<&'a str>,
     /// tsconfig and `extends` paths, never assets.
     pub config_paths: &'a [String],
-    /// tsc's own build info (`getTsBuildInfoEmitOutputFilePath`), besides roblox-ts's `.rbxtsc.tsbuildinfo`.
+    /// tsc's own build info (`setup::build_info_path`), besides roblox-ts's `.rbxtsc.tsbuildinfo`.
     pub ts_build_info: Option<&'a str>,
     /// The other projects of a build with project references.
     pub graph: Option<&'a GraphOutputs>,

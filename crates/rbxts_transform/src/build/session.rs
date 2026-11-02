@@ -2570,7 +2570,7 @@ impl<'p> BuildSession<'p> {
             })
             .collect();
         let options = loaded.project.options();
-        let ts_build_info = rbxts_project::setup::ts5_build_info_path(&options);
+        let ts_build_info = rbxts_project::setup::build_info_path(&options);
         outputs::get_project_outputs(&OutputInputs {
             services,
             options: &options,
