@@ -277,3 +277,54 @@ fn a_tsconfig_without_types_gets_the_line_to_add() {
     assert_eq!(output.status.code(), Some(0));
     assert!(root.path().join("out/init.luau").is_file());
 }
+
+/// The tsconfig's `"pretty"` decides the layout over the environment and the terminal, as tsc's `shouldBePretty`:
+/// `true` prints pretty through a pipe and with `NO_COLOR`, `false` prints plain with `FORCE_COLOR=1`. Without it the
+/// environment decides as before (`FORCE_COLOR=1` pretty, a pipe plain).
+#[test]
+fn the_tsconfig_pretty_option_wins_over_the_environment() {
+    let Some(node_modules) = node_modules_or_skip("cli::the_tsconfig_pretty_option") else { return };
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/diagnostics_pretty");
+    // a copy of its own (diagnostics_as_expected's would be the one the other test of the fixture uses)
+    let mut root = TempDir::new("cli-pretty-option");
+    copy_dir(&fixture.join("src"), &root.path().join("src"));
+    for name in ["tsconfig.json", "package.json"] {
+        std::fs::copy(fixture.join(name), root.path().join(name)).unwrap();
+    }
+    root.link("node_modules", &node_modules);
+    let pretty = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
+    let plain = std::fs::read_to_string(fixture.join("expected-plain.txt")).unwrap();
+    let tsconfig = std::fs::read_to_string(root.path().join("tsconfig.json")).unwrap();
+    let build = |option: Option<bool>, env: &[(&str, &str)]| {
+        let text = match option {
+            Some(value) => {
+                let option = format!("\"compilerOptions\": {{\n\t\t\"pretty\": {value},");
+                tsconfig.replacen("\"compilerOptions\": {", &option, 1)
+            }
+            None => tsconfig.clone(),
+        };
+        std::fs::write(root.path().join("tsconfig.json"), text).unwrap();
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_rbxtsc"));
+        command.arg("build").current_dir(root.path());
+        for name in ["FORCE_COLOR", "NO_COLOR", "TERM"] {
+            command.env_remove(name);
+        }
+        command.envs(env.iter().copied());
+        let output = command.output().unwrap();
+        (output.status.code(), String::from_utf8_lossy(&output.stdout).into_owned())
+    };
+    // (tsconfig, environment, pretty)
+    type Case<'a> = (Option<bool>, &'a [(&'a str, &'a str)], bool);
+    let cases: [Case<'_>; 6] = [
+        (Some(true), &[], true),
+        (Some(true), &[("NO_COLOR", "1")], true),
+        (Some(true), &[("FORCE_COLOR", "0")], true),
+        (Some(false), &[("FORCE_COLOR", "1")], false),
+        (None, &[("FORCE_COLOR", "1")], true),
+        (None, &[], false),
+    ];
+    for (option, env, expect_pretty) in cases {
+        let expected = if expect_pretty { &pretty } else { &plain };
+        assert_eq!(build(option, env), (Some(1), expected.clone()), "pretty {option:?}, environment {env:?}");
+    }
+}

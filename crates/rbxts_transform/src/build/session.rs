@@ -813,6 +813,7 @@ impl<'p> BuildSession<'p> {
         if self.watch {
             self.owners.push(project.owner());
         }
+        report.pretty = crate::compile::pretty_option(&project.options());
         report.timings.config = project.config_time;
         report.timings.program = project.program_time;
         let start = Instant::now();
@@ -1052,6 +1053,7 @@ impl<'p> BuildSession<'p> {
         let mut loaded = loaded;
         let project = &loaded.project;
         let services = &loaded.services;
+        report.pretty = crate::compile::pretty_option(&project.options());
         report.program_files = project.program.source_files().len();
         report.warnings = services.warnings.clone();
         if !self.checkers_warned {

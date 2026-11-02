@@ -175,7 +175,8 @@ From the tsrs source (first at v0.18.0; `docs/tsrs.md` covers the later versions
 - **Printed layout.** `rbxtsc` prints every diagnostic (checker, tsconfig, roblox-ts's own, plugins') in TypeScript
   7.1's layout, through tsrs's writer (`tsrs_compiler::diagnosticwriter`, tsgo's `FormatDiagnosticsWithColorAndContext`
   and `WriteErrorSummaryText`; `rbxts_cli/src/pretty.rs`), not TypeScript 5's as roblox-ts does. Pretty, as `tsc`
-  decides it (`FORCE_COLOR`, else not with `NO_COLOR` or `TERM=dumb`, else when stdout is a terminal): a code frame,
+  decides it (the tsconfig's `pretty` when set, also after a watch rebuild read a changed tsconfig; else
+  `FORCE_COLOR`, else not with `NO_COLOR` or `TERM=dumb`, else when stdout is a terminal): a code frame,
   related information as `  file:line:col - message` with its own frame, an empty span underlining the character after
   it, then "Found N errors in M files." and a table of the files (not in watch mode, whose status line counts them).
   Plain otherwise: `file(line,col): error TS2322: message` lines only, no related information and no summary. Lines

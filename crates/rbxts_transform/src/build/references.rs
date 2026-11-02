@@ -188,6 +188,8 @@ pub(super) fn build_graph(root: &mut BuildSession<'_>, touched: &[String]) -> (C
     }
     let (mut report, mut summary) = merge(reports, root_ran);
     report.projects = outcomes;
+    // the root tsconfig's, whether the root was built or not
+    report.pretty = crate::compile::pretty_option(&node.options);
     if node.path_translator.is_none()
         && graph.shared_deployment
         && build_references

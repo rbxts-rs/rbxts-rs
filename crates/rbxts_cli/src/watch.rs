@@ -109,7 +109,8 @@ fn time_now() -> String {
 }
 
 /// A watch status line, as TypeScript's watch status reporter prints it: the time grey only when the output is pretty
-/// ([`crate::pretty_output`]), so piped watch output carries no escape codes.
+/// ([`crate::pretty_output`]: the tsconfig's `pretty` as the last build read it, else the terminal), so piped watch
+/// output carries no escape codes.
 fn status(message: &str) {
     if crate::pretty_output() {
         println!("[\u{1b}[90m{}\u{1b}[0m] {message}", time_now());
@@ -141,6 +142,8 @@ pub fn run(
     options: CompileOptions,
     cwd: &str,
 ) -> u8 {
+    // the status lines before the first build follow the tsconfig's `pretty` too
+    crate::hint_tsconfig_pretty(&options.tsconfig);
     if std::env::var(CHILD_ENV).is_err() && memory_limit().is_some() {
         return supervise();
     }

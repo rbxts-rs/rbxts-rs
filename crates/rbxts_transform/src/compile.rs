@@ -271,6 +271,10 @@ pub struct CompileReport {
     /// roblox-ts's `build` command prints them as its `DiagnosticError` does, as one formatted block in the order
     /// found, then a line feed.
     pub thrown: bool,
+    /// The tsconfig's `compilerOptions.pretty`, when it sets it (with project references, the root's): rbxtsc prints
+    /// pretty or plain as it says, whatever the environment and the terminal (tsc's `shouldBePretty`). `None` when
+    /// the tsconfig could not be read.
+    pub pretty: Option<bool>,
 }
 
 /// One project of a build with project references.
@@ -474,6 +478,11 @@ pub(crate) fn first_error_cut(
         }
     }
     cut
+}
+
+/// A tsconfig's `pretty`: `None` when it does not set it ([`CompileReport::pretty`]).
+pub(crate) fn pretty_option(options: &tsrs_core::CompilerOptions) -> Option<bool> {
+    (!options.pretty.is_unknown()).then(|| options.pretty.is_true())
 }
 
 /// One file's transform diagnostics, for [`drop_plugin_duplicates`].

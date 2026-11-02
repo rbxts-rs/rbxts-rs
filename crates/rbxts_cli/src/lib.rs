@@ -318,10 +318,25 @@ impl Cli {
     }
 }
 
-/// Whether diagnostics print pretty, as tsc decides it without `--pretty`: with `FORCE_COLOR` set, when it is empty,
-/// `1`, `2`, `3` or `true`; else not with a non-empty `NO_COLOR` or with `TERM=dumb`; else when stdout is a terminal.
-/// rbxtsc's warnings follow it too.
+/// The tsconfig's `compilerOptions.pretty`, as the last build (or [`hint_tsconfig_pretty`]) read it: 0 unset, 1
+/// false, 2 true.
+static TSCONFIG_PRETTY: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Whether diagnostics print pretty, as tsc decides it (`shouldBePretty`): the tsconfig's `compilerOptions.pretty` when
+/// it sets it (the last build's tsconfig: after a watch rebuild that read a changed tsconfig, its new value), whatever
+/// the environment and the terminal; else as without it: with `FORCE_COLOR` set, when it is empty, `1`, `2`, `3` or
+/// `true`; else not with a non-empty `NO_COLOR` or with `TERM=dumb`; else when stdout is a terminal. rbxtsc's
+/// warnings and watch status lines follow it too.
 pub fn pretty_output() -> bool {
+    match TSCONFIG_PRETTY.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => false,
+        2 => true,
+        _ => default_pretty(),
+    }
+}
+
+/// [`pretty_output`] without a tsconfig `pretty`.
+fn default_pretty() -> bool {
     static PRETTY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *PRETTY.get_or_init(|| {
         use std::io::IsTerminal;
@@ -334,6 +349,44 @@ pub fn pretty_output() -> bool {
         }
         std::io::stdout().is_terminal()
     })
+}
+
+/// Sets the tsconfig's `pretty` [`pretty_output`] follows (a build's [`CompileReport::pretty`]).
+fn set_tsconfig_pretty(pretty: Option<bool>) {
+    let value = match pretty {
+        None => 0,
+        Some(false) => 1,
+        Some(true) => 2,
+    };
+    TSCONFIG_PRETTY.store(value, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// What a tsconfig's `compilerOptions.pretty` is before any build has read it, for the watch status line printed
+/// before the first build: the file's own, else that of the configs it extends by path (`./base.json`). A package
+/// config it extends is not read (the first build's report then decides).
+fn hint_tsconfig_pretty(tsconfig: &str) {
+    fn pretty_of(path: &str, depth: usize) -> Option<bool> {
+        let json = rbxts_project::setup::read_config_json(path).ok()?;
+        if let Some(pretty) = json.get("compilerOptions").and_then(|o| o.get("pretty")).and_then(|p| p.as_bool()) {
+            return Some(pretty);
+        }
+        let extends: Vec<&str> = match json.get("extends")? {
+            serde_json::Value::String(one) => vec![one.as_str()],
+            serde_json::Value::Array(list) => list.iter().filter_map(|e| e.as_str()).collect(),
+            _ => Vec::new(),
+        };
+        // the last config extended wins
+        let dir = rbxts_project::nodepath::dirname(path);
+        let by_path = |e: &&&str| e.starts_with("./") || e.starts_with("../") || e.starts_with('/');
+        extends.iter().rev().filter(by_path).find_map(|e| {
+            let mut file = rbxts_project::nodepath::join(&[dir, e]);
+            if !file.ends_with(".json") {
+                file.push_str(".json");
+            }
+            (depth < 16).then(|| pretty_of(&file, depth + 1)).flatten()
+        })
+    }
+    set_tsconfig_pretty(pretty_of(tsconfig, 0));
 }
 
 /// The code slot of a diagnostic without a TypeScript code, after `TS`: roblox-ts's own diagnostics, ad hoc messages
@@ -360,7 +413,9 @@ pub fn format_diagnostic(diagnostic: P<Diagnostic>, cwd: &str) -> String {
 
 /// Prints the build's outcome: warnings, plugin messages (`--verbose`), diagnostics and fatal errors as tsc's reporter
 /// prints diagnostics, tsc's error summary (pretty output, not in watch mode), and the plugin timings (`--timings`).
+/// The output is pretty or plain as the build's tsconfig says ([`pretty_output`]), and stays so for what follows.
 pub fn print_report(report: &CompileReport, cwd: &str, build: &BuildArgs) {
+    set_tsconfig_pretty(report.pretty);
     let format = format(cwd);
     for warning in &report.warnings {
         if format.pretty {

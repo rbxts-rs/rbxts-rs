@@ -1152,3 +1152,77 @@ fn outputs_changed_by_hand_are_written_again() {
     drop(watcher);
     let _ = std::fs::remove_dir_all(&base);
 }
+
+/// The tsconfig's `"pretty"` in watch mode, with stdout a pipe (plain without it): `true` makes the status lines and
+/// the diagnostics pretty from the first status line on, and after the tsconfig changes to `false` the rebuild that
+/// reads it prints them plain.
+#[test]
+fn the_tsconfig_pretty_option_holds_in_watch_mode_and_after_a_config_reload() {
+    let node_modules = rbxts_test_support::node_modules().unwrap_or_default();
+    if !node_modules.join("@rbxts").join("compiler-types").is_dir() {
+        rbxts_test_support::skip(module_path!(), "no node_modules with the roblox-ts tests' packages");
+        return;
+    }
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../rbxts_transform/tests/watch_fixtures/basic");
+    let root = std::env::temp_dir().join(format!("rbxts-rs-cli-watch-pretty-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    copy_dir(&fixture, &root);
+    let tsconfig = std::fs::read_to_string(root.join("tsconfig.json")).unwrap();
+    let with_pretty = |value: bool| {
+        tsconfig
+            .replace("\"plugins\": [{ \"transform\": \"rbxts-transform-stamp\", \"prefix\": \"watch \" }]", "\"plugins\": []")
+            .replacen("\"compilerOptions\": {", &format!("\"compilerOptions\": {{\n\t\t\"pretty\": {value},"), 1)
+    };
+    std::fs::write(root.join("tsconfig.json"), with_pretty(true)).unwrap();
+    // an error, so diagnostics are printed
+    std::fs::write(
+        root.join("src/shared/d.ts"),
+        "import { A } from \"./b\";\n\nexport function sizeOf(value: A) {\n\treturn value.x.a.sizee();\n}\n",
+    )
+    .unwrap();
+    rbxts_test_support::link_dir(&root.join("node_modules"), &node_modules);
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rbxtsc"));
+    command.args(["-w", "-p"]).arg(&root).env("RBXTS_WATCH_MEMORY_LIMIT_MB", "0");
+    for name in ["FORCE_COLOR", "NO_COLOR", "TERM"] {
+        command.env_remove(name);
+    }
+    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let (line_tx, lines) = channel::<String>();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            let _ = line_tx.send(line);
+        }
+    });
+    let (event_tx, events) = channel();
+    drop(event_tx);
+    let watcher = Watcher { child, root: root.clone(), events, lines: channel::<String>().1 };
+    // the lines up to the next "Watching for file changes." status line
+    let until_watching = || {
+        let mut seen = Vec::new();
+        loop {
+            match lines.recv_timeout(Duration::from_secs(60)) {
+                Ok(line) => {
+                    let done = line.contains("Watching for file changes.");
+                    seen.push(line);
+                    if done {
+                        return seen;
+                    }
+                }
+                Err(_) => panic!("no status line within 60 s; output:\n{}", seen.join("\n")),
+            }
+        }
+    };
+    let escape = |line: &String| line.contains('\u{1b}');
+    let first = until_watching();
+    assert!(first[0].contains("Starting compilation in watch mode...") && escape(&first[0]), "{first:#?}");
+    assert!(first.iter().any(|l| l.contains("sizee") && escape(l)), "the diagnostic is pretty: {first:#?}");
+    assert!(escape(first.last().unwrap()), "{first:#?}");
+
+    std::fs::write(root.join("tsconfig.json"), with_pretty(false)).unwrap();
+    let second = until_watching();
+    assert!(second.iter().any(|l| l.contains("sizee") && !escape(l)), "the diagnostic is plain: {second:#?}");
+    assert!(!escape(second.last().unwrap()), "{second:#?}");
+    drop(watcher);
+}
