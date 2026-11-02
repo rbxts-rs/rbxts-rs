@@ -7,6 +7,7 @@ with the project's plugins compiled in (none in the plain template). It is a sma
 | --- | --- |
 | `Cargo.toml`, `Cargo.lock` | the package: `rbxts_cli` and any plugins, pinned to exact versions; the release profile |
 | `rust-toolchain.toml` | the Rust version it builds with |
+| `.cargo/config.toml` | Cargo's settings for its builds: reproducible Windows binaries (`/Brepro`) |
 | `src/main.rs` | `rbxts_cli::Cli::new().run()`, with a `.plugin(...)` per plugin |
 | `preset.json` | the prebuilt binaries that match this exact config |
 | `rbxtsc.mjs` | the launcher (Node 18 or newer, no npm dependencies) |
@@ -45,8 +46,8 @@ passes the exit code through and forwards Ctrl+C and SIGTERM to it, waiting for 
 
 ## The config hash
 
-The hash is a SHA-256 over `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` and every file under `src/`, sorted by
-path, each as its path, a NUL, its length, a NUL and its bytes, with CRLF read as LF (so git's `autocrlf` does not
+The hash is a SHA-256 over `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `.cargo/config.toml` and every file
+under `src/`, sorted by path, each as its path, a NUL, its length, a NUL and its bytes, with CRLF read as LF (so git's `autocrlf` does not
 change it). The same checkout hashes the same on Windows, Linux and macOS. Nothing else in this folder counts:
 editing this README or `preset.json` keeps the binary.
 
@@ -85,15 +86,16 @@ are no longer running. A clean build takes about 3 min on a desktop PC.
 
 A config with plugins no longer matches the preset, so every machine (and CI) builds it once. CI can keep
 `compiler/bin/` in its cache, keyed on a hash of `compiler/Cargo.toml`, `compiler/Cargo.lock`,
-`compiler/rust-toolchain.toml` and `compiler/src/**`.
+`compiler/rust-toolchain.toml`, `compiler/.cargo/config.toml` and `compiler/src/**`.
 
 ## Changing versions
 
 Versions are exact everywhere: `rbxts_cli` and each plugin by git tag (or rev), crates.io packages with `=`, and
 `Cargo.lock` committed. To move to another rbxts-rs release:
 
-1. Replace this folder's `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `src/`, `preset.json` and `rbxtsc.mjs`
-   with those of `templates/compiler/` at that release of rbxts-rs (or of your template at its matching release).
+1. Replace this folder's `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `.cargo/config.toml`, `src/`, `preset.json`
+   and `rbxtsc.mjs` with those of `templates/compiler/` at that release of rbxts-rs (or of your template at its
+   matching release).
    Without plugins that is all: the preset matches the config, so the binary is downloaded again.
 2. **With plugins:** add them again as in "Adding a plugin", each at a version built for that rbxts-rs, and run
    `node compiler/rbxtsc.mjs --build`. The lock keeps the release's versions for everything it already had and adds

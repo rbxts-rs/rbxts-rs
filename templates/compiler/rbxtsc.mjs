@@ -3,8 +3,8 @@
 // arguments (`node compiler/rbxtsc.mjs build`, as `rbxtsc build`). Node 18 or newer, no npm dependencies.
 //
 // The binary is not committed. A stamp beside it (`bin/<triple>/.stamp`) holds the config hash it was made from: a
-// SHA-256 over Cargo.toml, Cargo.lock, rust-toolchain.toml and src/**, CRLF read as LF. When the stamp does not match
-// the current config:
+// SHA-256 over Cargo.toml, Cargo.lock, rust-toolchain.toml, .cargo/config.toml and src/**, CRLF read as LF. When the
+// stamp does not match the current config:
 //   - if the config still hashes to preset.json's `config` and the preset has a binary for this platform, it is
 //     downloaded (sha256-checked) and unzipped;
 //   - otherwise the binary has to be built with Rust: the launcher says why, then asks (on a terminal), or prints the
@@ -49,9 +49,12 @@ export function hostTriple(platform = process.platform, arch = process.arch) {
 	return `${cpu}-${platform}`;
 }
 
-/** The config files the hash covers: paths relative to `dir`, with `/`, sorted by code unit. */
+/**
+ * The config files the hash covers, those that decide what a build makes: paths relative to `dir`, with `/`, sorted by
+ * code unit.
+ */
 export function configFiles(dir) {
-	const files = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"].filter((f) => isFile(path.join(dir, f)));
+	const files = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml"].filter((f) => isFile(path.join(dir, f)));
 	const walk = (rel) => {
 		for (const entry of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
 			const child = `${rel}/${entry.name}`;
@@ -255,7 +258,7 @@ function why(s) {
 	if (!s.preset) {
 		lines.push("  There is no preset.json, so there is no prebuilt binary to download.");
 	} else if (!s.presetMatches) {
-		lines.push(`  The compiler config (Cargo.toml, Cargo.lock, rust-toolchain.toml, src/) changed: it hashes to ${short(s.hash)}, no longer`);
+		lines.push(`  The compiler config (Cargo.toml, Cargo.lock, rust-toolchain.toml, .cargo/config.toml, src/) changed: it hashes to ${short(s.hash)}, no longer`);
 		lines.push(`  to the preset's ${short(s.preset.config)} (${s.preset.bin} ${s.preset.version}), so no prebuilt binary fits it.`);
 	} else {
 		const has = Object.keys(s.preset.binaries ?? {});

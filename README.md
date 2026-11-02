@@ -161,8 +161,8 @@ not count.
 ## A project's own compiler (`templates/compiler`)
 
 A project carries its compiler in a `compiler/` folder: a standalone Cargo package (`Cargo.toml` with its own
-`[workspace]`, `Cargo.lock`, `rust-toolchain.toml`, `src/main.rs` registering its plugins), a `preset.json` and a
-Node launcher, `rbxtsc.mjs` (`node compiler/rbxtsc.mjs build`). The binary is not committed: the launcher keeps it in
+`[workspace]`, `Cargo.lock`, `rust-toolchain.toml`, `.cargo/config.toml`, `src/main.rs` registering its plugins), a
+`preset.json` and a Node launcher, `rbxtsc.mjs` (`node compiler/rbxtsc.mjs build`). The binary is not committed: the launcher keeps it in
 `compiler/bin/<target triple>/` with a stamp of the config hash it was made from, downloads the release's prebuilt
 binary when the config still hashes to the preset, and otherwise offers to build it with Rust. `templates/compiler`
 is the plain one (`rbxtsc`, no plugins), the source the template repositories copy; its README covers running,
@@ -187,7 +187,9 @@ was built from: `node tools/release-binary.mjs` builds it (release profile, temp
 LICENSE, THIRD-PARTY-NOTICES.md and this README as git has them at the tag), and prints the preset's `binaries` entry
 and the config hash. It publishes nothing. The skeleton pins `rbxts_cli` by git tag and `Cargo.lock` records that git
 source, so a release binary is built from the pushed tag, never through a `[patch]` (which rewrites the lock and the
-hash). The order:
+hash). The build is reproducible: two runs give byte-identical zips. The skeleton's `.cargo/config.toml` links Windows
+binaries with `/Brepro` (no link time, a content-hashed debug id), and the tool ignores rustflags from the environment
+and maps Cargo's home and the target folder out of the binary's paths (`--remap-path-prefix`). The order:
 
 1. push the tag `v<version>`;
 2. point `templates/compiler` at it (`rbxts_cli`'s `tag`, `cargo update -p rbxts_cli` there, `preset.json`'s

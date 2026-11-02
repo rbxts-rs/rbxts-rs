@@ -16,7 +16,7 @@ import { makeZip, presetProblems } from "./release-binary.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SKELETON = path.join(REPO, "templates", "compiler");
-const SKELETON_FILES = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "src/main.rs", "rbxtsc.mjs", "preset.json"];
+const SKELETON_FILES = [".cargo/config.toml", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "src/main.rs", "rbxtsc.mjs", "preset.json"];
 const launcher = await import(pathToFileURL(path.join(SKELETON, "rbxtsc.mjs")).href);
 const WIN = process.platform === "win32";
 const TRIPLE = launcher.hostTriple();
@@ -199,7 +199,7 @@ try {
 	await test("config hash: CRLF and LF checkouts hash the same, any content change does not", async () => {
 		const lf = project("hash-lf");
 		const crlf = project("hash-crlf");
-		for (const file of ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "src/main.rs"]) {
+		for (const file of [".cargo/config.toml", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "src/main.rs"]) {
 			const p = path.join(crlf, file);
 			fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace(/\r?\n/g, "\r\n"));
 		}
@@ -209,6 +209,9 @@ try {
 		assert(hash === launcher.configHash(SKELETON), "the copy hashes differently from the skeleton");
 		fs.appendFileSync(path.join(crlf, "src", "main.rs"), "// a change\n");
 		assert(launcher.configHash(crlf) !== hash, "a change in src/ did not change the hash");
+		fs.appendFileSync(path.join(lf, ".cargo", "config.toml"), "# a change\n");
+		assert(launcher.configHash(lf) !== hash, "a change in .cargo/config.toml did not change the hash");
+		fs.copyFileSync(path.join(SKELETON, ".cargo", "config.toml"), path.join(lf, ".cargo", "config.toml"));
 		// files outside the config do not count
 		fs.writeFileSync(path.join(lf, "README.md"), "notes\n");
 		fs.writeFileSync(path.join(lf, "preset.json"), "{}");
@@ -218,12 +221,16 @@ try {
 	await test("config hash: a known answer (the format is fixed: path, NUL, length, NUL, bytes; sorted by path)", async () => {
 		const dir = path.join(ROOT, "known");
 		fs.mkdirSync(path.join(dir, "src", "b"), { recursive: true });
+		fs.mkdirSync(path.join(dir, ".cargo"));
+		fs.writeFileSync(path.join(dir, ".cargo", "config.toml"), "[build]\n");
+		fs.writeFileSync(path.join(dir, ".cargo", "credentials.toml"), "not hashed\n");
 		fs.writeFileSync(path.join(dir, "Cargo.toml"), "[package]\r\nname = \"x\"\r\n");
 		fs.writeFileSync(path.join(dir, "src", "main.rs"), "fn main() {}\n");
 		fs.writeFileSync(path.join(dir, "src", "b", "a.rs"), "\r\n");
 		fs.writeFileSync(path.join(dir, "src", "B.rs"), "");
-		assert(launcher.configFiles(dir).join() === "Cargo.toml,src/B.rs,src/b/a.rs,src/main.rs", "file order", launcher.configFiles(dir).join());
+		assert(launcher.configFiles(dir).join() === ".cargo/config.toml,Cargo.toml,src/B.rs,src/b/a.rs,src/main.rs", "file order", launcher.configFiles(dir).join());
 		const expected = createHash("sha256")
+			.update(".cargo/config.toml\x008\x00[build]\n")
 			.update('Cargo.toml\x0021\x00[package]\nname = "x"\n')
 			.update("src/B.rs\x000\x00")
 			.update("src/b/a.rs\x001\x00\n")

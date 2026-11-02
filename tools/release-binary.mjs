@@ -16,7 +16,7 @@
 //                            the tag rbxts_cli pins (a test build: the preset would not download the binary)
 //
 // The binary is built from the skeleton package itself, so the preset's config hash (rbxtsc.mjs's configHash over
-// Cargo.toml, Cargo.lock, rust-toolchain.toml and src/) is the hash of the files it was built from. The skeleton pins
+// Cargo.toml, Cargo.lock, rust-toolchain.toml, .cargo/config.toml and src/) is the hash of the files it was built from. The skeleton pins
 // rbxts_cli (and any plugin) by git tag, and Cargo.lock records those git sources, so a release binary is built from
 // the real pushed tag, never through a [patch] to a local path (a [patch] rewrites the lock and changes the hash).
 //
@@ -261,10 +261,30 @@ async function main(argv) {
 	delete env.RUSTUP_TOOLCHAIN;
 	delete env.CARGO_TARGET_DIR;
 	delete env.CARGO_BUILD_TARGET;
+	// rustflags from the environment would replace the skeleton's (.cargo/config.toml: /Brepro)
+	for (const name of Object.keys(env)) {
+		if (/^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|CARGO_TARGET_.*_RUSTFLAGS)$/i.test(name)) delete env[name];
+	}
+	// Machine paths out of the binary: panic locations name the dependencies' sources under Cargo's home, the standard
+	// library's under rustup's (both in the user's folder by default) and the target folder. These flags join the
+	// skeleton's for the build's target. The C and C++ dependencies (Luau, built by the cc crate) keep theirs in
+	// __FILE__: MSVC's /d1trimfile cuts Cargo's home off.
+	const cargoHome = path.resolve(process.env.CARGO_HOME ?? path.join(os.homedir(), ".cargo"));
+	const rustupHome = path.resolve(process.env.RUSTUP_HOME ?? path.join(os.homedir(), ".rustup"));
+	const remap = [
+		`--remap-path-prefix=${cargoHome}=/cargo`,
+		`--remap-path-prefix=${rustupHome}=/rustup`,
+		`--remap-path-prefix=${targetDir}=/target`,
+	];
+	if (triple.endsWith("-windows-msvc")) {
+		for (const name of ["CFLAGS", "CXXFLAGS"]) env[name] = [env[name], `/d1trimfile:${cargoHome}\\`].filter(Boolean).join(" ");
+	}
+	const tomlString = (text) => `'${text}'`;
 	let exe;
 	fs.rmSync(targetDir, { recursive: true, force: true });
 	try {
 		const args = ["build", "--release", "--locked", "--target-dir", targetDir];
+		args.push("--config", `target.${triple}.rustflags = [${remap.map(tomlString).join(", ")}]`);
 		console.error(`building ${preset.bin} ${tag} (${triple}) from templates/compiler: cargo ${args.join(" ")}`);
 		const r = spawnSync("cargo", args, { cwd: SKELETON, env, stdio: ["ignore", "inherit", "inherit"] });
 		if (r.error || r.status !== 0) throw new Error(`the build failed${r.error ? ` (${r.error.message})` : ""}`);
