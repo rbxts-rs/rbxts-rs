@@ -1,9 +1,11 @@
 # Third-party notices
 
 rbxts-rs is MIT-licensed (`LICENSE`). It is a port of roblox-ts and of packages roblox-ts uses, it bundles some of
-their files, and it builds on tsrs, a port of TypeScript. This file lists those works, what rbxts-rs takes from each,
-and their licenses. The Rust crates rbxts-rs depends on through Cargo (crates.io and git dependencies) are not
-copied into this repository; each carries its own license (`cargo metadata` lists them).
+their files, it builds on tsrs, a port of TypeScript, and it compiles in Luau's compiler. This file lists those works,
+what rbxts-rs takes from each, and their licenses. The Rust crates rbxts-rs depends on through Cargo (crates.io and
+git dependencies) are not copied into this repository; each carries its own license (`cargo metadata` lists them).
+Two of them are listed here too, because every binary contains their code and their notices go with it: tsrs and
+Luau (through `luau0-src`).
 
 ## roblox-ts
 
@@ -129,8 +131,41 @@ project. The tsrs binary embeds those lib.*.d.ts files. TypeScript's notices for
 unchanged from TypeScript's NOTICE.txt.
 ```
 
-A binary built from rbxts-rs includes tsrs, so a distributed binary carries tsrs's `LICENSE` and full `NOTICE`
-(which includes TypeScript's notices for third-party material).
+Parts of `tsrs_core` derive from code by The Go Authors (`gocompat`'s tables from Go's `strconv`, and `glob`); they
+are under Go's BSD-style license, the tsrs repository's `licenses/Go-LICENSE`:
+
+```text
+Copyright 2009 The Go Authors.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google LLC nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+A binary built from rbxts-rs includes tsrs, so a distributed binary carries tsrs's `LICENSE`, its full `NOTICE`
+(which includes TypeScript's notices for third-party material) and `licenses/Go-LICENSE`.
 
 ## TypeScript
 
@@ -141,3 +176,39 @@ A binary built from rbxts-rs includes tsrs, so a distributed binary carries tsrs
   texts in test fixtures (stock roblox-ts's output, `expected-stdout.txt`).
 - **License:** Apache License 2.0: <https://www.apache.org/licenses/LICENSE-2.0> (the `LICENSE.txt` of the
   `typescript` npm package); third-party notices in its `ThirdPartyNoticeText.txt`.
+
+## Luau
+
+- **Source:** Luau's compiler (<https://github.com/luau-lang/luau>, release 0.740), from the sources of the
+  `luau0-src` crate 0.22.0+luau740 (<https://github.com/mlua-rs/luau-src-rs>).
+- **Used in:** `crates/rbxts_luau_check`, which builds Luau's compiler from those sources and links it in, so every
+  `rbxtsc` binary contains it (`rbxts_transform` checks emitted Luau against Luau's limits with it).
+- **License:** MIT, as the `luau0-src` crate's `LICENSE` gives it:
+
+```text
+MIT License
+
+Copyright (c) 2022-2025 Aleksandr Orlenko (luau-src crate)
+Copyright (c) 2019-2024 Roblox Corporation
+Copyright (c) 1994–2019 Lua.org, PUC-Rio.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+A distributed binary carries this notice.
