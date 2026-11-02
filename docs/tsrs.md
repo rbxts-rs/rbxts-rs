@@ -45,7 +45,6 @@ rbxts-rs used to emulate three TypeScript 5 tsconfig behaviours. They are gone; 
 | `build/transform_order.rs` | the order files are transformed and reported in (`FileIndex`) | plugin API (Flamework's ids and `flamework.build`); roblox-ts's own algorithm |
 | Export order (`TransformState::get_module_exports`) | the order of export tables | tsrs's own symbol-table order, no code of ours; the insertion order can reach runtime through `pairs` |
 | TypeScript 5.9's `compareDiagnostics` for plugin duplicates (`compile.rs`) | which copy of a duplicated plugin diagnostic is kept | plugin behaviour |
-| TypeScript 5's pretty printer layout (`rbxts_cli/src/pretty.rs`) | how rbxtsc prints related information and empty spans | roblox-ts's CLI output format |
 
 ### TypeScript 5 behaviour dropped
 Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no effect; TypeScript 7.1's stands.
@@ -55,7 +54,11 @@ Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no ef
 - The span of TS7011, and of TS2683's related information, on an anonymous function expression: TypeScript 7 spans
   the name it is assigned to (`c1` in `const c1 = function () {}`), TypeScript 5 the function's first token.
 - The related information of TS1007 ("The parser expected to find a '}' to match the '{' token here."): TypeScript
-  7's span is empty, so rbxtsc underlines nothing there.
+  7's span is empty (its layout underlines the character after it).
+- rbxtsc's printed layout (`rbxts_cli/src/pretty.rs` was a port of TypeScript 5's
+  `formatDiagnosticsWithColorAndContext`, as roblox-ts prints): rbxtsc prints TypeScript 7.1's, through tsrs's writer
+  (docs/design.md §7): related information on one line with its location, an empty span's next character
+  underlined, an error summary, plain output when stdout is not a terminal, LF line ends on Windows too.
 - A declaration map's empty `"sourceRoot":""`: TypeScript 7 leaves it out.
 
 `crates/rbxts_bench/parity/divergences.json`'s `ts7` reasons list the parity-corpus files whose Luau a dropped
@@ -120,7 +123,7 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
 | 3f13aed7 (107aad07) | `ConditionalType::root`, `ConditionalRoot::{node, check_type}` | `tsrs_checker/src/types.rs` | roblox-ts's `isMethod` (`util/is_method.rs`) |
 | 3f13aed7 (107aad07) | `TupleType::{min_length, combined_flags}`, `CountCell::get` | `tsrs_checker/src/types.rs` | for-of over tuples, Flamework's tuple guards and macros |
 | 3f13aed7 (107aad07) | `Checker::get_emit_resolver` | `tsrs_checker/src/checker_15.rs` | the transform state's emit resolver |
-| c341f2b1 (92248ec5) | `diagnostic_file`, `diagnostic_pos`, `diagnostic_len`, `FileLike::file_name` | `tsrs_compiler/src/diagnosticwriter.rs` | rbxtsc's TypeScript 5 pretty printer (`rbxts_cli/src/pretty.rs`) |
+| c341f2b1 (92248ec5) | `diagnostic_file`, `diagnostic_pos`, `diagnostic_len`, `FileLike::file_name` | `tsrs_compiler/src/diagnosticwriter.rs` | nothing since rbxtsc prints TypeScript 7.1's layout (was rbxtsc's TypeScript 5 pretty printer) |
 | de12dfb9 (77c97efa) | `Checker::value_symbol_links`, `SymbolArenaLinkStore::try_get`, `MappedSymbolLinks::key_type` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | Flamework's serializer (flamework-rs): a mapped property's mapped type (`ValueSymbolLinks::containing_type`, TS5's `links.mappedType`) and key type (`links.keyType`), read only |
 | 18638a0c (new) | `CheckerPoolImpl::checker_count` (the field), `PoolState::owner_of` | `tsrs_compiler/src/checkerpool.rs` | `Program::{checker_count, checker_index_of_file}`, removed: the transform groups and the failure explanation run each file on the checker that checked it (`rbxts_project::{checker_count, checker_index_of_file}`) |
 | 317d9524 (new) | `Checker::error_type` (the field) | `tsrs_checker/src/checker.rs` | `get_error_type`, removed: TypeScript's `errorType` fallback of `getTypeOfSymbolAtLocation` and `getTypeOfAssignmentPattern` |
