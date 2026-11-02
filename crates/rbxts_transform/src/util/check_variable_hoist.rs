@@ -14,7 +14,9 @@ pub fn check_variable_hoist(state: &mut TransformState<'_>, node: P<Node>, symbo
     }
 
     let statement = get_ancestor(node, tsrs_ast::is_statement).expect("a declaration is inside a statement");
-    let Some(case_clause) = statement.parent().filter(|p| p.kind() == Kind::CaseClause) else { return };
+    let Some(case_clause) = statement.parent().filter(|&p| p.kind() == Kind::CaseClause || is_middle_default(p)) else {
+        return;
+    };
     let case_block = case_clause.parent().expect("a case clause is inside a case block");
 
     // rbxts-rs: `FindAllReferences.Core.eachSymbolReferenceInFile` becomes the checker's in-file reference search,
@@ -29,4 +31,12 @@ pub fn check_variable_hoist(state: &mut TransformState<'_>, node: P<Node>, symbo
         state.hoists_by_statement.entry(case_clause).or_default().push(node);
         state.is_hoisted.insert(symbol, true);
     }
+}
+
+/// rbxts-rs: a `default` clause followed by other clauses. roblox-ts hoists only out of a `case` clause: a default
+/// was the end of its switch, so no clause could use its variables. A default in the middle falls through into the
+/// cases after it (`transform_switch_middle_default`), which share its variables, so it is hoisted out of the same way.
+pub fn is_middle_default(clause: P<Node>) -> bool {
+    clause.kind() == Kind::DefaultClause
+        && clause.parent().is_some_and(|block| block.as_case_block().clauses.nodes().last() != Some(&clause))
 }

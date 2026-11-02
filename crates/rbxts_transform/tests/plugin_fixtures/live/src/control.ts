@@ -34,6 +34,22 @@ export function control(n: number, list: Array<number>) {
 			use(shared);
 			break;
 	}
+	// a default in the middle shares its variables with the cases after it (`local other` before its `if`)
+	switch (n) {
+		case 1:
+			probeLive();
+			break;
+		default:
+			let other = n;
+			const own = 2;
+			probeLive();
+			use(other, own);
+		// falls through
+		case 3:
+			other = 3;
+			probeLive();
+			use(other);
+	}
 	for (const value of list) {
 		switch (value) {
 			case 0:

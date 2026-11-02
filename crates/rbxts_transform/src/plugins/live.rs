@@ -22,6 +22,7 @@ use tsrs_core::P;
 
 use super::file_state::declared_locals;
 use crate::classes::transform_state::TransformState;
+use crate::util::check_variable_hoist::is_middle_default;
 use crate::util::traversal::{get_ancestor, is_ancestor_of};
 
 /// What a frame adds that is decided on demand (at the first query that sums it).
@@ -35,7 +36,7 @@ pub(crate) enum Extra {
     ForOf(P<Node>),
     /// Inside this `switch` statement: its `continue` flag (before its block) and its fallthrough flag (first in it).
     Switch(P<Node>),
-    /// Inside this `case` clause's `if`: the clause's shared variables (`local x` before the `if`).
+    /// Inside this `case` clause's (or middle `default`'s) `if`: its shared variables (`local x` before the `if`).
     CaseHoists(P<Node>),
 }
 
@@ -343,15 +344,15 @@ fn continue_target_is(node: P<Node>, switch: P<Node>) -> bool {
     false
 }
 
-/// A `case` clause's shared variables (`checkVariableHoist`): recorded, and those its variable statements declare
-/// that are used elsewhere in the case block and not lowered yet. Memoised per clause.
+/// A `case` clause's (or a middle `default`'s) shared variables (`checkVariableHoist`): recorded, and those its
+/// variable statements declare that are used elsewhere in the case block and not lowered yet. Memoised per clause.
 fn case_clause_hoists(state: &mut TransformState<'_>, clause: P<Node>) -> u32 {
     if let Some(&total) = state.plugin_file.live_hoists.get(&clause) {
         return total;
     }
-    // roblox-ts hoists a case block's shared variables only out of a `case` clause, never out of `default`
-    // (`checkVariableHoist`): a default clause's declarations stay where they are
-    if clause.kind() != Kind::CaseClause {
+    // roblox-ts hoists a case block's shared variables only out of a `case` clause, and rbxts-rs out of a `default`
+    // followed by other clauses (`is_middle_default`): a last default's declarations stay where they are
+    if clause.kind() != Kind::CaseClause && !is_middle_default(clause) {
         return 0;
     }
     let mut total = state.hoists_by_statement.get(&clause).map_or(0, |h| h.len() as u32);

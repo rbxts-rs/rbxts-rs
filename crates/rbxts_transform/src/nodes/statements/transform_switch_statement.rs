@@ -160,7 +160,9 @@ fn transform_case_clause_body(
 /// as the end of the switch). JavaScript tests every case before it runs the default, and a default in the middle
 /// falls through into the cases after it. The clauses before the default are lowered as roblox-ts lowers them; at
 /// the default, unless control fell into it, the later cases are tested in order and the one that matched is kept in
-/// `_case`; the default runs when none did, and each later case runs when it matched or control falls into it.
+/// `_case`; the default runs when none did, and each later case runs when it matched or control falls into it. The
+/// default's variables that other clauses use are declared before its `if`, as a case clause's are
+/// (`check_variable_hoist::is_middle_default`).
 fn transform_switch_middle_default(
     state: &mut TransformState<'_>,
     expression: &Expr,
