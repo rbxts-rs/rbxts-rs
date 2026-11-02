@@ -192,8 +192,6 @@ pub struct PluginFileState {
     /// Plain names `hoist_spillable_named` and the `import_named` fallback chose (`name_1`, …): taken for the file.
     pub(crate) plain_names: FxHashSet<String>,
     identifier_names: OnceCell<FxHashSet<&'static str>>,
-    /// The file's identifier texts, sorted (`file_identifier_texts`).
-    identifier_texts: OnceCell<std::rc::Rc<[&'static str]>>,
     /// The id of the first temporary made in the current top-level statement (`hoist` refuses a value using a later
     /// one, unless it is in `top_level_temps`).
     pub root_temp_start: u32,
@@ -314,16 +312,11 @@ impl PluginFileState {
     }
 
     /// Every identifier text in the file (made on first use), as TypeScript 5's printer counts them
-    /// (`rbxts_plugin::ts5_file_identifiers`: JSDoc identifiers and the literals its parser interns included): a name
-    /// none of them has cannot shadow, or be shadowed by, anything the file declares or refers to, and is the name
-    /// TypeScript's printer would give a TS transformer's unique name.
+    /// (`super::identifiers::file_identifiers`: JSDoc identifiers and the literals its parser interns included): a
+    /// name none of them has cannot shadow, or be shadowed by, anything the file declares or refers to, and is the
+    /// name TypeScript's printer would give a TS transformer's unique name.
     pub fn identifier_names(&self, file: P<SourceFile>) -> &FxHashSet<&'static str> {
-        self.identifier_names.get_or_init(|| self.identifier_texts(file).iter().copied().collect())
-    }
-
-    /// [`PluginFileState::identifier_names`], sorted (`file_identifier_texts`).
-    pub fn identifier_texts(&self, file: P<SourceFile>) -> std::rc::Rc<[&'static str]> {
-        self.identifier_texts.get_or_init(|| rbxts_plugin::ts5_file_identifiers(file).into()).clone()
+        self.identifier_names.get_or_init(|| super::identifiers::file_identifiers(file))
     }
 
     /// TypeScript's optimistic unique name (`makeUniqueName` with `Optimistic`) for a plain local: `base` when it is

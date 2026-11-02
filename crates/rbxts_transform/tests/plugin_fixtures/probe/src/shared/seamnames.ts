@@ -22,7 +22,6 @@ export const swapped = probeSwap(1, "a");
 export const named = probeNamed([1]);
 export const runtime = probeRuntime();
 export const synth = probeSynth();
-export const idents = probeIdents();
 // with plugins, a literal with separators is its value (as TypeScript's printer reprints it)
 export const big = 1_000_000;
 export const hex = 0xff_ff;

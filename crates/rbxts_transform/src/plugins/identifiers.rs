@@ -1,10 +1,12 @@
-//! TypeScript 5's `sourceFile.identifiers`, the set its printer checks a unique name against
-//! (`isFileLevelUniqueName`).
+//! The names a seam name avoids: TypeScript 5's `sourceFile.identifiers`, the set its printer checks a unique name
+//! against (`isFileLevelUniqueName`). Internal to the seam's naming (`PluginFileState::identifier_names`); plugins
+//! reach it only through `Cx::is_usable_local_name` and the names the seam picks.
 
+use rustc_hash::FxHashSet;
 use tsrs_ast::{Kind, Node, SourceFile};
 use tsrs_core::P;
 
-/// Every text TypeScript 5's parser interns into `sourceFile.identifiers`, sorted and without duplicates:
+/// Every text TypeScript 5's parser interns into `sourceFile.identifiers`:
 /// - every identifier and private identifier, those in JSDoc included (tag names, `@param` names, `{@link}`
 ///   names, names in JSDoc types): TypeScript 5 parses the JSDoc of every node that can have one;
 /// - string, numeric and big-integer literals the parser interns: property names (`parsePropertyName`: object
@@ -13,17 +15,19 @@ use tsrs_core::P;
 ///   imports and exports (and `import x = require("m")`), and ambient module names (`declare module "m"`).
 ///
 /// A numeric literal is interned as its value's text (`0x10` as `16`), which is how tsrs keeps it too.
-pub fn ts5_file_identifiers(file: P<SourceFile>) -> Vec<&'static str> {
-    fn walk(node: P<Node>, file: &'static SourceFile, out: &mut Vec<&'static str>) {
+pub(crate) fn file_identifiers(file: P<SourceFile>) -> FxHashSet<&'static str> {
+    fn walk(node: P<Node>, file: &'static SourceFile, out: &mut FxHashSet<&'static str>) {
         match node.kind() {
-            Kind::Identifier | Kind::PrivateIdentifier => out.push(node.text()),
+            Kind::Identifier | Kind::PrivateIdentifier => {
+                out.insert(node.text());
+            }
             Kind::StringLiteral
             | Kind::NumericLiteral
             | Kind::BigIntLiteral
             | Kind::NoSubstitutionTemplateLiteral
                 if is_interned_literal(node) =>
             {
-                out.push(node.text())
+                out.insert(node.text());
             }
             _ => {}
         }
@@ -35,10 +39,8 @@ pub fn ts5_file_identifiers(file: P<SourceFile>) -> Vec<&'static str> {
             false
         });
     }
-    let mut out = Vec::new();
+    let mut out = FxHashSet::default();
     walk(file.as_node(), file.get(), &mut out);
-    out.sort_unstable();
-    out.dedup();
     out
 }
 

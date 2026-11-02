@@ -41,7 +41,7 @@ rbxts-rs used to emulate three TypeScript 5 tsconfig behaviours. They are gone; 
 | `mark_ts5_context_sensitive_functions` (`rbxts_project`), read by `util/is_method.rs` | a function expression's or object literal method's contextual `this`: `function(self)` or `function()` in Luau, and the overload chosen | the Luau calling convention, which must match the Luau a callback slot expects (a stock-compiled package's included) |
 | `util/symlink_cache.rs`, with its type-root order | which link to a package an import goes through: the `require` path | runtime paths |
 | `ts5_property_order` (`Cx::ts5_properties_of_type`) | a type's property order for plugins | plugin API; Flamework's guards and serializer lay fields out in it (a wire format) |
-| `ts5_file_identifiers` (`Cx::file_identifier_texts`) | the names a plugin's unique names avoid | plugin API |
+| `plugins/identifiers.rs` (`rbxts_transform`): TypeScript 5's `sourceFile.identifiers` | the names `Cx::is_usable_local_name` approves and the seam's temporaries and import locals avoid | plugin output: the names match what TypeScript 5's printer gives a stock transformer's unique names |
 | `build/transform_order.rs` | the order files are transformed and reported in (`FileIndex`) | plugin API (Flamework's ids and `flamework.build`); roblox-ts's own algorithm |
 | Export order (`TransformState::get_module_exports`) | the order of export tables | tsrs's own symbol-table order, no code of ours; the insertion order can reach runtime through `pairs` |
 | TypeScript 5.9's `compareDiagnostics` for plugin duplicates (`compile.rs`) | which copy of a duplicated plugin diagnostic is kept | plugin behaviour |

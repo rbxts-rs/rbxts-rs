@@ -44,7 +44,6 @@
 //!   with a hint and as the same text without one (one is kept), and with another source (kept), value `nil`;
 //! - `before`: `insert_before_statement([comment, print("before <arg text>")])`, then `compile_expr(arg)`;
 //! - `named`: `hoist_spillable_named(compile_expr(a), "constant_22")`;
-//! - `idents`: the `file_identifier_texts` that start with `jd` or `lit`, joined;
 //! - `props`: the names of `ts5_properties_of_type` of the argument's type, joined;
 //! - `importafter`: `compile_expr(a)`, then `import_named("./runtime", "other")` (plugin imports are ordered by
 //!   where they were asked for, not when);
@@ -218,7 +217,6 @@ const OPS: &[&str] = &[
     "diagtwice",
     "before",
     "named",
-    "idents",
     "props",
     "importafter",
     "importfrom",
@@ -823,12 +821,6 @@ impl ProbeInstance {
                 let value = cx.compile_expr(arg(0).expect("an argument"))?;
                 let hoisted = cx.hoist_spillable_named(value, "constant_22");
                 self.claimed(hoisted)
-            }
-            "idents" => {
-                let texts = cx.file_identifier_texts();
-                let picked: Vec<&str> =
-                    texts.iter().copied().filter(|t| t.starts_with("jd") || t.starts_with("lit")).collect();
-                self.claimed(text_literal(&picked.join(",")))
             }
             "props" => {
                 let a = arg(0).expect("an argument");

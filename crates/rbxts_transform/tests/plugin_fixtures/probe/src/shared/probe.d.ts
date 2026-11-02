@@ -308,9 +308,6 @@ declare function probeBefore<T>(a: T): T;
 /** `hoist_spillable_named(a, "constant_22")`. */
 /** @probe named */
 declare function probeNamed<T>(a: T): T;
-/** The file's identifier texts starting with `jd` or `lit`. */
-/** @probe idents */
-declare function probeIdents(): string;
 /** The argument type's properties in TypeScript 5's order. */
 /** @probe props */
 declare function probeProps(a: unknown): string;

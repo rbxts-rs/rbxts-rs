@@ -39,7 +39,7 @@ pub struct Aborted;
 ///
 /// | primitives | claim hooks, `class` | `begin_file`, `end_file` | `classify_symbol` | `explain_checker_diagnostic` |
 /// | --- | --- | --- | --- | --- |
-/// | program, file, checker, project, module and package queries, source facts (`file_identifier_texts` included) | yes | yes | yes | yes |
+/// | program, file, checker, project, module and package queries, source facts | yes | yes | yes | yes |
 /// | lowering: `compile_*`, `compile_receiver`, `prereq`, `push_to_var`, capture, `insert_before_root_statement`, `insert_before_statement`, `hoist`, `hoist_spillable`, `hoist_spillable_named`, `comment` | yes | refused | refused | refused |
 /// | file-level: `header`, `import_named`, `import_named_at`, `mark_import_used`, `request_import_elision`, `runtime_member`, `temp_id`, `late_string`, `late_string_synthesized` | yes | yes | refused | refused |
 /// | `report` (and `Cx::error` / `warning`) | yes | yes | refused | yes |
@@ -354,7 +354,9 @@ pub trait CxBackend {
     fn temp_id(&mut self, hint: &str) -> LuauIdent;
     /// `name` can be declared as a local here: a valid Luau identifier that is not a `luau.globals` name, not any
     /// identifier text in the file's source, not a plugin import's name, not a seam temporary's name, and not
-    /// already approved.
+    /// already approved. The file's identifier texts are TypeScript 5's `sourceFile.identifiers`: every identifier,
+    /// those in JSDoc included, and the literals its parser interns (property names, element access arguments,
+    /// module specifiers, ambient module names).
     ///
     /// It is not idempotent: a true answer records the name, so a second call for the same name is false.
     /// Temporaries made earlier keep a name from being approved, and later ones avoid approved names.
@@ -407,18 +409,6 @@ pub trait CxBackend {
     /// only non-error diagnostics: a file with checker errors is not transformed (it reaches
     /// [`crate::PluginInstance::explain_checker_diagnostic`] instead).
     fn file_diagnostics(&self) -> &[P<Diagnostic>];
-    /// Every identifier text of the file, sorted and without duplicates: TypeScript 5's `sourceFile.identifiers`,
-    /// which its printer checks a unique name against ([`crate::ts5_file_identifiers`]). That is every identifier
-    /// and private identifier, those in JSDoc included (tag names, `@param` names, `{@link}` names, names in JSDoc
-    /// types), and the string and numeric literals TypeScript's parser interns: property names (`{ "a": 1 }`,
-    /// `"a": T` in a type, enum members, `{ "a": x }` in a binding), element access arguments (`o["a"]`, `o[0]`),
-    /// module specifiers and ambient module names. The compiler's own capture-safe naming
-    /// ([`CxBackend::is_usable_local_name`], seam temporaries, `import_named`) counts the same set.
-    ///
-    /// **Default:** [`crate::ts5_file_identifiers`] of [`CxBackend::file`]'s source, computed on every call.
-    fn file_identifier_texts(&self) -> Rc<[&'static str]> {
-        crate::identifiers::ts5_file_identifiers(self.file().source).into()
-    }
 
     // --- diagnostics ---
 
@@ -894,11 +884,6 @@ impl<'a> Cx<'a> {
     /// The file's checker diagnostics ([`CxBackend::file_diagnostics`]).
     pub fn file_diagnostics(&self) -> &[P<Diagnostic>] {
         self.backend.file_diagnostics()
-    }
-
-    /// The file's identifier texts as TypeScript 5's printer sees them, sorted ([`CxBackend::file_identifier_texts`]).
-    pub fn file_identifier_texts(&self) -> Rc<[&'static str]> {
-        self.backend.file_identifier_texts()
     }
 
     // --- diagnostics ---

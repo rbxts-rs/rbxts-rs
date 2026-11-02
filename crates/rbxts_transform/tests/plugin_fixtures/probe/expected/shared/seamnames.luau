@@ -24,7 +24,6 @@ local constant_22_1 = { 1 }
 local named = constant_22_1
 local runtime = TS.Promise.is
 local synth = { "^\u{00E9}.*\u{2713}$", "it's \"q\" \\ /", "a\nb\r\tc\v\f\b", "\0x\x007\u{001B}", "\u{1f600}\u{2028}\u{2029}\u{0085}" }
-local idents = "jdLinked,jdOnlyDoc,jdTag,litKey,litQuoted,literals"
 -- with plugins, a literal with separators is its value (as TypeScript's printer reprints it)
 local big = 1000000
 local hex = 65535
@@ -40,7 +39,6 @@ return {
 	named = named,
 	runtime = runtime,
 	synth = synth,
-	idents = idents,
 	big = big,
 	hex = hex,
 	plain = plain,

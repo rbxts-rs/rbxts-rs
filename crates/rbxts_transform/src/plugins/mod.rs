@@ -147,8 +147,8 @@
 //! them (a hoist or import is declared at the top of the file and may be used in any nested function); approved
 //! names and import names avoid the seam temporaries made before them in turn. Plain names (`hoist_spillable_named`,
 //! an `import_named` local) follow TypeScript's printer for an optimistic unique name: the name, else `name_1`, …
-//! "The file's identifiers" are TypeScript 5's `sourceFile.identifiers` (`rbxts_plugin::ts5_file_identifiers`:
-//! JSDoc identifiers and the literals its parser interns included). roblox-ts's own temporaries keep its naming.
+//! "The file's identifiers" are TypeScript 5's `sourceFile.identifiers` (`identifiers::file_identifiers`: JSDoc
+//! identifiers and the literals its parser interns included). roblox-ts's own temporaries keep its naming.
 //!
 //! **Placement, as TypeScript prints a TS transformer's output.** Before a statement of a statement list
 //! (`dispatch::before_statement`): the file's header comment (detached comments) for the first statement, then the
@@ -178,6 +178,7 @@ pub mod lifecycle;
 
 mod facts;
 mod hoist_check;
+mod identifiers;
 mod lowering;
 mod luau_walk;
 pub(crate) mod spill;

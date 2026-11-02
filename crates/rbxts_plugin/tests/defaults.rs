@@ -1,6 +1,6 @@
 //! The default implementations of the backend methods added for watch and incremental builds (`env`,
 //! `record_glob`, `remove_empty_dir`), of the seam additions (`insert_before_statement`, `hoist_spillable_named`,
-//! `runtime_member`, `file_identifier_texts`) and of `Plugin::encode_file_part` / `decode_file_part`: a compiler that
+//! `runtime_member`) and of `Plugin::encode_file_part` / `decode_file_part`: a compiler that
 //! does not override them builds as before, and these are what it gets.
 
 mod support;
@@ -314,10 +314,6 @@ fn seam_additions_fall_back_to_the_older_primitives() {
     assert_eq!(render_expr(&member, &LateStrings::default()), "TS.Promise.is");
     // synthesized_string needs no backend
     assert_eq!(render_expr(&cx.synthesized_string("é"), &LateStrings::default()), r#""\u{00E9}""#);
-    // file_identifier_texts: TypeScript 5's identifier set of the file, sorted
-    let texts = cx.file_identifier_texts();
-    assert!(texts.contains(&"buildId") && texts.contains(&"here"), "{texts:?}");
-    assert!(texts.windows(2).all(|w| w[0] < w[1]), "sorted, no duplicates");
     assert_eq!(backend.hoisted.len(), 2, "the insertion and the hoist");
     assert!(backend.diagnostics.is_empty());
 }
