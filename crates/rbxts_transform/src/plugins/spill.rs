@@ -305,33 +305,43 @@ pub(crate) enum Verdict {
     Panicked(String),
 }
 
-/// Compiles `source` as Roblox loads it. Without a `--!optimize` directive, a file that loads at level 0 (debug 1, the
-/// level that folds nothing) and at level 2 (debug 1, inlining) loads at level 1 with debug levels 1 and 2 too (every
-/// probe of the limit validations bears this out), so a clean file takes two compiles. Otherwise, or when one of them
-/// fails, the levels Roblox runs are compiled first, then the ones that fold nothing.
+/// Compiles `source` as Roblox loads it, at the levels of [`rbxts_luau_check::ROBLOX_LEVELS`]: the error levels in
+/// order (the first refusal fails the file), then the warning levels (the first refusal makes it load only with
+/// constant folding). Without a `--!optimize` directive, a file that loads at the first warning level (optimisation
+/// level 0, which folds nothing) and at the last error level (level 2, inlining) loads at every level (every probe of
+/// the limit validations bears this out), so a clean file takes two compiles, and those two answers are reused.
 pub(crate) fn decide(source: &str, directive: bool) -> Verdict {
-    let at = |optimization_level, debug_level| {
+    use rbxts_luau_check::{ROBLOX_LEVELS, Severity};
+    let at = |&(optimization_level, debug_level, _): &(u8, u8, Severity)| {
         rbxts_luau_check::compile(source, optimization_level, debug_level).err().map(|error| Refusal {
             error,
             optimization_level,
             debug_level,
         })
     };
+    let errors: Vec<_> = ROBLOX_LEVELS.iter().filter(|level| level.2 == Severity::Error).collect();
+    let warnings: Vec<_> = ROBLOX_LEVELS.iter().filter(|level| level.2 == Severity::Warning).collect();
+    let (Some(&&last_error), Some(&&first_warning)) = (errors.last(), warnings.first()) else {
+        unreachable!("the load check has error and warning levels")
+    };
     let mut unfolded = None;
     if !directive {
-        let level_0 = at(0, 1);
-        if level_0.is_none() {
-            return match at(2, 1) {
+        let unfolded_first = at(&first_warning);
+        if unfolded_first.is_none() {
+            return match at(&last_error) {
                 None => Verdict::Loads,
-                Some(level_2) => Verdict::Fails(at(1, 1).unwrap_or(level_2)),
+                Some(last) => Verdict::Fails(
+                    errors[..errors.len() - 1].iter().find_map(|level| at(level)).unwrap_or(last),
+                ),
             };
         }
-        unfolded = Some(level_0);
+        unfolded = Some(unfolded_first);
     }
-    if let Some(refusal) = at(1, 1).or_else(|| at(2, 1)) {
+    if let Some(refusal) = errors.iter().find_map(|level| at(level)) {
         return Verdict::Fails(refusal);
     }
-    match unfolded.unwrap_or_else(|| at(0, 1)).or_else(|| at(1, 2)) {
+    let first = unfolded.unwrap_or_else(|| at(&first_warning));
+    match first.or_else(|| warnings[1..].iter().find_map(|level| at(level))) {
         Some(refusal) => Verdict::FoldingOnly(refusal),
         None => Verdict::Loads,
     }
