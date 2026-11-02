@@ -299,7 +299,7 @@ fn probe_and_stamp_match_the_expected_luau() {
          {\"file\":\"src/shared/s2spill.ts\",\"claims\":7},{\"file\":\"src/shared/seambefore.ts\",\"claims\":16},\
          {\"file\":\"src/shared/seamdiag.ts\",\"claims\":2},{\"file\":\"src/shared/seamdiag2.ts\",\"claims\":1},\
          {\"file\":\"src/shared/seamimports.ts\",\"claims\":5},\
-         {\"file\":\"src/shared/seamkeys.ts\",\"claims\":3},{\"file\":\"src/shared/seamnames.ts\",\"claims\":7},\
+         {\"file\":\"src/shared/seamkeys.ts\",\"claims\":3},{\"file\":\"src/shared/seamnames.ts\",\"claims\":6},\
          {\"file\":\"src/shared/seamorder.ts\",\"claims\":2},{\"file\":\"src/shared/selfcalls.ts\",\"claims\":5}]\n"
     );
     assert_eq!(
