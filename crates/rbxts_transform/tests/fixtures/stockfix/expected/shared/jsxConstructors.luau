@@ -3,8 +3,8 @@ local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):
 -- The capture of `jsxQuirks`' `attributesBeforeChildren` is left out when the later prerequisites can't change what
 -- was read first: a Roblox datatype constructor (`new Vector2(…)`, `UDim2.fromScale(…)`) only allocates, and an Enum
 -- item or a datatype constant (`Enum.AutomaticSize.Y`, `Vector2.zero`) is a constant. A user's call or `Instance.new`
--- in the same place still captures. (The fixture's tsconfig sets `preserveSymlinks`, so the linked `@rbxts/types`
--- counts as `@rbxts/types` and its globals are recognised.)
+-- in the same place still captures. (The test links `node_modules` in: the linked `@rbxts/types` counts as
+-- `@rbxts/types` through its real path, so its globals are recognised, with `preserveSymlinks` or without.)
 local React = TS.import(script, game:GetService("ReplicatedStorage"), "shared", "react")
 local box = {
 	size = 1,
