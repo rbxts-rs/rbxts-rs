@@ -62,10 +62,10 @@ Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no ef
 layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau, so it lists none.
 
 ## The fork
-- **Where:** the public fork <https://github.com/Velover/tsrs>, branch `rbxts-fork-0.20.1`, head
+- **Where:** the public fork <https://github.com/rbxts-rs/tsrs>, branch `rbxts-fork-0.20.1`, head
   `7da04ddd09af482a35f0857d433855e2bd2b8a38`.
   - `Cargo.toml` takes the fork's crates as a git dependency pinned by rev
-    (`git = "https://github.com/Velover/tsrs"`, `rev = …`). That way rbxts-rs and a workspace that depends on it
+    (`git = "https://github.com/rbxts-rs/tsrs"`, `rev = …`). That way rbxts-rs and a workspace that depends on it
     (flamework-rs, which holds `flamework_rs` and `rbxtsc-fw` since they moved out of this repository) build the same
     tsrs.
   - A crate that names tsrs crates itself must use the identical URL and `rev`. Cargo does not enforce this: a
@@ -79,7 +79,7 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
     `.cargo/config.toml`, one per tsrs crate the workspace names:
 
     ```toml
-    [patch."https://github.com/Velover/tsrs"]
+    [patch."https://github.com/rbxts-rs/tsrs"]
     tsrs_core = { path = "../tsrs/crates/tsrs_core" }
     tsrs_checker = { path = "../tsrs/crates/tsrs_checker" }
     # … and the other tsrs crates in `[workspace.dependencies]`

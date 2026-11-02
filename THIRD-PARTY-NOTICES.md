@@ -114,7 +114,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ## tsrs
 
 - **Source:** <https://github.com/oxc-project/tsrs>, a Rust port of TypeScript 7; rbxts-rs depends on a fork of it
-  (<https://github.com/Velover/tsrs>: visibility flips only, pinned by rev in `Cargo.toml`; `docs/tsrs.md`, "The fork").
+  (<https://github.com/rbxts-rs/tsrs>: visibility flips only, pinned by rev in `Cargo.toml`; `docs/tsrs.md`, "The fork").
 - **Used in:** every crate that reads TypeScript, as a Cargo git dependency (not copied into this repository).
   Diagnostic texts rbxts-rs prints come from it.
 - **License:** Apache License 2.0: the `LICENSE` file of the tsrs repository

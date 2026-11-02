@@ -104,9 +104,9 @@ different versions live side by side (`<tools>` is any folder you keep them in):
 # once: the Rust version rbxts-rs pins (rust-toolchain.toml)
 rustup toolchain install 1.99.1 --profile minimal
 # plain rbxtsc (no plugins), from this repository
-cargo +1.99.1 install --locked --git https://github.com/Velover/rbxts-rs --rev <rev> rbxts_cli --root <tools>/rbxtsc-<rev>
+cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/rbxts-rs --rev <rev> rbxts_cli --root <tools>/rbxtsc-<rev>
 # a plugin build, for example Flamework's rbxtsc-fw from flamework-rs, one folder per Flamework version
-cargo +1.99.1 install --locked --git <flamework-rs url> --rev <rev> rbxtsc_fw --root <tools>/fw-<version>
+cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/flamework-rs --rev <rev> rbxtsc_fw --root <tools>/fw-<version>
 ```
 
 That gives `<tools>/rbxtsc-<rev>/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows).
@@ -144,7 +144,7 @@ not count.
 ## The tsrs fork
 
 rbxts-rs builds on a fork of tsrs whose commits only make tsrs functions public (visibility flips, no behaviour
-changes), <https://github.com/Velover/tsrs> (branch `rbxts-fork-0.20.1`), pinned by rev in the workspace `Cargo.toml`.
+changes), <https://github.com/rbxts-rs/tsrs> (branch `rbxts-fork-0.20.1`), pinned by rev in the workspace `Cargo.toml`.
 `docs/tsrs.md` covers the fork (its branch, its flips, how to move it to a new tsrs version) and what following
 TypeScript 7.1 means for projects.
 

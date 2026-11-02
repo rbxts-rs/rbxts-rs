@@ -36,7 +36,7 @@ and Flamework's watch behaviour, whose findings (S1, A1, …) code comments cite
 
 ## 2. tsrs dependency
 
-- **Fork:** a fork of tsrs, <https://github.com/Velover/tsrs>, whose commits make checker functions `pub`
+- **Fork:** a fork of tsrs, <https://github.com/rbxts-rs/tsrs>, whose commits make checker functions `pub`
   (`docs/tsrs.md`, "The fork", has the branch and the list of flips).
 - **Policy:**
   - Fork commits are visibility flips and small helpers only, never behaviour changes.
