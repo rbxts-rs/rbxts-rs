@@ -29,12 +29,6 @@ const HALF_INDENT: &str = "  ";
 const INDENT: &str = "    ";
 /// `Diagnostics.File_appears_to_be_binary.code`.
 const FILE_APPEARS_TO_BE_BINARY: i32 = 1490;
-/// `Diagnostics.The_parser_expected_to_find_a_1_to_match_the_0_token_here.code`.
-const THE_PARSER_EXPECTED_TO_FIND: i32 = 1007;
-/// `Diagnostics.No_overload_matches_this_call.code`.
-const NO_OVERLOAD_MATCHES: i32 = 2769;
-/// `Diagnostics.Overload_0_of_1_2_gave_the_following_error.code`.
-const OVERLOAD_GAVE_ERROR: i32 = 2772;
 
 /// How a diagnostic is printed.
 pub struct Format<'a> {
@@ -170,29 +164,6 @@ fn location(file: &FileLike, start: u32, format: &Format<'_>) -> String {
     )
 }
 
-/// A related information's span length. rbxts-rs: TypeScript 7's parser gives the bracket of "The parser expected to
-/// find a '}' to match the '{' token here" an empty span (its writer then squiggles one character); TypeScript 5's
-/// is the bracket itself (`createDetachedDiagnostic(…, openPosition, 1, …)`).
-fn related_length(info: P<Diagnostic>) -> u32 {
-    match diagnostic_len(info) {
-        0 if info.code() == THE_PARSER_EXPECTED_TO_FIND => 1,
-        length => length,
-    }
-}
-
-/// rbxts-rs: whether TypeScript 5 gives the diagnostic a related information array even when it is empty, which
-/// `formatDiagnosticsWithColorAndContext` (testing `if (diagnostic.relatedInformation)`) follows with a line end of its
-/// own: TS2769 listing its overloads (`reportCallResolutionErrors` collects their related information into an array
-/// whatever it holds; `rbxts_project`'s `overload_errors` makes it). A tsrs diagnostic has no absent related
-/// information apart from an empty one.
-fn has_empty_related_information(diagnostic: P<Diagnostic>) -> bool {
-    let lists_overloads = |d: P<Diagnostic>| {
-        d.code() == NO_OVERLOAD_MATCHES && d.message_chain().first().is_some_and(|c| c.code() == OVERLOAD_GAVE_ERROR)
-    };
-    // a decorator's under its head message (TS1238 and the like)
-    lists_overloads(diagnostic) || diagnostic.message_chain().first().is_some_and(|&c| lists_overloads(c))
-}
-
 /// One diagnostic as `formatDiagnosticsWithColorAndContext([diagnostic], host)` formats it, ending with a line end.
 pub fn format_diagnostic(diagnostic: P<Diagnostic>, format: &Format<'_>) -> String {
     let nl = format.new_line;
@@ -214,7 +185,7 @@ pub fn format_diagnostic(diagnostic: P<Diagnostic>, format: &Format<'_>) -> Stri
         output.push_str(&code_span(file, start, length, "", category_format(category), nl));
     }
     let related = diagnostic.related_information();
-    if !related.is_empty() || has_empty_related_information(diagnostic) {
+    if !related.is_empty() {
         output.push_str(nl);
         for &info in related {
             if let Some(file) = diagnostic_file(info) {
@@ -222,7 +193,7 @@ pub fn format_diagnostic(diagnostic: P<Diagnostic>, format: &Format<'_>) -> Stri
                 output.push_str(HALF_INDENT);
                 let start = diagnostic_pos(info);
                 output.push_str(&location(&file, start, format));
-                output.push_str(&code_span(&file, start, related_length(info), INDENT, CYAN, nl));
+                output.push_str(&code_span(&file, start, diagnostic_len(info), INDENT, CYAN, nl));
             }
             output.push_str(nl);
             output.push_str(INDENT);

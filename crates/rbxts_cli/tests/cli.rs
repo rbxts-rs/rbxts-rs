@@ -3,7 +3,9 @@
 //! Then the `rbxtsc` binary's diagnostics against stock roblox-ts's stdout, byte for byte
 //! (`tests/fixtures/diagnostics_*/expected-stdout.txt`: roblox-ts master on TypeScript 5, `node out/CLI/cli.js build`):
 //! related information, chained messages, an empty span, spans of several lines and of more than five, tabs and
-//! characters outside the BMP before a span.
+//! characters outside the BMP before a span. Where rbxts-rs follows TypeScript 7.1 instead (docs/tsrs.md), a fixture's
+//! `expected-stdout.txt` is rbxts-rs's and `stock-stdout.txt` keeps stock's: the same diagnostic codes in the same
+//! files ([`same_codes_as_stock`]).
 
 #![cfg(windows)]
 
@@ -77,68 +79,105 @@ fn diagnostics_like_stock(name: &str) -> Option<TempDir> {
     Some(root)
 }
 
+/// Each diagnostic's file and code, as `file - error TSnnnn`, sorted: the place in the file left out (TypeScript 7
+/// spans some errors otherwise).
+fn codes(stdout: &str) -> Vec<String> {
+    let mut plain = String::new();
+    let mut chars = stdout.chars();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            chars.by_ref().find(|&c| c == 'm');
+        } else {
+            plain.push(c);
+        }
+    }
+    let mut codes: Vec<String> = plain
+        .lines()
+        .filter(|line| !line.starts_with(' '))
+        .filter_map(|line| {
+            let (place, rest) = line.split_once(" - error TS")?;
+            let file = place.split(':').next()?;
+            let code: String = rest.chars().take_while(char::is_ascii_digit).collect();
+            (!code.is_empty()).then(|| format!("{file} - error TS{code}"))
+        })
+        .collect();
+    codes.sort();
+    codes
+}
+
+/// [`diagnostics_like_stock`] for a fixture whose `expected-stdout.txt` is rbxts-rs's (TypeScript 7.1's text and
+/// spans), with the same diagnostic codes in the same files as stock's `stock-stdout.txt`.
+fn same_codes_as_stock(name: &str) -> Option<TempDir> {
+    let root = diagnostics_like_stock(name)?;
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name);
+    let ours = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
+    let stock = std::fs::read_to_string(fixture.join("stock-stdout.txt")).unwrap();
+    assert!(!codes(&stock).is_empty(), "{name}: stock reports something");
+    assert_eq!(codes(&ours), codes(&stock), "{name}: the codes and files are stock's");
+    Some(root)
+}
+
 #[test]
 fn diagnostics_print_as_stock_with_related_information() {
     diagnostics_like_stock("diagnostics_pretty");
 }
 
+/// An empty span, and TS1007's related information, whose span TypeScript 7 leaves empty (stock underlines the `{`).
 #[test]
 fn diagnostics_print_as_stock_with_an_empty_span() {
-    diagnostics_like_stock("diagnostics_pretty_syntax");
+    same_codes_as_stock("diagnostics_pretty_syntax");
 }
 
 /// An overloaded call no overload takes, a function expression argument deciding it (TypeScript 5 fixes its `this` from
-/// the first overload, which rejects it on the return type; the second then refuses that `this`): TS2769 as stock
-/// prints it, each overload's error listed (`rbxts_project`'s `overload_errors`), exit 1 and nothing written.
+/// the first overload, which rejects it on the return type; the second then refuses that `this`): TS2769, as stock
+/// reports it, with TypeScript 7's elaboration (the last overload's error), exit 1 and nothing written.
 #[test]
 fn an_overload_error_reports_ts2769_as_stock() {
-    let Some(root) = diagnostics_like_stock("overload_error") else { return };
+    let Some(root) = same_codes_as_stock("overload_error") else { return };
     assert!(!root.path().join("out").exists(), "nothing is written");
 }
 
-/// TS2769 for generic overloads: each listed overload is the one inference instantiated, as stock prints it.
+/// TS2769 for generic overloads (TypeScript 7 puts it on the failing argument, stock on the call).
 #[test]
 fn a_generic_overload_error_reports_ts2769_as_stock() {
-    diagnostics_like_stock("overload_error_generic");
+    same_codes_as_stock("overload_error_generic");
 }
 
-/// TS2769 with three overloads tried (a fourth ruled out by arity), and a method's two overloads: stock's text, the
-/// implementation's elaboration and the line end stock prints after an empty related information list.
+/// TS2769 with three overloads tried (a fourth ruled out by arity), and a method's two overloads.
 #[test]
 fn a_three_overload_error_reports_ts2769_as_stock() {
-    diagnostics_like_stock("overload_error_three");
+    same_codes_as_stock("overload_error_three");
 }
 
-/// TS2769 on `new`: a class's constructor overloads and an interface's `new` members, each written as a call
-/// signature (no `new`), the error on the callee (`C`, a property access's name) where the overloads' errors differ.
+/// TS2769 on `new`: a class's constructor overloads and an interface's `new` members.
 #[test]
 fn a_new_expression_overload_error_reports_ts2769_as_stock() {
-    diagnostics_like_stock("overload_error_new");
+    same_codes_as_stock("overload_error_new");
 }
 
-/// TS2769 on a tagged template, the error on its tag.
+/// TS2769 on a tagged template.
 #[test]
 fn a_tagged_template_overload_error_reports_ts2769_as_stock() {
-    diagnostics_like_stock("overload_error_tagged");
+    same_codes_as_stock("overload_error_tagged");
 }
 
-/// A class and a method decorator no overload takes: TS1238 / TS1241 over TS2769, each overload's error listed.
+/// A class and a method decorator no overload takes: TS1238 / TS1241 over TS2769.
 #[test]
 fn a_decorator_overload_error_reports_as_stock() {
-    diagnostics_like_stock("overload_error_decorator");
+    same_codes_as_stock("overload_error_decorator");
 }
 
 /// TS2769 on JSX elements: an overloaded function component and a component type with two call signatures.
 #[test]
 fn a_jsx_overload_error_reports_ts2769_as_stock() {
-    diagnostics_like_stock("overload_error_jsx");
+    same_codes_as_stock("overload_error_jsx");
 }
 
-/// TS2683's related information on an anonymous function expression spans the function's first token (`function`,
-/// `async`), as TypeScript 5 spans it, not the name it is assigned to (TypeScript 7).
+/// TS2683 with its related information "An outer value of 'this' is shadowed by this container." on an anonymous
+/// function expression, which TypeScript 7 spans on the name the function is assigned to (stock: its first token).
 #[test]
-fn an_outer_this_is_shadowed_by_the_function_as_stock_spans_it() {
-    diagnostics_like_stock("this_shadowed");
+fn an_outer_this_is_shadowed_by_the_function_as_stock_reports_it() {
+    same_codes_as_stock("this_shadowed");
 }
 
 /// A known difference (docs/tsrs.md): a generator with an explicit `this` parameter whose `yield` is context sensitive
