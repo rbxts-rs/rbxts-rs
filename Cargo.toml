@@ -10,29 +10,29 @@ publish = false
 license = "MIT"
 
 # tsrs, pinned: the fork branch `rbxts-fork-0.20.1` (v0.20.1 plus visibility flips), as a git dependency pinned by rev so
-# rbxts-rs builds the same tsrs as a dependency of another workspace (flamework-rs) as in its own. The URL is the local
-# tsrs clone until the fork is published; a fork-local checkout can override it with `[patch]`.
+# rbxts-rs builds the same tsrs as a dependency of another workspace (flamework-rs) as in its own. The fork is public at
+# https://github.com/Velover/tsrs; a local tsrs checkout can override it with `[patch]` (docs/tsrs.md).
 # Cargo.lock started as a copy of tsrs's lock file so the transitive versions match what tsrs tests with.
 [workspace.dependencies]
-tsrs_core = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_ast = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_vfs = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_tsoptions = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_compiler = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_diagnostics = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_checker = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_scanner = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_parser = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_printer = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_sourcemap = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_core = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_ast = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_vfs = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_tsoptions = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_compiler = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_diagnostics = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_checker = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_scanner = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_parser = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_printer = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_sourcemap = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
 mimalloc-safe = { version = "0.1.67", features = ["v3", "no_thp"] }
 rbxts_project = { path = "crates/rbxts_project" }
 rbxts_luau = { path = "crates/rbxts_luau" }
 rbxts_luau_check = { path = "crates/rbxts_luau_check" }
 # preserve_order: Rojo trees iterate children in file order, as JavaScript objects do.
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
-tsrs_module = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
-tsrs_contentmapper = { git = "file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_module = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
+tsrs_contentmapper = { git = "https://github.com/Velover/tsrs", rev = "7da04ddd09af482a35f0857d433855e2bd2b8a38" }
 rbxts_transform = { path = "crates/rbxts_transform" }
 rbxts_plugin = { path = "crates/rbxts_plugin" }
 rbxts_cli = { path = "crates/rbxts_cli" }

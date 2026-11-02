@@ -62,11 +62,12 @@ Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no ef
 layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau, so it lists none.
 
 ## The fork
-- **Where:** branch `rbxts-fork-0.20.1` of the tsrs clone (`E:\Projects\TS\Flamework\roblox-ts-test\tsrs`; worktree
-  `E:\Projects\TS\Flamework\worktrees\tsrs-rbxts-fork-0201`), head `7da04ddd09af482a35f0857d433855e2bd2b8a38`.
-  - `Cargo.toml` takes the fork's crates as a git dependency pinned by rev (`git = "file:///…/tsrs"`, `rev = …`).
-    That way rbxts-rs and a workspace that depends on it (flamework-rs, which holds `flamework_rs` and `rbxtsc-fw`
-    since they moved out of this repository) build the same tsrs.
+- **Where:** the public fork <https://github.com/Velover/tsrs>, branch `rbxts-fork-0.20.1`, head
+  `7da04ddd09af482a35f0857d433855e2bd2b8a38`.
+  - `Cargo.toml` takes the fork's crates as a git dependency pinned by rev
+    (`git = "https://github.com/Velover/tsrs"`, `rev = …`). That way rbxts-rs and a workspace that depends on it
+    (flamework-rs, which holds `flamework_rs` and `rbxtsc-fw` since they moved out of this repository) build the same
+    tsrs.
   - A crate that names tsrs crates itself must use the identical URL and `rev`. Cargo does not enforce this: a
     different rev, or even the same commit written as `branch = …`, silently builds a second copy of tsrs. The only
     error comes where tsrs types cross the boundary (E0308, `tsrs_checker::Checker` vs `rbxts_plugin::ts::Checker`).
@@ -74,15 +75,27 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
   - A depending workspace inherits neither rbxts-rs's `Cargo.lock` (start its lock from this one) nor its profiles:
     copy `[profile.dev]` (opt-level 3) and `[profile.dev.package.luau0-src]` (`debug-assertions = false`, or Luau's
     asserts break into the debugger), and `rust-toolchain.toml`.
-  - To try a local change to the fork, override it with `[patch."file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs"]`
-    path entries in an uncommitted `.cargo/config.toml`. The override rewrites `Cargo.lock` locally, so `--locked`
-    fails while it is on.
-  - The pinned rev must stay reachable: never rebase or delete `rbxts-fork-0.20.1`, or an older fork branch.
-  - The URL becomes the published fork's when the repos go public.
+  - To try a local change to the fork, clone it and override it with path entries in an uncommitted
+    `.cargo/config.toml`, one per tsrs crate the workspace names:
 
-  The previous branches are kept: `rbxts-fork-0.20` (tsrs v0.20.0, head `77c97efa`, worktree
-  `worktrees\tsrs-rbxts-fork-020`) and `rbxts-fork` (tsrs v0.18.0, worktree `worktrees\tsrs-rbxts-fork`). Rolling back
-  means pinning an old rev (and reverting the adaptations since), not a path.
+    ```toml
+    [patch."https://github.com/Velover/tsrs"]
+    tsrs_core = { path = "../tsrs/crates/tsrs_core" }
+    tsrs_checker = { path = "../tsrs/crates/tsrs_checker" }
+    # … and the other tsrs crates in `[workspace.dependencies]`
+    ```
+
+    The override rewrites `Cargo.lock` locally, so `--locked` fails while it is on.
+  - The pinned rev must stay reachable: never force-push or delete `rbxts-fork-0.20.1` once a commit pins it. A new
+    tsrs version gets a new branch.
+  - **Moving a fork to a newer tsrs** (yours, if you fork the fork): rebase the flips onto the new release as a new
+    branch (`rbxts-fork-<version>`, "Updating tsrs" below), push that branch to your fork, then point every tsrs
+    entry in `Cargo.toml` at your fork's URL and the new head as `rev`, and regenerate `Cargo.lock`. A workspace that
+    depends on rbxts-rs bumps its tsrs URL and `rev` to the same values in the same change.
+
+  The previous branches, `rbxts-fork-0.20` (tsrs v0.20.0, head `77c97efa`) and `rbxts-fork` (tsrs v0.18.0), predate
+  the public fork and are not published. Rolling back means pinning an older published rev (and reverting the
+  adaptations since).
 - **What:** tsrs **v0.20.1** (`77d3cddb`, TypeScript 7.1 beta) plus commits that change only visibility, private or
   `pub(crate)` → `pub`. That is 48 lines in 13 files. The first seven are `rbxts-fork-0.20`'s, cherry-picked onto
   v0.20.1 without a conflict and with the same changes (its commit first in brackets; a second is `rbxts-fork`'s, tsrs
@@ -154,6 +167,7 @@ Pin the version and update on purpose, never automatically. tsrs is pre-1.0, so 
    worktree of its own, and cherry-pick the fork's commits (`git log <old tag>..<old branch>`, without a commit and
    its revert). A conflict is a line upstream changed: keep upstream's line and only flip its visibility. If upstream
    has made an item public already, drop that flip.
+   - Push the new branch to the public fork, then switch every tsrs `rev` in `Cargo.toml` to its head (the URL stays).
    - Keep the old branch and its worktree until the update is merged, so you can roll back.
 2. **Update `Cargo.lock`.** It started as a copy of tsrs's lock file, so the transitive versions match what tsrs tests
    with. Re-sync the shared dependencies with the new tsrs lock file: `cargo update -p <name>@<ours> --precise
