@@ -84,6 +84,45 @@ fn main() -> std::process::ExitCode {
 A tsconfig's `plugins` entry turns a plugin on (`PluginInfo::tsconfig_transform`). More under "Plugins" below; the
 flamework-rs repository is a complete example.
 
+## Installing: one folder per version
+
+Binaries are installed with Cargo from a pinned commit, each version into a folder of its own, so projects on
+different versions live side by side (`<tools>` is any folder you keep them in):
+
+```sh
+# plain rbxtsc (no plugins), from this repository
+cargo install --locked --git https://github.com/<owner>/<repo> --rev <rev> rbxts_cli --root <tools>/rbxtsc-<rev>
+# a plugin build, for example Flamework's rbxtsc-fw from flamework-rs, one folder per Flamework version
+cargo install --locked --git <flamework-rs url> --rev <rev> rbxtsc_fw --root <tools>/fw-<version>
+```
+
+That gives `<tools>/rbxtsc-<rev>/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows).
+`--locked` builds with the repository's `Cargo.lock` (without it, `cargo install` resolves the dependencies again).
+`cargo install` uses the `release` profile (fat LTO), so it builds slowly, in a temporary target directory removed
+afterwards.
+
+- **A project** points its `package.json` build script at its version's folder:
+  `"build": "<tools>/fw-<version>/bin/rbxtsc-fw build"` (or `<tools>/rbxtsc-<rev>/bin/rbxtsc build`), with the same
+  arguments as stock `rbxtsc` (`-w` for watch mode).
+- **Upgrading** is pointing the script at another folder (with a plugin build, together with the plugin's npm
+  packages); **removing** a version is deleting its folder, or `cargo uninstall <crate> --root <dir>`.
+- **What a binary contains:** `rbxtsc --build-info` (and `rbxtsc-fw --build-info`) prints it as `key: value` lines;
+  `--version` prints the roblox-ts version, as stock does.
+
+```text
+rbxts-rs-version: 0.0.0
+rbxts-rs-commit: <the rbxts-rs commit it was built from, or unknown>
+rbxts-rs-dirty: <true when that checkout had uncommitted changes to tracked files, false, or unknown>
+tsrs-commit: <the tsrs fork commit>
+roblox-ts-version: 3.0.0
+plugin: <name> <version>
+```
+
+There is one `plugin` line per compiled-in plugin, none for the plain `rbxtsc`. Lines may be added later; the keys
+above keep their meaning. A build from a git dependency (`cargo install --git`, or a plugin workspace such as
+flamework-rs depending on rbxts-rs by rev) reports the pinned rbxts-rs commit; a copy without git history reports
+`unknown`.
+
 ## The tsrs fork
 
 rbxts-rs builds on a fork of tsrs whose commits only make tsrs functions public (visibility flips, no behaviour
