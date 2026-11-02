@@ -108,9 +108,14 @@ fn time_now() -> String {
     crate::locale_time::now()
 }
 
-/// A watch status line, as TypeScript's pretty watch status reporter prints it.
+/// A watch status line, as TypeScript's watch status reporter prints it: the time grey only when the output is pretty
+/// ([`crate::pretty_output`]), so piped watch output carries no escape codes.
 fn status(message: &str) {
-    println!("[\u{1b}[90m{}\u{1b}[0m] {message}", time_now());
+    if crate::pretty_output() {
+        println!("[\u{1b}[90m{}\u{1b}[0m] {message}", time_now());
+    } else {
+        println!("[{}] {message}", time_now());
+    }
 }
 
 fn json_string(text: &str) -> String {

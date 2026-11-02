@@ -174,7 +174,8 @@ follows TypeScript 7.1"). A project made by `npx rbxtsc init` needs these change
   `for…of` and spread over anything but an array do not type-check. Until a fixed package is published, patch
   `node_modules/@rbxts/compiler-types/types/Iterable.d.ts` as described under "Build, test and measure".
 
-rbxtsc prints errors in TypeScript 7's layout.
+rbxtsc prints errors in TypeScript 7's layout: pretty (colours, code frames, a summary) on a terminal, and plain
+`file(line,col): error TSnnnn: message` lines when piped or with `NO_COLOR` (`FORCE_COLOR` overrides), as `tsc` does.
 
 The template's tsconfig, adapted (it builds with `@rbxts/services`, `@rbxts/t`, `@rbxts/react` and
 `@rbxts/react-roblox` imported):
@@ -388,8 +389,8 @@ fn main() -> std::process::ExitCode {
 
 `rbxtsc` (crate `rbxts_cli`) is that binary without plugins. It is called as stock `rbxtsc` is (no arguments in the
 project folder, `-p <dir | tsconfig>`, `--verbose`, `--type`, `-i`, `--noInclude`, `--rojo`, …, parsed by yargs's
-rules) and answers as stock does: exit code 0 or 1, diagnostics on stdout in TypeScript's pretty format, roblox-ts's
-own errors as `TS roblox-ts` text diagnostics. A successful build copies the runtime include files (`copyInclude`)
+rules) and answers as stock does: exit code 0 or 1, diagnostics on stdout in TypeScript 7's layout (pretty on a
+terminal, plain when piped), roblox-ts's own errors as `TS roblox-ts` text diagnostics. A successful build copies the runtime include files (`copyInclude`)
 from the roblox-ts package the project resolves (the first `node_modules/roblox-ts` from the project folder upwards),
 so the include folder equals stock's; without one, from the files embedded from roblox-ts master 68648b0
 (`crates/rbxts_transform/include`). The tsconfig must suit TypeScript 7.1 ("Upgrading a roblox-ts project to
