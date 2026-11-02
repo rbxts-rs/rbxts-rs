@@ -168,7 +168,7 @@ fn array_join(
     let receiver_type = state.checker.get_non_nullable_type(receiver_type);
     // rbxts-rs: TypeScript 7's getIndexTypeOfType takes the key type instead of `IndexKind.Number`
     let number_type = state.checker.get_number_type();
-    let index_type = state.checker.get_index_type_of_type_exported(receiver_type, number_type);
+    let index_type = crate::util::types::get_index_type_of_type(state.checker, receiver_type, number_type);
 
     // table.concat only works on string and number types, so call tostring() otherwise
     if let Some(index_type) = index_type

@@ -1663,7 +1663,7 @@ fn alias_declarations(statement: P<Node>) -> Vec<P<Node>> {
 fn alias_name(alias: P<Node>) -> Option<&'static str> {
     match alias.kind() {
         Kind::ImportClause => alias.as_import_clause().name.map(|n| n.text()),
-        Kind::NamespaceImport => Some(alias.as_namespace_import().name.text()),
+        Kind::NamespaceImport => Some(alias.as_namespace_import().name().text()),
         Kind::ImportEqualsDeclaration => Some(alias.as_import_equals_declaration().name.text()),
         _ => alias.name().map(|n| n.text()),
     }

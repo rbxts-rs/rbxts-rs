@@ -6,7 +6,7 @@ compiled-in plugins. Private and local: never pushed or published. Flamework's p
 
 - Design: `E:\Projects\TS\Flamework\scratchpad\batch\rbxts-rs\DESIGN.md`.
 - Measurements: `bench/RESULTS.md`.
-- tsrs: the fork branch `rbxts-fork-0.20` (tsrs v0.20.0 plus visibility flips), a git dependency pinned by rev (see
+- tsrs: the fork branch `rbxts-fork-0.20.1` (tsrs v0.20.1 plus visibility flips), a git dependency pinned by rev (see
   `Cargo.toml` and `docs/tsrs.md`, "The fork").
 
 ## Upgrading a roblox-ts project to rbxts-rs (TypeScript 7.1)

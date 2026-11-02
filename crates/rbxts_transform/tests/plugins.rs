@@ -33,9 +33,8 @@ use std::path::{Path, PathBuf};
 
 use rbxts_luau_check::LUAU_VERSION;
 use rbxts_plugin::erased::DynPlugin;
-use rbxts_project::{ProjectOptionLayer, STACK_SIZE};
+use rbxts_project::{ProjectOptionLayer, STACK_SIZE, flatten_diagnostic_message};
 use rbxts_transform::{CompileOptions, CompileReport, PluginOptions, compile_project_with};
-use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
 use tsrs_diagnostics::Category;
 
 fn node_modules() -> Option<PathBuf> {

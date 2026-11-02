@@ -10,7 +10,7 @@ use crate::util::is_blocked_by_try_statement::is_break_blocked_by_try_statement;
 
 /// `transformBreakStatement`: `break`, or `return TS.TRY_BREAK` inside a try statement's function.
 pub fn transform_break_statement(state: &mut TransformState<'_>, node: P<Node>) -> Vec<Stmt> {
-    if let Some(label) = node.as_break_statement().label {
+    if let Some(label) = node.as_break_statement().label() {
         state.add_diagnostic(errors::no_labeled_statement(label));
         return Vec::new();
     }

@@ -120,7 +120,7 @@ pub fn transform_import_declaration(state: &mut TransformState<'_>, node: P<Node
                     // rbxts-rs: elided for a plugin
                 } else {
                     // namespace import logic
-                    let name = named_bindings.as_namespace_import().name;
+                    let name = named_bindings.as_namespace_import().name();
                     let value = import_exp.get(state);
                     transform_variable(state, &mut binding_prereqs, name, Some(value));
                 }

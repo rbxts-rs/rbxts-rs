@@ -62,8 +62,8 @@ Each only reproduced TypeScript 5's diagnostic cosmetics or an output with no ef
 layer changes (`ts7-accepted` in the parity report); none of the dropped layers changes Luau, so it lists none.
 
 ## The fork
-- **Where:** branch `rbxts-fork-0.20` of the tsrs clone (`E:\Projects\TS\Flamework\roblox-ts-test\tsrs`; worktree
-  `E:\Projects\TS\Flamework\worktrees\tsrs-rbxts-fork-020`).
+- **Where:** branch `rbxts-fork-0.20.1` of the tsrs clone (`E:\Projects\TS\Flamework\roblox-ts-test\tsrs`; worktree
+  `E:\Projects\TS\Flamework\worktrees\tsrs-rbxts-fork-0201`), head `7da04ddd09af482a35f0857d433855e2bd2b8a38`.
   - `Cargo.toml` takes the fork's crates as a git dependency pinned by rev (`git = "file:///…/tsrs"`, `rev = …`).
     That way rbxts-rs and a workspace that depends on it (flamework-rs, which holds `flamework_rs` and `rbxtsc-fw`
     since they moved out of this repository) build the same tsrs.
@@ -77,48 +77,61 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
   - To try a local change to the fork, override it with `[patch."file:///E:/Projects/TS/Flamework/roblox-ts-test/tsrs"]`
     path entries in an uncommitted `.cargo/config.toml`. The override rewrites `Cargo.lock` locally, so `--locked`
     fails while it is on.
-  - The pinned rev must stay reachable: never rebase or delete `rbxts-fork-0.20`.
+  - The pinned rev must stay reachable: never rebase or delete `rbxts-fork-0.20.1`, or an older fork branch.
   - The URL becomes the published fork's when the repos go public.
 
-  The previous branch, `rbxts-fork` (tsrs v0.18.0, worktree `worktrees\tsrs-rbxts-fork`), is kept. Rolling back means
-  pinning its rev (and reverting the 0.20 adaptations), not a path.
-- **What:** tsrs **v0.20.0** (`d197eeea`, TypeScript 7.1 beta) plus commits that change only visibility, private or
-  `pub(crate)` → `pub`. That is 52 lines in 16 files. The first six commits are `rbxts-fork`'s, cherry-picked (its
-  commit in brackets); the last two are new, for items tsrs 0.20 narrowed that have no public equivalent:
+  The previous branches are kept: `rbxts-fork-0.20` (tsrs v0.20.0, head `77c97efa`, worktree
+  `worktrees\tsrs-rbxts-fork-020`) and `rbxts-fork` (tsrs v0.18.0, worktree `worktrees\tsrs-rbxts-fork`). Rolling back
+  means pinning an old rev (and reverting the adaptations since), not a path.
+- **What:** tsrs **v0.20.1** (`77d3cddb`, TypeScript 7.1 beta) plus commits that change only visibility, private or
+  `pub(crate)` → `pub`. That is 48 lines in 13 files. The first seven are `rbxts-fork-0.20`'s, cherry-picked onto
+  v0.20.1 without a conflict and with the same changes (its commit first in brackets; a second is `rbxts-fork`'s, tsrs
+  0.18). Two of `rbxts-fork-0.20`'s were left out, 0d271600 and a368b659: they only served TypeScript 5's TS2769 text
+  (`overload_errors.rs`, gone since rbxts-rs follows TypeScript 7.1). tsrs 0.20.1 made none of the others public. The
+  last three commits are new in 0.20.1: tsrs #813 removed unused code, and with it public items rbxts-rs and
+  flamework-rs used that only these flips can replace:
 
 | Commit | Item | File | Used for |
 |---|---|---|---|
-| a4117469 (63b22eb) | `Checker::create_array_type` | `tsrs_checker/src/checker_12.rs` | the transform's type queries |
-| a4117469 (63b22eb) | `Checker::get_string_literal_type` | `tsrs_checker/src/checker_12.rs` | the transform's type queries |
-| a4117469 (63b22eb) | `Checker::get_number_literal_type` | `tsrs_checker/src/checker_12.rs` | the transform's type queries |
-| a4117469 (63b22eb) | `Checker::get_type_of_assignment_pattern` | `tsrs_checker/src/services.rs` | destructuring assignments |
-| e57c3d6e (cf8498b) | `Program::get_semantic_diagnostics_with_checker` | `tsrs_compiler/src/program.rs` | checking that honours `@ts-ignore` and the other comment directives |
-| 46b35c99 (adadb25) | `Checker::get_contextual_signature` | `tsrs_checker/src/checker_05.rs` | nothing since TypeScript 5's context sensitivity is marked on the tree (below); kept, as the fork is shared |
-| 31e644fb (87958da) | `Checker::is_readonly_array_type` | `tsrs_checker/src/checker_11.rs` | Flamework's macro types (`flamework_rs`) |
-| 31e644fb (87958da) | `Checker::get_literal_type_from_property` | `tsrs_checker/src/checker_13.rs` | Flamework's macros (`flamework_rs`) |
-| 0d271600 (0f5217e) | `Checker::choose_overload` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::reorder_candidates` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::is_signature_applicable` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::add_implementation_success_elaboration` | `tsrs_checker/src/checker_05.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::get_effective_call_arguments` | `tsrs_checker/src/checker_15.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::signature_to_string` | `tsrs_checker/src/printer.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::check_expression` | `tsrs_checker/src/checker_04.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 0d271600 (0f5217e) | `Checker::get_optional_expression_type` | `tsrs_checker/src/checker_14.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| a368b659 (aa35a73) | `Checker::get_uninstantiated_jsx_signatures_of_type` | `tsrs_checker/src/jsx.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text for JSX, `overload_errors.rs`) |
-| 107aad07 (new) | `CallState`'s 11 fields; `Checker::{call_resolution_stack, subtype_relation, assignable_relation}` | `tsrs_checker/src/checker.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
-| 107aad07 (new) | `Checker::{regular_true_type, regular_false_type}` | `tsrs_checker/src/checker.rs` | the transform's type queries (`isBooleanLiteralType`, a generator's `done: true`), Flamework's guards |
-| 107aad07 (new) | `Checker::mapped_symbol_links`, `LinkStore::try_get`, `MappedSymbolLinks::synthetic_origin`, `MappedType::{declaration, modifiers_type}` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | TS5's property order of mapped types (`util/ts5_property_order.rs`) |
-| 107aad07 (new) | `ConditionalType::root`, `ConditionalRoot::{node, check_type}` | `tsrs_checker/src/types.rs` | roblox-ts's `isMethod` (`util/is_method.rs`) |
-| 107aad07 (new) | `TupleType::{min_length, combined_flags}`, `CountCell::get` | `tsrs_checker/src/types.rs` | for-of over tuples, Flamework's tuple guards and macros |
-| 107aad07 (new) | `Checker::get_emit_resolver` | `tsrs_checker/src/checker_15.rs` | the transform state's emit resolver |
-| 92248ec5 (new) | `diagnostic_file`, `diagnostic_pos`, `diagnostic_len`, `FileLike::file_name` | `tsrs_compiler/src/diagnosticwriter.rs` | rbxtsc's TypeScript 5 pretty printer (`rbxts_cli/src/pretty.rs`) |
-| 77c97efa (new) | `Checker::value_symbol_links`, `SymbolArenaLinkStore::try_get`, `MappedSymbolLinks::key_type` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | Flamework's serializer (flamework-rs): a mapped property's mapped type (`ValueSymbolLinks::containing_type`, TS5's `links.mappedType`) and key type (`links.keyType`), read only |
+| ae660471 (a4117469, 63b22eb) | `Checker::create_array_type` | `tsrs_checker/src/checker_12.rs` | the transform's type queries |
+| ae660471 (a4117469, 63b22eb) | `Checker::get_string_literal_type` | `tsrs_checker/src/checker_12.rs` | the transform's type queries |
+| ae660471 (a4117469, 63b22eb) | `Checker::get_number_literal_type` | `tsrs_checker/src/checker_12.rs` | the transform's type queries |
+| ae660471 (a4117469, 63b22eb) | `Checker::get_type_of_assignment_pattern` | `tsrs_checker/src/services.rs` | destructuring assignments |
+| 24faf2f0 (e57c3d6e, cf8498b) | `Program::get_semantic_diagnostics_with_checker` | `tsrs_compiler/src/program.rs` | checking that honours `@ts-ignore` and the other comment directives |
+| 9a470535 (46b35c99, adadb25) | `Checker::get_contextual_signature` | `tsrs_checker/src/checker_05.rs` | nothing since TypeScript 5's context sensitivity is marked on the tree (below); kept, as the fork is shared |
+| 6e2f2997 (31e644fb, 87958da) | `Checker::is_readonly_array_type` | `tsrs_checker/src/checker_11.rs` | Flamework's macro types (`flamework_rs`) |
+| 6e2f2997 (31e644fb, 87958da) | `Checker::get_literal_type_from_property` | `tsrs_checker/src/checker_13.rs` | Flamework's macros (`flamework_rs`) |
+| 3f13aed7 (107aad07) | `CallState`'s 11 fields; `Checker::{call_resolution_stack, subtype_relation, assignable_relation}` | `tsrs_checker/src/checker.rs` | nothing since rbxts-rs follows TypeScript 7.1 (was TS5's TS2769 text, `overload_errors.rs`) |
+| 3f13aed7 (107aad07) | `Checker::{regular_true_type, regular_false_type}` | `tsrs_checker/src/checker.rs` | the transform's type queries (`isBooleanLiteralType`, a generator's `done: true`), Flamework's guards |
+| 3f13aed7 (107aad07) | `Checker::mapped_symbol_links`, `LinkStore::try_get`, `MappedSymbolLinks::synthetic_origin`, `MappedType::{declaration, modifiers_type}` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | TS5's property order of mapped types (`util/ts5_property_order.rs`) |
+| 3f13aed7 (107aad07) | `ConditionalType::root`, `ConditionalRoot::{node, check_type}` | `tsrs_checker/src/types.rs` | roblox-ts's `isMethod` (`util/is_method.rs`) |
+| 3f13aed7 (107aad07) | `TupleType::{min_length, combined_flags}`, `CountCell::get` | `tsrs_checker/src/types.rs` | for-of over tuples, Flamework's tuple guards and macros |
+| 3f13aed7 (107aad07) | `Checker::get_emit_resolver` | `tsrs_checker/src/checker_15.rs` | the transform state's emit resolver |
+| c341f2b1 (92248ec5) | `diagnostic_file`, `diagnostic_pos`, `diagnostic_len`, `FileLike::file_name` | `tsrs_compiler/src/diagnosticwriter.rs` | rbxtsc's TypeScript 5 pretty printer (`rbxts_cli/src/pretty.rs`) |
+| de12dfb9 (77c97efa) | `Checker::value_symbol_links`, `SymbolArenaLinkStore::try_get`, `MappedSymbolLinks::key_type` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | Flamework's serializer (flamework-rs): a mapped property's mapped type (`ValueSymbolLinks::containing_type`, TS5's `links.mappedType`) and key type (`links.keyType`), read only |
+| 18638a0c (new) | `CheckerPoolImpl::checker_count` (the field), `PoolState::owner_of` | `tsrs_compiler/src/checkerpool.rs` | `Program::{checker_count, checker_index_of_file}`, removed: the transform groups and the failure explanation run each file on the checker that checked it (`rbxts_project::{checker_count, checker_index_of_file}`) |
+| 317d9524 (new) | `Checker::error_type` (the field) | `tsrs_checker/src/checker.rs` | `get_error_type`, removed: TypeScript's `errorType` fallback of `getTypeOfSymbolAtLocation` and `getTypeOfAssignmentPattern` |
+| 7da04ddd (new) | `utilities::is_declaration_readonly` (public in 0.20.0, `pub(crate)` in 0.20.1) | `tsrs_checker/src/utilities.rs` | Flamework's macro types (`flamework_rs`): a property's readonly flag |
+| 7da04ddd (new) | `TupleElementInfo::flags` (the field; `tuple_element_flags()`, its getter, removed) | `tsrs_checker/src/types.rs` | Flamework's guards and serializer (`flamework_rs`): a tuple element's rest and optional flags |
 
-  The flips marked "nothing since" are unused; they stay until the next rebase of the fork, whose revs are pinned.
+  The flips marked "nothing since" are unused. The `CallState` and checker-field ones share a commit (3f13aed7) with
+  used flips, so they stay until a later rebase drops them from it.
 
-  Dropped as upstream: `is_declaration_readonly` (87958da) is public in tsrs 0.20, as
-  `tsrs_checker::utilities::is_declaration_readonly`. Not carried over: 67b5330 (overload internals made public) and
-  its revert c796de98, which cancel out.
+  The rest of what #813 removed has a public replacement or is small enough to copy: `get_type_only_alias_declaration`
+  (now public itself), `get_index_info_of_type_exported` for `get_index_type_of_type_exported`
+  (`util::types::get_index_type_of_type`), `diagnosticwriter::write_flattened_diagnostic_message` for
+  `flatten_diagnostic_message` (`rbxts_project::flatten_diagnostic_message`, also for a depending workspace), the
+  AST getters for fields 0.20.1 made private (`label()`, `name()`, `expression()`, `Node::text()` for `JSDocText`),
+  and a copy of `tspath::resolve_tripleslash_reference` (`util/symlink_cache.rs`).
+
+  A depending workspace adapts the same way. flamework-rs (at 0be98d7) also needs: `get_signatures_of_type(t,
+  SignatureKind::Construct)` for the removed `get_construct_signatures`; the `SourceFile::end_of_file_token` field for
+  its removed getter; `info.flags` for `tuple_element_flags()`; `TupleTypeNode::elements()` for the now private field;
+  `Node::text()` for `as_jsdoc_text()`; and `rbxts_project::flatten_diagnostic_message` in its tests and examples.
+
+  Dropped as upstream in the move to 0.20, and back in 0.20.1: `is_declaration_readonly` (87958da) was public in tsrs
+  0.20.0, as `tsrs_checker::utilities::is_declaration_readonly`; 0.20.1 narrowed it again (7da04ddd). Not carried over:
+  67b5330 (overload internals made public) and its revert c796de98, which cancel out.
 
   tsrs 0.20's visibility lints (tsrs #749, #761) narrowed many items rbxts-rs used while they were `pub`. Where a
   public equivalent exists, rbxts-rs uses it instead of a flip: the checker's `*_exported` wrappers (plain
@@ -126,7 +139,7 @@ layer changes (`ts7-accepted` in the parity report); none of the dropped layers 
   `get_type_arguments`, `is_array_type`, `is_array_like_type`, `get_union_type`, `get_base_constraint_of_type`,
   `is_context_sensitive`), `Checker::get_name_type_of_symbol`, and the type getters (`LiteralType::value`,
   `TemplateLiteralType::texts`, `ConditionalType::extends_type`, `TypeAlias::symbol`,
-  `TupleElementInfo::{labeled_declaration, tuple_element_flags}`, `Type::types`, `Type::target`).
+  `TupleElementInfo::labeled_declaration`, `Type::types`, `Type::target`).
 
 - **Rule:** the fork gets visibility flips and nothing else. Behaviour fixes and workarounds go in rbxts-rs with a
   `// rbxts-rs:` comment. If a needed function is too entangled to make public, copy a small helper into rbxts-rs

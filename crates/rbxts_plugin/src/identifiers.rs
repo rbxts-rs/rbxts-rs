@@ -69,7 +69,7 @@ fn is_interned_literal(node: P<Node>) -> bool {
         // `parseModuleSpecifier`
         Kind::ImportDeclaration => parent.as_import_declaration().module_specifier == node,
         Kind::ExportDeclaration => parent.as_export_declaration().module_specifier == Some(node),
-        Kind::ExternalModuleReference => parent.as_external_module_reference().expression == node,
+        Kind::ExternalModuleReference => parent.as_external_module_reference().expression() == node,
         _ => false,
     }
 }

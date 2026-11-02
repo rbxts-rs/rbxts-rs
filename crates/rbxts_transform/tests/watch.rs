@@ -1451,7 +1451,7 @@ fn a_watch_rebuild_load_checks_what_a_plugin_emitted_into() {
             .files
             .iter()
             .flat_map(|f| f.diagnostics.iter())
-            .map(|d| tsrs_compiler::diagnosticwriter::flatten_diagnostic_message(*d, " "))
+            .map(|d| rbxts_project::flatten_diagnostic_message(*d, " "))
             .collect();
         assert!(
             refused.iter().any(|m| m.contains("refuses this file") && m.contains("Out of local registers")),
@@ -1503,7 +1503,7 @@ fn a_late_string_that_makes_a_cached_file_refused_fails_the_watch_rebuild() {
             .chain(report.files.iter().flat_map(|f| f.diagnostics.iter()))
             .map(|d| {
                 let at = d.pos().map(|p| a[p as usize..].lines().next().unwrap_or("").to_owned()).unwrap_or_default();
-                (tsrs_compiler::diagnosticwriter::flatten_diagnostic_message(*d, " "), at)
+                (rbxts_project::flatten_diagnostic_message(*d, " "), at)
             })
             .collect()
     };

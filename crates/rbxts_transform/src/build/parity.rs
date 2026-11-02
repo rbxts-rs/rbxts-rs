@@ -32,8 +32,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use rbxts_plugin::erased::DynPlugin;
-use rbxts_project::ProjectOptionLayer;
-use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
+use rbxts_project::{ProjectOptionLayer, flatten_diagnostic_message};
 use tsrs_diagnostics::Category;
 
 use super::session::BuildSession;

@@ -87,7 +87,7 @@ fn is_method_inner(state: &mut TransformState<'_>, node: P<Node>, t: P<Type>) ->
             let this_type = state
                 .checker
                 .get_type_of_symbol_at_location(this_parameter, Some(node))
-                .unwrap_or_else(|| state.checker.get_error_type());
+                .unwrap_or(state.checker.error_type);
             if can_change_receiver_convention(state, this_type)
                 && state.multi_transform_state.is_reported_by_no_unstable_this_type.insert(node)
             {

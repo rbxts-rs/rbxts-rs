@@ -18,11 +18,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use rbxts_project::{ProjectOptionLayer, nodepath};
+use rbxts_project::{ProjectOptionLayer, flatten_diagnostic_message, nodepath};
 
 use crate::divergences::{self, Divergences};
 use rbxts_transform::{CompileOptions, CompileReport, PluginOptions, compile_project_with};
-use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
 use tsrs_diagnostics::Category;
 
 pub const USAGE: &str = "usage: rbxts-bench build [-p tsconfig.json] [--out-dir DIR] [--optimizedLoops] [--allowCommentDirectives]\n                         [--write-partial] [--no-write] [--parity REF_DIR] [--report FILE] [--show N] [--json]\n                         [--divergences FILE --corpus NAME [--record-divergences FIX]]\n  --divergences, --corpus: files that differ from the reference by known fixes of roblox-ts bugs pass as known-fix

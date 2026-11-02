@@ -5,12 +5,19 @@
 //! through the checker as `TypeObject` does.
 
 use tsrs_ast::{Node, Symbol};
-use tsrs_checker::{LiteralValue, ObjectFlags, SignatureKind, Type, TypeFlags};
+use tsrs_checker::{Checker, LiteralValue, ObjectFlags, SignatureKind, Type, TypeFlags};
 use tsrs_core::P;
 
 use crate::classes::macro_manager::{NOMINAL_LUA_TUPLE_NAME, symbol_names};
 use crate::classes::transform_state::TransformState;
 use crate::shared::constants::RBXTS_SCOPE;
+
+/// `checker.getIndexTypeOfType(type, kind)`, with TypeScript 7's key type for the kind: the value type of `t`'s index
+/// signature for `key_type`. tsrs 0.20.1 (#813) removed `get_index_type_of_type_exported`; this is its body over the
+/// index info getter it kept.
+pub fn get_index_type_of_type(checker: &mut Checker, t: P<Type>, key_type: P<Type>) -> Option<P<Type>> {
+    checker.get_index_info_of_type_exported(t, key_type).map(|info| info.value_type())
+}
 
 /// A type predicate (`TypeCheck`).
 pub type TypeCheck<'c> = &'c dyn Fn(&mut TransformState<'_>, P<Type>) -> bool;

@@ -25,10 +25,9 @@ static GLOBAL: mimalloc_safe::MiMalloc = mimalloc_safe::MiMalloc;
 
 use std::time::{Duration, Instant};
 
-use rbxts_project::{LoadOptions, STACK_SIZE};
+use rbxts_project::{LoadOptions, STACK_SIZE, flatten_diagnostic_message};
 use tsrs_ast::Diagnostic;
 use tsrs_compiler::Context;
-use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
 use tsrs_core::P;
 use tsrs_diagnostics::Category;
 

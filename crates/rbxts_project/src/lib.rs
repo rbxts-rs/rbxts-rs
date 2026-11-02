@@ -150,6 +150,29 @@ impl ParseConfigHost for ConfigHost {
     }
 }
 
+/// TypeScript's `flattenDiagnosticMessageText`: the message, then its chain indented two spaces a level. tsrs 0.20.0's
+/// `diagnosticwriter::flatten_diagnostic_message`, which tsrs 0.20.1 (#813) removed, over the writer it kept.
+pub fn flatten_diagnostic_message(d: P<Diagnostic>, new_line: &str) -> String {
+    let mut output = Vec::new();
+    tsrs_compiler::diagnosticwriter::write_flattened_diagnostic_message(&mut output, d, new_line);
+    String::from_utf8(output).expect("a diagnostic's text is UTF-8")
+}
+
+/// The number of checkers `program`'s pool really has (tsrs caps the requested count by the file count). Panics on a
+/// program with an external checker pool, as tsrs 0.20.0's `Program::checker_count` did; tsrs 0.20.1 (#813) removed
+/// that method, so this reads the pool (fork flip 99850fa1).
+pub fn checker_count(program: &Program) -> usize {
+    program.pool().checker_count
+}
+
+/// The index (as passed to `for_each_checker_parallel`) of the checker the pool assigned `file` to, i.e. the checker
+/// `for_each_checker_group` runs it on. Creates the checkers on first use. None when the program has no checker pool
+/// of its own or `file` is not one of its files. tsrs 0.20.0's `Program::checker_index_of_file`, which tsrs 0.20.1
+/// (#813) removed (fork flip 99850fa1).
+pub fn checker_index_of_file(program: &Program, file: P<SourceFile>) -> Option<usize> {
+    program.compiler_checker_pool()?.state().owner_of(file)
+}
+
 /// Turns tsrs's fast preset on for this process, unless `TSRS_FAST=0` (for debugging: tsrs's reference checker
 /// settings). Every entry point calls it first, and [`load_cached`] again before it makes a program; only the first
 /// call counts.
@@ -551,7 +574,7 @@ impl Project {
 
     /// The number of checkers the program really has (tsrs caps the requested count by the file count).
     pub fn checker_count(&self) -> usize {
-        self.program.checker_count()
+        checker_count(self.program)
     }
 
     /// Where `specifier` resolves when imported from `from` (Flamework's `resolveModule`): the program's own

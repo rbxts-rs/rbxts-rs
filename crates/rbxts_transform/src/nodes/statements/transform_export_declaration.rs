@@ -96,7 +96,7 @@ fn transform_export_from(state: &mut TransformState<'_>, node: P<Node>) -> Vec<S
         Some(clause) => {
             // export * as foo from "./module";
             let mut name_prereqs = Prereqs::new();
-            let name = transform_property_name(state, &mut name_prereqs, clause.as_namespace_export().name);
+            let name = transform_property_name(state, &mut name_prereqs, clause.as_namespace_export().name());
             statements.extend(name_prereqs.statements);
             statements.push(create::assignment(
                 create::computed_index(module_id, name),

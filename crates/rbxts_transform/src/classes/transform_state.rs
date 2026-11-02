@@ -289,7 +289,7 @@ impl<'a> TransformState<'a> {
         let all = self.checker.get_exports_of_module_exported(module_symbol);
         let mut exports = Vec::with_capacity(all.len());
         for export_symbol in all {
-            let type_only_declaration = self.checker.get_type_only_alias_declaration_exported(export_symbol);
+            let type_only_declaration = self.checker.get_type_only_alias_declaration(export_symbol);
             // erased aliases must not redirect mutable locals to properties on the exports table
             if type_only_declaration.is_none_or(|d| verbatim && !is_type_only_export_declaration(d)) {
                 exports.push(export_symbol);

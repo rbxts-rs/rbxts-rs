@@ -8,10 +8,9 @@
 //! 5.5's `formatDiagnosticsWithColorAndContext`, `formatCodeSpan` and `formatLocation`, text slicing in UTF-16 units
 //! as JavaScript's.
 
+use rbxts_project::flatten_diagnostic_message;
 use tsrs_ast::{Diagnostic, SourceFileLike};
-use tsrs_compiler::diagnosticwriter::{
-    FileLike, diagnostic_file, diagnostic_len, diagnostic_pos, flatten_diagnostic_message,
-};
+use tsrs_compiler::diagnosticwriter::{FileLike, diagnostic_file, diagnostic_len, diagnostic_pos};
 use tsrs_core::P;
 use tsrs_core::tspath::{self, ComparePathsOptions};
 use tsrs_diagnostics::Category;

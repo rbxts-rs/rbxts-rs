@@ -165,7 +165,7 @@ fn get_property_type(state: &mut TransformState<'_>, pattern: P<Node>, name: P<N
                 } else {
                     state.checker.get_string_type()
                 };
-                state.checker.get_index_type_of_type_exported(t, index_kind).expect("an index signature")
+                crate::util::types::get_index_type_of_type(state.checker, t, index_kind).expect("an index signature")
             }
         };
         values.push(value);
@@ -224,5 +224,5 @@ pub fn get_assignment_pattern_type(state: &mut TransformState<'_>, pattern: P<No
 
 /// `checker.getTypeOfAssignmentPattern`
 pub fn type_of_assignment_pattern(state: &mut TransformState<'_>, pattern: P<Node>) -> P<Type> {
-    state.checker.get_type_of_assignment_pattern(pattern).unwrap_or_else(|| state.checker.get_error_type())
+    state.checker.get_type_of_assignment_pattern(pattern).unwrap_or(state.checker.error_type)
 }

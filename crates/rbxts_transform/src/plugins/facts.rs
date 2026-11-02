@@ -92,7 +92,7 @@ pub(crate) fn jsdoc_tags(checker: &mut Checker, declaration: P<Node>) -> Vec<JsD
                 let mut links = Vec::new();
                 for &part in tag.comments() {
                     match part.kind() {
-                        Kind::JSDocText => comment.extend(part.as_jsdoc_text().text().iter().copied()),
+                        Kind::JSDocText => comment.push_str(part.text()),
                         Kind::JSDocLink | Kind::JSDocLinkCode | Kind::JSDocLinkPlain => {
                             let (name, text) = match part.kind() {
                                 Kind::JSDocLink => (part.as_jsdoc_link().name(), part.as_jsdoc_link().text()),

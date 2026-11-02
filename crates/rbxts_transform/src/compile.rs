@@ -307,7 +307,7 @@ impl CompileReport {
 pub(crate) fn comment_directive_diagnostics(file: P<SourceFile>) -> Vec<P<Diagnostic>> {
     let message = || crate::shared::diagnostics::new_ad_hoc_message(&errors_text_no_comment_directives());
     let mut diagnostics = Vec::new();
-    for directive in file.get().comment_directives() {
+    for directive in file.get().comment_directives.get() {
         diagnostics.push(new_diagnostic(Some(file), directive.loc, message(), &[]));
     }
     for pragma in file.get().pragmas().iter().filter(|p| p.name == "ts-nocheck") {
@@ -685,10 +685,11 @@ pub(crate) fn explain_failures(
     }
     // each file on the checker that checked it, one checker at a time on this thread (a failing build is not timed);
     // what each file adds is kept in the failing files' order, so the report does not depend on the checker count
-    let count = program.checker_count().max(1);
+    let count = rbxts_project::checker_count(program).max(1);
     let mut by_owner: std::collections::BTreeMap<usize, Vec<(usize, P<SourceFile>)>> = Default::default();
     for (i, &file) in failing.iter().enumerate() {
-        let owner = if count == 1 { 0 } else { program.checker_index_of_file(file).unwrap_or(0) };
+        let owner =
+            if count == 1 { 0 } else { rbxts_project::checker_index_of_file(program, file).unwrap_or(0) };
         by_owner.entry(owner).or_default().push((i, file));
     }
     let mut replacements: FxHashMap<P<Diagnostic>, P<Diagnostic>> = FxHashMap::default();

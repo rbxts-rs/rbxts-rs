@@ -45,7 +45,7 @@ pub fn create_continue(state: &mut TransformState<'_>, node: P<Node>) -> Vec<Stm
 /// `transformContinueStatement`: `continue`, or `return TS.TRY_CONTINUE` inside a try statement's function
 /// (`create_continue`, which also covers roblox-ts's `isBreakBlockedByTryStatement` case).
 pub fn transform_continue_statement(state: &mut TransformState<'_>, node: P<Node>) -> Vec<Stmt> {
-    if let Some(label) = node.as_continue_statement().label {
+    if let Some(label) = node.as_continue_statement().label() {
         state.add_diagnostic(errors::no_labeled_statement(label));
         return Vec::new();
     }

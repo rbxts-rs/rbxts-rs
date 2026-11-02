@@ -3,7 +3,7 @@
 //! A file is transformed by its owner, the checker that checked it: the transform asks that checker about types, and
 //! checkers are not shareable. tsrs assigns every file to a checker when the pool is made (a function of the program,
 //! `compute_associations`), and none of our passes moves files between checkers (only tsrs's own type-check pass
-//! steals work), so the owner is `Program::checker_index_of_file`.
+//! steals work), so the owner is `rbxts_project::checker_index_of_file`.
 //!
 //! Each checker that owns files to transform runs one group on its own thread (`for_each_checker_parallel`, 512 MiB
 //! stacks): it makes its own `MacroManager` (merged symbols are per checker), `MultiTransformState` (caches keyed by its
@@ -85,10 +85,11 @@ pub(crate) fn transform_files(
     files: &[P<SourceFile>],
 ) -> Transformed {
     let program = project.program;
-    let count = program.checker_count().max(1);
+    let count = rbxts_project::checker_count(program).max(1);
     let mut groups: Vec<Vec<(usize, P<SourceFile>)>> = vec![Vec::new(); count];
     for (i, &file) in files.iter().enumerate() {
-        let owner = if count == 1 { 0 } else { program.checker_index_of_file(file).unwrap_or(0).min(count - 1) };
+        let owner =
+            if count == 1 { 0 } else { rbxts_project::checker_index_of_file(program, file).unwrap_or(0).min(count - 1) };
         groups[owner].push((i, file));
     }
     let owners: Vec<usize> = (0..count).filter(|&c| !groups[c].is_empty()).collect();

@@ -184,7 +184,7 @@ impl<'p> Walk<'p> {
         }
         let program = self.program;
         for reference in file.referenced_files() {
-            self.visit_file_name(&tspath::resolve_tripleslash_reference(&reference.file_name, file.file_name()));
+            self.visit_file_name(&resolve_tripleslash_reference(&reference.file_name, file.file_name()));
         }
 
         // processTypeReferenceDirectives: the file's whole cache goes into the map before the loop that visits the
@@ -257,4 +257,14 @@ impl<'p> Walk<'p> {
             }
         }
     }
+}
+
+/// TypeScript's `resolveTripleslashReference`: a `/// <reference path>` against the referencing file's folder. A copy of
+/// tsrs 0.20.0's `tspath::resolve_tripleslash_reference`, which tsrs 0.20.1 (#813) removed.
+fn resolve_tripleslash_reference(module_name: &str, containing_file: &str) -> String {
+    let base_path = tspath::get_directory_path(containing_file);
+    if tspath::is_rooted_disk_path(module_name) {
+        return tspath::normalize_path(module_name);
+    }
+    tspath::normalize_path(&tspath::combine_paths(&base_path, &[module_name]))
 }

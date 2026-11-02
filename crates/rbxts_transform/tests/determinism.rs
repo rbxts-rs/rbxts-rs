@@ -15,9 +15,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use rbxts_plugin::erased::DynPlugin;
-use rbxts_project::{ProjectOptionLayer, STACK_SIZE};
+use rbxts_project::{ProjectOptionLayer, STACK_SIZE, flatten_diagnostic_message};
 use rbxts_transform::{CompileOptions, CompileReport, PluginOptions, compile_project_with};
-use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
 
 /// (checkers, `TSRS_CHECKER_ASSIGNMENT`); the first is the reference.
 const CONFIGS: &[(usize, Option<&str>)] =

@@ -72,7 +72,7 @@ fn get_ignored_export_symbols(state: &mut TransformState<'_>, source_file: P<Sou
                 // export * as id from "./module";
                 let id_symbol = state
                     .checker
-                    .get_symbol_at_location_exported(clause.as_namespace_export().name)
+                    .get_symbol_at_location_exported(clause.as_namespace_export().name())
                     .expect("a namespace export has a symbol");
                 ignored.insert(id_symbol);
             }

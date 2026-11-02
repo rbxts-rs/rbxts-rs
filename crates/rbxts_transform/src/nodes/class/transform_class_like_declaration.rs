@@ -279,7 +279,7 @@ pub fn transform_class_like_declaration(state: &mut TransformState<'_>, node: P<
     let class_type = state
         .checker
         .get_type_of_symbol_at_location(class_symbol, Some(node))
-        .unwrap_or_else(|| state.checker.get_error_type());
+        .unwrap_or(state.checker.error_type);
     let instance_type = state.checker.get_declared_type_of_symbol_exported(class_symbol);
 
     let mut ptr = Pointer { name: "name".to_owned(), value: internal_name.clone().into() };

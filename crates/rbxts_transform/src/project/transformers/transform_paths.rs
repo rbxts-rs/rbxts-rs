@@ -135,7 +135,7 @@ fn specifier_of(node: P<Node>) -> Option<P<Node>> {
             let is_import = callee.kind() == Kind::ImportKeyword;
             if is_require || is_import { string(Some(*argument)) } else { None }
         }
-        Kind::ExternalModuleReference => string(Some(node.as_external_module_reference().expression)),
+        Kind::ExternalModuleReference => string(Some(node.as_external_module_reference().expression())),
         Kind::ImportDeclaration => string(Some(node.as_import_declaration().module_specifier)),
         Kind::ExportDeclaration => string(node.as_export_declaration().module_specifier),
         Kind::ImportType => {

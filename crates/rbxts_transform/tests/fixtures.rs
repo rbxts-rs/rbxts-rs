@@ -122,10 +122,9 @@
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use rbxts_project::{ProjectOptionLayer, STACK_SIZE};
+use rbxts_project::{ProjectOptionLayer, STACK_SIZE, flatten_diagnostic_message};
 use rbxts_plugin::erased::DynPlugin;
 use rbxts_transform::{CompileOptions, CompileReport, PluginOptions, compile_project_with};
-use tsrs_compiler::diagnosticwriter::flatten_diagnostic_message;
 use tsrs_diagnostics::Category;
 
 use rbxts_test_support::{copy_dir, link_dir, node_modules};
