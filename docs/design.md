@@ -178,14 +178,15 @@ From the tsrs source (first at v0.18.0; `docs/tsrs.md` covers the later versions
   decides it for diagnostics (from the environment alone, as tsc's diagnostic reporter reads only the command line's
   options: `FORCE_COLOR`, else not with `NO_COLOR` or `TERM=dumb`, else when stdout is a terminal): a code frame,
   related information as `  file:line:col - message` with its own frame, an empty span underlining the character after
-  it. Plain otherwise: `file(line,col): error TS2322: message` lines only, no related information. Then, not in watch
-  mode (whose status line counts the errors), "Found N errors in M files." and a table of the files, in colour, when
+  it. Plain otherwise: `file(line,col): error TS2322: message` lines only, no related information. Then "Found N errors
+  in M files." and a table of the files, in colour, when
   tsc's `shouldBePretty` over the tsconfig's options says so: the tsconfig's `pretty` when it sets it (`true` adds
   the summary to plain diagnostics, `false` leaves it out of pretty ones), else as the diagnostics. Lines
   end with `\n` on every OS. roblox-ts's and plugins' own diagnostics keep their codes and texts in the code slot
   (`TS roblox-ts`, a plugin's source or code), which tsrs's writer would print as `TS-1`. Watch mode's status lines
   keep roblox-ts's layout (§14), the time grey when the same `shouldBePretty` says so, decided once when watch mode
-  starts as tsc builds its status reporter once: a rebuild after the tsconfig's `pretty` changed keeps it.
+  starts as tsc builds its status and summary reporters once: a rebuild after the tsconfig's `pretty` changed keeps
+  it, for the summary too.
 
 ## 8. Measurement protocol
 

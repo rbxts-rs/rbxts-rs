@@ -368,9 +368,11 @@ pub fn format_diagnostic(diagnostic: P<Diagnostic>, cwd: &str) -> String {
 }
 
 /// Prints the build's outcome: warnings, plugin messages (`--verbose`), diagnostics and fatal errors as tsc's reporter
-/// prints diagnostics, tsc's error summary (not in watch mode), and the plugin timings (`--timings`). Diagnostics and
-/// warnings are pretty or plain by the environment and the terminal ([`pretty_output`]); the summary follows as tsc
-/// prints it, with the tsconfig's `pretty` when it sets it ([`CompileReport::pretty`]) and as the diagnostics without.
+/// prints diagnostics, tsc's error summary, and the plugin timings (`--timings`). Diagnostics and warnings are pretty
+/// or plain by the environment and the terminal ([`pretty_output`]); the summary follows as tsc prints it, with the
+/// tsconfig's `pretty` when it sets it ([`CompileReport::pretty`]) and as the diagnostics without. In watch mode the
+/// summary follows the status lines' colour, decided once when watch mode starts ([`watch::status_pretty`]), as tsc
+/// builds its summary reporter once.
 pub fn print_report(report: &CompileReport, cwd: &str, build: &BuildArgs) {
     let format = format(cwd);
     for warning in &report.warnings {
@@ -398,8 +400,9 @@ pub fn print_report(report: &CompileReport, cwd: &str, build: &BuildArgs) {
     let fatal = report.fatal.iter().map(|message| text_diagnostic(message, Category::Error));
     let reported: Vec<P<Diagnostic>> = diagnostics.iter().copied().chain(fatal).collect();
     let mut text: String = reported.iter().map(|d| pretty::format_reported(*d, &format)).collect();
-    // then tsc's error summary, but in watch mode, whose status line counts the errors
-    if !build.watch && should_be_pretty(report.pretty) {
+    // then tsc's error summary
+    let summary = if build.watch { watch::status_pretty() } else { should_be_pretty(report.pretty) };
+    if summary {
         text.push_str(&pretty::error_summary(&reported, &format));
     }
     print!("{text}");

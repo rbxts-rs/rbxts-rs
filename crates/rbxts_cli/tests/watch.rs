@@ -1158,7 +1158,7 @@ fn outputs_changed_by_hand_are_written_again() {
 /// status reporter once); the diagnostics stay plain throughout, as the environment says (tsc's diagnostic reporter
 /// reads the command line's options only).
 #[test]
-fn the_tsconfig_pretty_option_colours_the_watch_status_lines_once() {
+fn the_tsconfig_pretty_option_colours_the_watch_status_lines_and_prints_the_summary_once() {
     let node_modules = rbxts_test_support::node_modules().unwrap_or_default();
     if !node_modules.join("@rbxts").join("compiler-types").is_dir() {
         rbxts_test_support::skip(module_path!(), "no node_modules with the roblox-ts tests' packages");
@@ -1220,13 +1220,14 @@ fn the_tsconfig_pretty_option_colours_the_watch_status_lines_once() {
     assert!(first[0].contains("Starting compilation in watch mode...") && escape(&first[0]), "{first:#?}");
     assert!(first.iter().any(|l| l.contains("sizee") && !escape(l)), "the diagnostic is plain: {first:#?}");
     assert!(escape(first.last().unwrap()), "{first:#?}");
-    // no error summary in watch mode, whose status line counts the errors
-    assert!(!first.iter().any(|l| l.starts_with("Found ")), "{first:#?}");
+    // tsc's error summary, before the status line, as tsc's watch mode prints it with a pretty summary reporter
+    assert!(first.iter().any(|l| l.starts_with("Found 1 error")), "the error summary: {first:#?}");
 
     std::fs::write(root.join("tsconfig.json"), with_pretty(false)).unwrap();
     let second = until_watching();
     assert!(second.iter().any(|l| l.contains("sizee") && !escape(l)), "the diagnostic is plain: {second:#?}");
     let change = second.iter().find(|l| l.contains("File change detected.")).expect("a change status line");
     assert!(escape(change) && escape(second.last().unwrap()), "the status lines stay coloured: {second:#?}");
+    assert!(second.iter().any(|l| l.starts_with("Found 1 error")), "the error summary stays: {second:#?}");
     drop(watcher);
 }

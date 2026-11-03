@@ -115,10 +115,15 @@ fn time_now() -> String {
 /// A rebuild after the tsconfig changed does not change it.
 static STATUS_PRETTY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
+/// Whether the status lines are coloured and the error summary printed ([`STATUS_PRETTY`]).
+pub(crate) fn status_pretty() -> bool {
+    STATUS_PRETTY.get().copied().unwrap_or_else(crate::pretty_output)
+}
+
 /// A watch status line, in roblox-ts's layout (`[time] message`): the time grey only when the status lines are
-/// coloured ([`STATUS_PRETTY`]), so piped watch output without a tsconfig `"pretty": true` carries no escape codes.
+/// coloured ([`status_pretty`]), so piped watch output without a tsconfig `"pretty": true` carries no escape codes.
 fn status(message: &str) {
-    if STATUS_PRETTY.get().copied().unwrap_or_else(crate::pretty_output) {
+    if status_pretty() {
         println!("[\u{1b}[90m{}\u{1b}[0m] {message}", time_now());
     } else {
         println!("[{}] {message}", time_now());
