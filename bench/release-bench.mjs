@@ -210,6 +210,7 @@ async function watchBuilds() {
 			records.push({ kind: "watch", ...r });
 			results.push(r);
 		}
+	if (!results.length) return;
 	console.log(`\nWatch rebuilds (${edits} edits per file; file write to the status line):\n`);
 	console.log("| project | build | initial | leaf edit (median, range ms) | hub edit (median, range ms) |");
 	console.log("| --- | --- | --- | --- | --- |");
