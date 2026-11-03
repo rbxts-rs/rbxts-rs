@@ -218,7 +218,8 @@ and maps Cargo's home and the target folder out of the binary's paths (`--remap-
 6. measure the release binary against stock roblox-ts with `node bench/release-bench.mjs <config.json>` (clean builds
    and watch rebuilds of a few projects, interleaved; the config names the projects and commands and stays out of
    the repo when a project is private) and record the tables under "Per release" in `bench/RESULTS.md`, with the
-   same projects as the previous release where possible.
+   same projects as the previous release where possible; the release notes get a short "Performance" line that
+   links there.
 
 The tool's header has the details. Steps 2 and 5 land after the tag, so the skeleton inside a tag's own tree pins the
 previous release.
