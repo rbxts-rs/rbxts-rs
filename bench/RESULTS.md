@@ -14,6 +14,23 @@ release step 6): clean builds (medians of 5 interleaved rounds; peak memory from
 and watch rebuilds (3 edits each of a leaf, a file no other imports, and of the most-imported file, the hub; time from
 the file write to the "Found 0 errors" line, debounce included). Default options (4 checkers).
 
+### v0.1.2 (rbxtsc 0.1.2), 2026-11-03
+
+The release zip's binary; the projects and stock pipelines of v0.1.1 below. A patch release (relative links reached
+through a junction): output identical to 0.1.1 on both projects, and rbxtsc-fw is still 0.1.0, so the Flamework rows
+were not run again. Machine shared with another session's builds (one 5 s lock wait).
+
+| project | build | wall | CPU | peak WS | peak commit | out files |
+| --- | --- | --- | --- | --- | --- | --- |
+| the real project (656 files) | stock, no plugin | 16.2 s (15.5-18.0) | 24.1 s | 630 MiB | 620 MiB | 667 |
+| the real project (656 files) | rbxtsc, no plugin | 1.05 s (0.95-1.31) | 2.72 s | 255 MiB | 533 MiB | 667 |
+| rbxts-rs template (3 files) | rbxtsc | 66 ms (65-69) | 78 ms | 40 MiB | 116 MiB | 3 |
+
+| project | build | initial | leaf edit, median (range) | hub edit, median (range) |
+| --- | --- | --- | --- | --- |
+| the real project (hub: 87 importers) | stock, no plugin | 19.0 s | 2.48 s (2.34-2.55) | 9.65 s (8.34-11.8) |
+| the real project | rbxtsc, no plugin | 1.43 s | 201 ms (191-305) | 537 ms (532-543) |
+
 ### v0.1.1 (rbxtsc 0.1.1, rbxtsc-fw 0.1.0), 2026-11-03
 
 The release zips' binaries. Stock: the real project with roblox-ts master and TypeScript 5.9 (its parity reference
