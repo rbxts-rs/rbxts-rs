@@ -16,7 +16,7 @@
 //                            its Cargo.lock at --ref is the lock the skeleton's is checked against, and its `origin`
 //                            remote names the release (below)
 //   --name                   the versioned zip's name prefix (default the repo name of --repo's `origin`, else its
-//                            folder name: rbxts-rs)
+//                            folder name), as `rbxts-rs` or `flamework-rs`
 //   --releases               the releases download URL (default https://github.com/<owner>/<repo>/releases/download
 //                            from --repo's `origin`, a GitHub https or ssh URL); the entry's url is
 //                            <releases>/v<version>/<versioned zip>
@@ -51,7 +51,9 @@
 //
 // The release order for a plugin repo, flamework-rs (its compiler skeleton is flamework-template's compiler/, with
 // the preset's `bin` rbxtsc-fw):
-//   1. push flamework-rs's tag v<version>; its Cargo.lock pins the rbxts-rs release it targets (git packages);
+//   1. push flamework-rs's tag v<version>; its Cargo.toml pins rbxts-rs's crates by the release's `tag = "v<x.y.z>"`
+//      (a tag, not a rev: Cargo counts `?tag=` and `?rev=` as different sources), and its Cargo.lock committed at the
+//      tag has them as git packages;
 //   2. in flamework-template's compiler/: Cargo.toml pins flamework-rs's crate by `tag = "v<version>"` and rbxts_cli
 //      by the rbxts-rs tag flamework-rs's lock has, the lock refreshed (`cargo update -p <crate>`; it must agree with
 //      flamework-rs's lock at the tag, rbxts-rs's crates included), preset.json's "version" <version> and "config"
@@ -203,10 +205,28 @@ export function lockPackages(text) {
 		const source = /^source = "(.*)"$/m.exec(block)?.[1];
 		if (!name || !source) continue;
 		const list = packages.get(name) ?? [];
-		list.push(`${version} ${source.replace(/#.*$/, "")}`);
+		list.push(`${version} ${source}`);
 		packages.set(name, list.sort());
 	}
 	return packages;
+}
+
+/**
+ * The skeleton lock's packages from the release repo (git sources whose URL is `repoUrl`) whose locked commit is not
+ * `commit`: the binary would be built from another commit than the one the tag (and the text files) name.
+ */
+export function lockedElsewhere(text, repoUrl, commit) {
+	const wrong = [];
+	for (const block of text.split("[[package]]").slice(1)) {
+		const name = /^name = "(.*)"$/m.exec(block)?.[1];
+		const source = /^source = "git\+(.*)"$/m.exec(block)?.[1];
+		if (!name || !source) continue;
+		const url = githubRepo(source.replace(/[?#].*$/, ""))?.url;
+		const locked = /#([0-9a-f]+)$/.exec(source)?.[1];
+		if (url !== repoUrl || !locked) continue;
+		if (!(commit.startsWith(locked) || locked.startsWith(commit))) wrong.push(`${name} at ${locked.slice(0, 12)}`);
+	}
+	return wrong;
 }
 
 /** The names of a Cargo.lock's path packages (no `source`: the workspace's own crates). */
@@ -354,6 +374,9 @@ export async function prepareRelease(options) {
 	const { configHash, hostTriple } = await import(pathToFileURL(path.join(skeleton, "rbxtsc.mjs")).href);
 	const cargoToml = fs.readFileSync(path.join(skeleton, "Cargo.toml"), "utf8");
 	const preset = JSON.parse(fs.readFileSync(path.join(skeleton, "preset.json"), "utf8"));
+	if (spawnSync("git", ["-C", options.repo, "rev-parse", "--show-toplevel"]).status !== 0) {
+		throw new Error(`${shown(options.repo)} (--repo) is not a git repository`);
+	}
 	const remote = spawnSync("git", ["-C", options.repo, "remote", "get-url", "origin"]).stdout?.toString().trim();
 	const github = githubRepo(remote);
 	let version, crate;
@@ -382,6 +405,13 @@ export async function prepareRelease(options) {
 	);
 	if (differences.length > 0) {
 		throw new Error(`${where}/Cargo.lock differs from ${name}'s lock at ${ref}:\n  ${differences.join("\n  ")}`);
+	}
+	const elsewhere = github ? lockedElsewhere(fs.readFileSync(path.join(skeleton, "Cargo.lock"), "utf8"), github.url, commit) : [];
+	if (elsewhere.length > 0) {
+		throw new Error(
+			`${where}/Cargo.lock locks ${elsewhere.join(", ")}, not ${ref} (${commit.slice(0, 12)}): a moved or local-only tag? ` +
+				`Fetch the pushed tag, refresh the lock (cargo update -p <crate>) and commit.`,
+		);
 	}
 	const triple = hostTriple();
 	const platform = PLATFORMS[triple] ?? triple;

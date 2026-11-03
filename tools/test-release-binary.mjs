@@ -15,6 +15,7 @@ import {
 	githubRepo,
 	gitDependencies,
 	lockDifferences,
+	lockedElsewhere,
 	parseArgs,
 	prepareRelease,
 	presetProblems,
@@ -96,9 +97,9 @@ const CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index";
 const repoLock = (rbxts = RBXTS) =>
 	lock(lockPackage("fake_fw", "0.1.0"), lockPackage("rbxts_cli", "0.1.1", rbxts), lockPackage("rbxts_plugin", "0.1.1", rbxts), lockPackage("serde", "1.0.200", CRATES_IO));
 // the skeleton's: everything from git or crates.io, the skeleton package itself a path package
-const skeletonLock = (rbxts = RBXTS) =>
+const skeletonLock = (rbxts = RBXTS, fw = FAKE_FW) =>
 	lock(
-		lockPackage("fake_fw", "0.1.0", FAKE_FW),
+		lockPackage("fake_fw", "0.1.0", fw),
 		lockPackage("rbxts_cli", "0.1.1", rbxts),
 		lockPackage("rbxts_plugin", "0.1.1", rbxts),
 		lockPackage("rbxtsc-fw", "0.0.0"),
@@ -174,15 +175,29 @@ try {
 		equal(lockDifferences(changed, workspace), [], "rbxts-rs's own crates are not compared with its workspace");
 	});
 
+	await test("lockedElsewhere: the release repo's crates locked at another commit than the ref's", () => {
+		const at = "1111111111111111111111111111111111111111";
+		equal(lockedElsewhere(skeletonLock(), "https://github.com/example/fake-fw", at), [], "locked at the ref's commit");
+		equal(lockedElsewhere(skeletonLock(), "https://github.com/example/fake-fw", "2".repeat(40)), ["fake_fw at 111111111111"], "another commit");
+		equal(lockedElsewhere(skeletonLock(), "https://github.com/rbxts-rs/rbxts-rs", "306c3e0c4bca"), [], "rbxts-rs at its tag, by a short commit");
+		equal(lockedElsewhere(skeletonLock(), "https://github.com/rbxts-rs/rbxts-rs", "0fa1528d8211"), ["rbxts_cli at 306c3e0c4bca", "rbxts_plugin at 306c3e0c4bca"], "rbxts-rs at another commit");
+	});
+
 	await test("lockDifferences: a plugin repo's lock with rbxts-rs's crates as git packages compares them too", () => {
 		equal(lockDifferences(skeletonLock(), repoLock()), [], "the same rbxts-rs tag");
 		equal(
 			lockDifferences(skeletonLock(RBXTS_OLD), repoLock()),
 			[
-				"rbxts_cli: 0.1.1 git+https://github.com/rbxts-rs/rbxts-rs?tag=v0.1.0, the repo's lock 0.1.1 git+https://github.com/rbxts-rs/rbxts-rs?tag=v0.1.1",
-				"rbxts_plugin: 0.1.1 git+https://github.com/rbxts-rs/rbxts-rs?tag=v0.1.0, the repo's lock 0.1.1 git+https://github.com/rbxts-rs/rbxts-rs?tag=v0.1.1",
+				`rbxts_cli: 0.1.1 ${RBXTS_OLD}, the repo's lock 0.1.1 ${RBXTS}`,
+				`rbxts_plugin: 0.1.1 ${RBXTS_OLD}, the repo's lock 0.1.1 ${RBXTS}`,
 			],
 			"another rbxts-rs tag",
+		);
+		const moved = RBXTS.replace(/#.*$/, "#0000000000000000000000000000000000000000");
+		equal(
+			lockDifferences(skeletonLock(moved), repoLock()).length,
+			2,
+			"the same tag at another commit (a moved tag) differs too",
 		);
 		const extra = skeletonLock() + "\n" + lockPackage("extra", "1.0.0", CRATES_IO);
 		equal(lockDifferences(extra, repoLock()), [`extra: 1.0.0 ${CRATES_IO} (not in the repo's lock)`], "a crate the repo does not have");
@@ -226,7 +241,7 @@ try {
 	for (const name of ["rbxtsc.mjs", "rust-toolchain.toml", ".cargo/config.toml", "src/main.rs"]) {
 		write(skeleton, { [name]: fs.readFileSync(path.join(SKELETON, name)) });
 	}
-	write(skeleton, { "Cargo.toml": FW_TOML, "Cargo.lock": skeletonLock() });
+	write(skeleton, { "Cargo.toml": FW_TOML, "Cargo.lock": skeletonLock(RBXTS, FAKE_FW.replace(/#.*$/, `#${tagCommit}`)) });
 	const hash = launcher.configHash(skeleton);
 	write(skeleton, { "preset.json": JSON.stringify({ bin: "rbxtsc-fw", version: "0.1.0", config: hash, binaries: {} }, null, "\t") + "\n" });
 	write(template, { "package.json": "{}\n" });
@@ -259,7 +274,7 @@ try {
 	});
 
 	await test("prepareRelease: the lock is checked against the repo's at the ref, rbxts-rs's git packages included", async () => {
-		const message = await rejects(prepareRelease(fw("--ref", "main")), /Cargo\.lock differs from fake-fw's lock at main:\n {2}rbxts_cli: .*tag=v0\.1\.1, the repo's lock .*tag=v0\.1\.0/, "the newer commit's lock");
+		const message = await rejects(prepareRelease(fw("--ref", "main")), /Cargo\.lock differs from fake-fw's lock at main:\n {2}rbxts_cli: .*tag=v0\.1\.1#306c3e0c\w+, the repo's lock .*tag=v0\.1\.0#0fa1528d\w+/, "the newer commit's lock");
 		assert(message.startsWith(`${skeleton.replaceAll("\\", "/")}/Cargo.lock`), "names the skeleton", message);
 	});
 
@@ -272,6 +287,11 @@ try {
 		const plan = await prepareRelease(fw("--allow-dirty", "--allow-preset-mismatch"));
 		assert(plan.problems.length === 1 && plan.problems[0].startsWith('"config"'), "a test build", plan.problems.join("\n"));
 		fs.rmSync(path.join(skeleton, "src", "extra.rs"));
+	});
+
+	await test("prepareRelease: a --repo that is not a git repository says so", async () => {
+		const missing = path.join(ROOT, "no-such-repo");
+		await rejects(prepareRelease(parseArgs(["--skeleton", skeleton, "--repo", missing])), /no-such-repo \(--repo\) is not a git repository/, "a mistyped --repo");
 	});
 
 	await test("prepareRelease: an origin that is not GitHub needs --releases and a name", async () => {
