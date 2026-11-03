@@ -7,6 +7,40 @@ Roblox player and other builds share the machine and move wall times by 2-3x.
 Peak memory on Windows is the peak working set (`PeakWorkingSetSize`; Node's `process.resourceUsage().maxRSS` reports
 the same counter, via `bench/maxrss.cjs`). Peak commit (private bytes) is given where known.
 
+## Per release
+
+Each release's binary against the stock roblox-ts pipeline, by `node bench/release-bench.mjs <config.json>` (README,
+release step 6): clean builds (medians of 5 interleaved rounds; peak memory from the process handle, bench/measure.cs)
+and watch rebuilds (3 edits each of a leaf, a file no other imports, and of the most-imported file, the hub; time from
+the file write to the "Found 0 errors" line, debounce included). Default options (4 checkers).
+
+### v0.1.1 (rbxtsc 0.1.1, rbxtsc-fw 0.1.0), 2026-11-03
+
+The release zips' binaries. Stock: the real project with roblox-ts master and TypeScript 5.9 (its parity reference
+pipeline), Flamework `tests/place` with roblox-ts 3.0.0 (TypeScript 5.5.3); Flamework 2.0.0-beta.1 from the packed npm
+tarballs; rbxtsc-fw builds the projects' TypeScript 7 tsconfig variants (`tests/place` with the rbxts-rs
+compiler-types release). Machine about 25% busy.
+
+| project | build | wall | CPU | peak WS | peak commit | out files |
+| --- | --- | --- | --- | --- | --- | --- |
+| the real project (656 files) | stock, Flamework | 29.5 s (28.4-30.4) | 43.0 s | 1390 MiB | 1398 MiB | 667 |
+| the real project (656 files) | rbxtsc-fw | 1.28 s (1.20-1.34) | 3.45 s | 284 MiB | 587 MiB | 667 |
+| the real project (656 files) | stock, no plugin | 15.5 s (15.3-17.4) | 23.7 s | 629 MiB | 619 MiB | 667 |
+| the real project (656 files) | rbxtsc, no plugin | 1.03 s (0.99-1.58) | 2.64 s | 255 MiB | 534 MiB | 667 |
+| Flamework `tests/place` (57 files) | stock, Flamework | 7.76 s (7.66-8.06) | 13.3 s | 550 MiB | 538 MiB | 58 |
+| Flamework `tests/place` (57 files) | rbxtsc-fw | 344 ms (336-362) | 562 ms | 99 MiB | 246 MiB | 58 |
+| rbxts-rs template (3 files) | rbxtsc | 67 ms (64-70) | 78 ms | 40 MiB | 116 MiB | 3 |
+
+The template's `node compiler/rbxtsc.mjs build` (the launcher, then the binary) took 130-171 ms in an earlier run the
+same day.
+
+| project | build | initial | leaf edit, median (range) | hub edit, median (range) |
+| --- | --- | --- | --- | --- |
+| the real project (hub: 87 importers) | stock, Flamework | 33.3 s | 2.67 s (2.43-2.91) | 14.6 s (13.4-15.4) |
+| the real project | rbxtsc-fw | 1.72 s | 238 ms (234-325) | 698 ms (671-710) |
+| Flamework `tests/place` (hub: 13 importers) | stock, Flamework | 7.92 s | 1.38 s (1.35-1.41) | 3.24 s (2.95-3.37) |
+| Flamework `tests/place` | rbxtsc-fw | 394 ms | 158 ms (156-159) | 217 ms (216-217) |
+
 ## Reference: the stock TypeScript 5 pipeline (the real project, 605 project files, 886 in the program)
 
 | date | what | wall | peak WS | parity | load |
