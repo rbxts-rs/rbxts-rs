@@ -278,11 +278,13 @@ fn a_tsconfig_without_types_gets_the_line_to_add() {
     assert!(root.path().join("out/init.luau").is_file());
 }
 
-/// The tsconfig's `"pretty"` decides the layout over the environment and the terminal, as tsc's `shouldBePretty`:
-/// `true` prints pretty through a pipe and with `NO_COLOR`, `false` prints plain with `FORCE_COLOR=1`. Without it the
-/// environment decides as before (`FORCE_COLOR=1` pretty, a pipe plain).
+/// The tsconfig's `"pretty"` decides only whether the error summary is printed, as in tsc 7.1 (its diagnostic reporter
+/// is built from the command line's options, its summary reporter from the tsconfig's): `true` adds the summary to
+/// plain diagnostics through a pipe and with `NO_COLOR` or `FORCE_COLOR=0`, `false` leaves it out of pretty diagnostics
+/// with `FORCE_COLOR=1`. The diagnostics follow the environment and the terminal alone, and without the option the
+/// summary follows them too (`FORCE_COLOR=1` pretty with the summary, a pipe plain without).
 #[test]
-fn the_tsconfig_pretty_option_wins_over_the_environment() {
+fn the_tsconfig_pretty_option_decides_the_error_summary() {
     let Some(node_modules) = node_modules_or_skip("cli::the_tsconfig_pretty_option") else { return };
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/diagnostics_pretty");
     // a copy of its own (diagnostics_as_expected's would be the one the other test of the fixture uses)
@@ -294,6 +296,11 @@ fn the_tsconfig_pretty_option_wins_over_the_environment() {
     root.link("node_modules", &node_modules);
     let pretty = std::fs::read_to_string(fixture.join("expected-stdout.txt")).unwrap();
     let plain = std::fs::read_to_string(fixture.join("expected-plain.txt")).unwrap();
+    // tsc's error summary, from the line break before "Found"
+    let summary = &pretty[pretty.find("
+Found ").unwrap()..];
+    let pretty_alone = pretty.strip_suffix(summary).unwrap().to_owned();
+    let plain_summary = format!("{plain}{summary}");
     let tsconfig = std::fs::read_to_string(root.path().join("tsconfig.json")).unwrap();
     let build = |option: Option<bool>, env: &[(&str, &str)]| {
         let text = match option {
@@ -313,18 +320,17 @@ fn the_tsconfig_pretty_option_wins_over_the_environment() {
         let output = command.output().unwrap();
         (output.status.code(), String::from_utf8_lossy(&output.stdout).into_owned())
     };
-    // (tsconfig, environment, pretty)
-    type Case<'a> = (Option<bool>, &'a [(&'a str, &'a str)], bool);
+    // (tsconfig, environment, stdout)
+    type Case<'a> = (Option<bool>, &'a [(&'a str, &'a str)], &'a String);
     let cases: [Case<'_>; 6] = [
-        (Some(true), &[], true),
-        (Some(true), &[("NO_COLOR", "1")], true),
-        (Some(true), &[("FORCE_COLOR", "0")], true),
-        (Some(false), &[("FORCE_COLOR", "1")], false),
-        (None, &[("FORCE_COLOR", "1")], true),
-        (None, &[], false),
+        (Some(true), &[], &plain_summary),
+        (Some(true), &[("NO_COLOR", "1")], &plain_summary),
+        (Some(true), &[("FORCE_COLOR", "0")], &plain_summary),
+        (Some(false), &[("FORCE_COLOR", "1")], &pretty_alone),
+        (None, &[("FORCE_COLOR", "1")], &pretty),
+        (None, &[], &plain),
     ];
-    for (option, env, expect_pretty) in cases {
-        let expected = if expect_pretty { &pretty } else { &plain };
+    for (option, env, expected) in cases {
         assert_eq!(build(option, env), (Some(1), expected.clone()), "pretty {option:?}, environment {env:?}");
     }
 }

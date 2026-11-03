@@ -272,8 +272,9 @@ pub struct CompileReport {
     /// found, then a line feed.
     pub thrown: bool,
     /// The tsconfig's `compilerOptions.pretty`, when it sets it (with project references, the root's): rbxtsc prints
-    /// pretty or plain as it says, whatever the environment and the terminal (tsc's `shouldBePretty`). `None` when
-    /// the tsconfig could not be read.
+    /// tsc's error summary or not as it says, whatever the environment and the terminal (tsc's `shouldBePretty` over
+    /// the tsconfig's options; the diagnostics themselves follow the environment alone, as tsc's). `None` when the
+    /// tsconfig could not be read.
     pub pretty: Option<bool>,
 }
 

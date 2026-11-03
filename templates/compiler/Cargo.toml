@@ -2,8 +2,8 @@
 # (`node compiler/rbxtsc.mjs`) runs it, after downloading the matching prebuilt binary or building it; README.md.
 #
 # Exact versions only: dependencies name a git tag (or rev) or an `=` version, never a branch or a range, and
-# Cargo.lock is committed. Any change to this file, Cargo.lock, rust-toolchain.toml or src/ changes the config hash,
-# and a changed config is built with Rust instead of downloaded (README.md, "The config hash").
+# Cargo.lock is committed. Any change to this file, Cargo.lock, rust-toolchain.toml, .cargo/config.toml or src/ changes
+# the config hash, and a changed config is built with Rust instead of downloaded (README.md, "The config hash").
 [package]
 name = "rbxtsc"
 version = "0.0.0"

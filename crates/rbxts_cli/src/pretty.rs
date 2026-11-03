@@ -57,12 +57,10 @@ pub fn format_reported(diagnostic: P<Diagnostic>, format: &Format<'_>) -> String
     code_slot(out, diagnostic, format, &format!("{} TS", diagnostic.category().name()))
 }
 
-/// The error summary tsgo prints after the diagnostics (`WriteErrorSummaryText`), pretty output only: empty without
-/// errors or for plain output.
+/// The error summary tsgo prints after the diagnostics (`WriteErrorSummaryText`), in colour, whether the diagnostics
+/// before it are pretty or plain (tsc prints it when its tsconfig-aware `shouldBePretty` says so): empty without
+/// errors.
 pub fn error_summary(diagnostics: &[P<Diagnostic>], format: &Format<'_>) -> String {
-    if !format.pretty {
-        return String::new();
-    }
     let mut out = Vec::new();
     write_error_summary_text(&mut out, diagnostics, &format.options);
     String::from_utf8(out).expect("the summary is UTF-8")

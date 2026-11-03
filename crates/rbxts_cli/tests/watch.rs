@@ -1153,11 +1153,12 @@ fn outputs_changed_by_hand_are_written_again() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-/// The tsconfig's `"pretty"` in watch mode, with stdout a pipe (plain without it): `true` makes the status lines and
-/// the diagnostics pretty from the first status line on, and after the tsconfig changes to `false` the rebuild that
-/// reads it prints them plain.
+/// The tsconfig's `"pretty"` in watch mode, with stdout a pipe (plain without it), as in tsc 7.1: `true` colours the
+/// status lines from the first on, and they stay coloured after the tsconfig changes to `false` (tsc builds its watch
+/// status reporter once); the diagnostics stay plain throughout, as the environment says (tsc's diagnostic reporter
+/// reads the command line's options only).
 #[test]
-fn the_tsconfig_pretty_option_holds_in_watch_mode_and_after_a_config_reload() {
+fn the_tsconfig_pretty_option_colours_the_watch_status_lines_once() {
     let node_modules = rbxts_test_support::node_modules().unwrap_or_default();
     if !node_modules.join("@rbxts").join("compiler-types").is_dir() {
         rbxts_test_support::skip(module_path!(), "no node_modules with the roblox-ts tests' packages");
@@ -1217,12 +1218,15 @@ fn the_tsconfig_pretty_option_holds_in_watch_mode_and_after_a_config_reload() {
     let escape = |line: &String| line.contains('\u{1b}');
     let first = until_watching();
     assert!(first[0].contains("Starting compilation in watch mode...") && escape(&first[0]), "{first:#?}");
-    assert!(first.iter().any(|l| l.contains("sizee") && escape(l)), "the diagnostic is pretty: {first:#?}");
+    assert!(first.iter().any(|l| l.contains("sizee") && !escape(l)), "the diagnostic is plain: {first:#?}");
     assert!(escape(first.last().unwrap()), "{first:#?}");
+    // no error summary in watch mode, whose status line counts the errors
+    assert!(!first.iter().any(|l| l.starts_with("Found ")), "{first:#?}");
 
     std::fs::write(root.join("tsconfig.json"), with_pretty(false)).unwrap();
     let second = until_watching();
     assert!(second.iter().any(|l| l.contains("sizee") && !escape(l)), "the diagnostic is plain: {second:#?}");
-    assert!(!escape(second.last().unwrap()), "{second:#?}");
+    let change = second.iter().find(|l| l.contains("File change detected.")).expect("a change status line");
+    assert!(escape(change) && escape(second.last().unwrap()), "the status lines stay coloured: {second:#?}");
     drop(watcher);
 }

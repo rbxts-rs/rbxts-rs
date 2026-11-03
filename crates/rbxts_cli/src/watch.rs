@@ -92,6 +92,8 @@ const CHILD_ENV: &str = "RBXTS_WATCH_CHILD";
 const GENERATION_ENV: &str = "RBXTS_WATCH_GENERATION";
 /// Where a child that asks for a restart leaves its last generation.
 const GENERATION_FILE_ENV: &str = "RBXTS_WATCH_GENERATION_FILE";
+/// Whether the status lines are coloured (`1`) or not, as the supervisor decided it: a restarted child keeps it.
+const STATUS_PRETTY_ENV: &str = "RBXTS_WATCH_STATUS_PRETTY";
 const DEBOUNCE: Duration = Duration::from_millis(100);
 /// `RBXTS_WATCH_DEBUG` set: the watched directories and every raw event go to stderr.
 fn debug() -> bool {
@@ -108,11 +110,15 @@ fn time_now() -> String {
     crate::locale_time::now()
 }
 
-/// A watch status line, as TypeScript's watch status reporter prints it: the time grey only when the output is pretty
-/// ([`crate::pretty_output`]: the tsconfig's `pretty` as the last build read it, else the terminal), so piped watch
-/// output carries no escape codes.
+/// Whether the status lines are coloured, decided once when watch mode starts, as tsc builds its watch status reporter
+/// once: the tsconfig's `pretty` when it sets it, else the environment and the terminal ([`crate::should_be_pretty`]).
+/// A rebuild after the tsconfig changed does not change it.
+static STATUS_PRETTY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// A watch status line, in roblox-ts's layout (`[time] message`): the time grey only when the status lines are
+/// coloured ([`STATUS_PRETTY`]), so piped watch output without a tsconfig `"pretty": true` carries no escape codes.
 fn status(message: &str) {
-    if crate::pretty_output() {
+    if STATUS_PRETTY.get().copied().unwrap_or_else(crate::pretty_output) {
         println!("[\u{1b}[90m{}\u{1b}[0m] {message}", time_now());
     } else {
         println!("[{}] {message}", time_now());
@@ -142,8 +148,11 @@ pub fn run(
     options: CompileOptions,
     cwd: &str,
 ) -> u8 {
-    // the status lines before the first build follow the tsconfig's `pretty` too
-    crate::hint_tsconfig_pretty(&options.tsconfig);
+    let status_pretty = match std::env::var(STATUS_PRETTY_ENV) {
+        Ok(value) if std::env::var(CHILD_ENV).is_ok() => value == "1",
+        _ => crate::should_be_pretty(rbxts_project::setup::read_tsconfig_pretty(&options.tsconfig)),
+    };
+    let _ = STATUS_PRETTY.set(status_pretty);
     if std::env::var(CHILD_ENV).is_err() && memory_limit().is_some() {
         return supervise();
     }
@@ -182,6 +191,7 @@ fn supervise() -> u8 {
             .env(CHILD_ENV, "1")
             .env(GENERATION_ENV, generation.to_string())
             .env(GENERATION_FILE_ENV, &generation_file)
+            .env(STATUS_PRETTY_ENV, if STATUS_PRETTY.get() == Some(&true) { "1" } else { "0" })
             .stdin(std::process::Stdio::piped())
             .spawn();
         let status = child.and_then(|mut child| {

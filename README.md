@@ -252,8 +252,9 @@ follows TypeScript 7.1"). A project made by `npx rbxtsc init` needs these change
   `node_modules/@rbxts/compiler-types/types/Iterable.d.ts` as described under "Build, test and measure".
 
 rbxtsc prints errors in TypeScript 7's layout: pretty (colours, code frames, a summary) on a terminal, and plain
-`file(line,col): error TSnnnn: message` lines when piped or with `NO_COLOR` (`FORCE_COLOR` overrides), as `tsc` does;
-the tsconfig's `"pretty": true` or `false` overrides both.
+`file(line,col): error TSnnnn: message` lines when piped or with `NO_COLOR` (`FORCE_COLOR` overrides), as `tsc` does.
+As in `tsc` 7.1, the tsconfig's `"pretty"` decides only the summary and the colour of the watch status lines:
+`true` adds the summary to plain errors, `false` leaves it out of pretty ones.
 
 The template's tsconfig, adapted (it builds with `@rbxts/services`, `@rbxts/t`, `@rbxts/react` and
 `@rbxts/react-roblox` imported):

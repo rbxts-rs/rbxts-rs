@@ -364,6 +364,23 @@ fn read_tsconfig_plugins_rec(config_path: &str, depth: usize) -> Result<Option<V
     Ok(found)
 }
 
+/// The tsconfig's `compilerOptions.pretty`: the config's own, else that of the last config it extends that sets it
+/// (TypeScript's option merge). `None` when none sets it, or a config cannot be read (the build then reports it).
+pub fn read_tsconfig_pretty(config_path: &str) -> Option<bool> {
+    fn read(config_path: &str, depth: usize) -> Option<bool> {
+        if depth > 64 {
+            return None;
+        }
+        let config = read_config_json(config_path).ok()?;
+        if let Some(pretty) = config.get("compilerOptions").and_then(|options| options.get("pretty")) {
+            return pretty.as_bool();
+        }
+        let extended = get_extended_config_paths(config_path, config.get("extends")).ok()?;
+        extended.iter().rev().find_map(|extended| read(extended, depth + 1))
+    }
+    read(config_path, 0)
+}
+
 /// The result of reading the `rbxts` sections of a tsconfig and the configs it extends.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RbxtsConfig {

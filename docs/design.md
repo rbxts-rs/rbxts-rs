@@ -175,14 +175,17 @@ From the tsrs source (first at v0.18.0; `docs/tsrs.md` covers the later versions
 - **Printed layout.** `rbxtsc` prints every diagnostic (checker, tsconfig, roblox-ts's own, plugins') in TypeScript
   7.1's layout, through tsrs's writer (`tsrs_compiler::diagnosticwriter`, tsgo's `FormatDiagnosticsWithColorAndContext`
   and `WriteErrorSummaryText`; `rbxts_cli/src/pretty.rs`), not TypeScript 5's as roblox-ts does. Pretty, as `tsc`
-  decides it (the tsconfig's `pretty` when set, also after a watch rebuild read a changed tsconfig; else
-  `FORCE_COLOR`, else not with `NO_COLOR` or `TERM=dumb`, else when stdout is a terminal): a code frame,
+  decides it for diagnostics (from the environment alone, as tsc's diagnostic reporter reads only the command line's
+  options: `FORCE_COLOR`, else not with `NO_COLOR` or `TERM=dumb`, else when stdout is a terminal): a code frame,
   related information as `  file:line:col - message` with its own frame, an empty span underlining the character after
-  it, then "Found N errors in M files." and a table of the files (not in watch mode, whose status line counts them).
-  Plain otherwise: `file(line,col): error TS2322: message` lines only, no related information and no summary. Lines
+  it. Plain otherwise: `file(line,col): error TS2322: message` lines only, no related information. Then, not in watch
+  mode (whose status line counts the errors), "Found N errors in M files." and a table of the files, in colour, when
+  tsc's `shouldBePretty` over the tsconfig's options says so: the tsconfig's `pretty` when it sets it (`true` adds
+  the summary to plain diagnostics, `false` leaves it out of pretty ones), else as the diagnostics. Lines
   end with `\n` on every OS. roblox-ts's and plugins' own diagnostics keep their codes and texts in the code slot
   (`TS roblox-ts`, a plugin's source or code), which tsrs's writer would print as `TS-1`. Watch mode's status lines
-  keep roblox-ts's layout (§14). The tsconfig's `pretty` option is not read.
+  keep roblox-ts's layout (§14), the time grey when the same `shouldBePretty` says so, decided once when watch mode
+  starts as tsc builds its status reporter once: a rebuild after the tsconfig's `pretty` changed keeps it.
 
 ## 8. Measurement protocol
 
