@@ -99,14 +99,14 @@ fn key(text: &str, case_sensitive: bool) -> String {
 
 /// Lists a directory as the check sees it.
 fn list(dir: &str, case_sensitive: bool) -> View {
-    let read = std::fs::read_dir(dir).ok()?;
+    let read = crate::links::read_dir(std::path::Path::new(dir)).ok()?;
     let mut entries = HashMap::new();
     for entry in read {
         let Ok(entry) = entry else { return None };
         let name = entry.file_name().to_string_lossy().into_owned();
         let Ok(own) = entry.file_type() else { continue };
         let link = own.is_symlink();
-        let kind = if link { std::fs::metadata(entry.path()).map(|m| m.file_type()) } else { Ok(own) };
+        let kind = if link { crate::links::metadata(&entry.path()).map(|m| m.file_type()) } else { Ok(own) };
         let (kind, exists) = match kind {
             Ok(t) if t.is_dir() => (EntryKind::Dir, true),
             Ok(t) if t.is_file() => (EntryKind::File, true),

@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
@@ -406,7 +406,7 @@ fn read_dir_names(dir: &str) -> Result<Vec<String>, RojoError> {
 }
 
 fn read_dir_entries(dir: &str) -> Result<Vec<(String, fs::DirEntry)>, RojoError> {
-    let read = fs::read_dir(dir).map_err(|e| {
+    let read = crate::links::read_dir(Path::new(dir)).map_err(|e| {
         recorded::not_listed(dir);
         io_error("cannot read directory", dir, &e)
     })?;
@@ -439,7 +439,7 @@ fn entry_kind(entry: &fs::DirEntry, directory: &str, name: &str) -> Result<(Kind
     let is_link = own_type.is_symlink();
     let file_type = if is_link {
         // A broken link makes the package's realpathSync throw.
-        fs::metadata(entry.path()).map_err(|e| io_error("cannot resolve link", &spelled(), &e))?.file_type()
+        crate::links::metadata(&entry.path()).map_err(|e| io_error("cannot resolve link", &spelled(), &e))?.file_type()
     } else {
         own_type
     };
@@ -646,10 +646,10 @@ impl Builder {
     /// A linked directory that leads back to a directory being searched would recurse forever in the package
     /// (until the stack overflows, which roblox-ts reports as an unreadable project). Report it instead.
     fn check_link_cycle(&mut self, child_path: &str) -> Result<(), RojoError> {
-        let Ok(target) = fs::canonicalize(child_path) else { return Ok(()) };
+        let Ok(target) = crate::links::real_path(Path::new(child_path)) else { return Ok(()) };
         for (path, canonical) in &mut self.search_stack {
             if canonical.is_none() {
-                *canonical = fs::canonicalize(&*path).ok();
+                *canonical = crate::links::real_path(Path::new(&*path)).ok();
             }
             if canonical.as_deref() == Some(target.as_path()) {
                 return Err(RojoError(format!("symbolic link cycle at \"{child_path}\"")));

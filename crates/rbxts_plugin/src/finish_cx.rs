@@ -228,11 +228,11 @@ fn read_path<B: FinishBackend + ?Sized>(backend: &B, path: &Path) -> PathBuf {
 
 /// The default [`FinishBackend::read_dir`].
 fn read_dir_now(path: &Path) -> Option<Vec<DirEntry>> {
-    let read = std::fs::read_dir(path).ok()?;
+    let read = rbxts_project::links::read_dir(path).ok()?;
     let mut entries: Vec<DirEntry> = read
         .filter_map(Result::ok)
         .map(|entry| {
-            let kind = match std::fs::metadata(entry.path()) {
+            let kind = match rbxts_project::links::metadata(&entry.path()) {
                 Ok(m) if m.is_dir() => EntryKind::Directory,
                 Ok(m) if m.is_file() => EntryKind::File,
                 _ => EntryKind::Other,

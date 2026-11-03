@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 pub mod graph;
+pub mod links;
 pub mod nodepath;
 pub mod packages;
 pub mod path_translator;

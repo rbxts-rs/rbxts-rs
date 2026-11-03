@@ -248,7 +248,7 @@ pub mod recorded {
     pub fn entry_kind(entry: &fs::DirEntry) -> (EntryKind, bool) {
         let Ok(own) = entry.file_type() else { return (EntryKind::Other, false) };
         let link = own.is_symlink();
-        let kind = if link { fs::metadata(entry.path()).map(|m| m.file_type()) } else { Ok(own) };
+        let kind = if link { crate::links::metadata(&entry.path()).map(|m| m.file_type()) } else { Ok(own) };
         let kind = match kind {
             Ok(t) if t.is_dir() => EntryKind::Dir,
             Ok(t) if t.is_file() => EntryKind::File,
