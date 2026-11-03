@@ -585,7 +585,7 @@ dependencies = [
 
 [[package]]
 name = "rbxts_bench"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mimalloc-safe",
  "rbxts_luau",
@@ -603,7 +603,7 @@ dependencies = [
 
 [[package]]
 name = "rbxts_cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "memory-stats",
@@ -624,11 +624,11 @@ dependencies = [
 
 [[package]]
 name = "rbxts_luau"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "rbxts_luau_check"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cc",
  "luau0-src",
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "rbxts_plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rbxts_luau",
  "rbxts_project",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "rbxts_probe"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mimalloc-safe",
  "rbxts_project",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "rbxts_project"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
  "tsrs_ast",
@@ -680,7 +680,7 @@ dependencies = [
 
 [[package]]
 name = "rbxts_test_plugins"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rbxts_luau",
  "rbxts_plugin",
@@ -691,11 +691,11 @@ dependencies = [
 
 [[package]]
 name = "rbxts_test_support"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "rbxts_transform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rbxts_luau",
  "rbxts_luau_check",
