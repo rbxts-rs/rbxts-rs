@@ -2,5 +2,10 @@
 	"bin": "rbxtsc",
 	"version": "0.1.2",
 	"config": "02ca956a086de8704b98aea6abe31b000b4e6d80c6fd5ea883ab28fb98d907b0",
-	"binaries": {}
+	"binaries": {
+		"x86_64-pc-windows-msvc": {
+			"url": "https://github.com/rbxts-rs/rbxts-rs/releases/download/v0.1.2/rbxts-rs-0.1.2-windows-x64.zip",
+			"sha256": "1cc0c8c802ec1344d2a87f49ad41d060235d525f6af272cfb40b0cafaa9b941f"
+		}
+	}
 }
