@@ -81,7 +81,8 @@ machine load moves wall times.
 - `templates/compiler`: the per-project compiler package and its launcher, which templates copy ("A project's own
   compiler" below).
 - `docs`: the design and the tsrs notes; `bench`: measurements; `tools`: Node scripts that record stock roblox-ts's
-  answers for the fixtures, the release tool (`release-binary.mjs`) and the launcher's tests (`test-launcher.mjs`).
+  answers for the fixtures, the release tool (`release-binary.mjs`) and its tests (`test-release-binary.mjs`), and
+  the launcher's tests (`test-launcher.mjs`).
 
 ## Plugins: writing one and compiling it in
 
@@ -217,6 +218,14 @@ and maps Cargo's home and the target folder out of the binary's paths (`--remap-
 
 The tool's header has the details. Steps 2 and 5 land after the tag, so the skeleton inside a tag's own tree pins the
 previous release.
+
+The same tool builds a plugin repo's release from its project's skeleton, flamework-rs's from flamework-template's
+`compiler/`: `node tools/release-binary.mjs --skeleton <template>/compiler --repo <plugin repo>`. The text files and the
+lock it checks come from `--repo` at `v<version>`, the version is the tag of the skeleton's dependency on that repo
+(its git URL is the repo's `origin`; `--version-crate` names another), and the zips are
+`<repo>-<version>-<platform>.zip` and `<bin>-<platform>.zip` (`flamework-rs-0.1.0-windows-x64.zip`,
+`rbxtsc-fw-windows-x64.zip`), with the url under the `origin`'s GitHub releases (`--name` and `--releases` override
+them). The lock check then compares rbxts-rs's crates too: git packages on both sides.
 
 ## The tsrs fork
 
