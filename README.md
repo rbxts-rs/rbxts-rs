@@ -375,8 +375,8 @@ them into temporaries. rbxts-rs also tests the real path of `node_modules/@rbxts
 Windows resolves a relative symbolic link against the path it was reached by, so a relative link inside a folder
 reached through a junction (bun's links in a workspace package that a project links with a junction) points nowhere
 for the system. roblox-ts's Rojo resolver resolves it as Node's JavaScript `fs.realpathSync` does, against the link's
-real folder, and so does rbxts-rs (`rbxts_project::links`), for the Rojo walk, its watch-mode checks and plugins'
-folder listings.
+real folder, and so does rbxts-rs (`rbxts_project::links`), for the Rojo walk, plugins' folder listings and watch
+mode, which watches such a folder at its real path and maps its events back.
 
 **Deliberate differences from stock (roblox-ts bugs fixed).** In outputs, the fixes the divergence manifest names
 (`crates/rbxts_bench/parity/divergences.json`, each with its description; the `stockfix` fixture). In diagnostics,

@@ -1018,9 +1018,26 @@ struct Subscriptions {
     failed: FxHashSet<(String, bool)>,
     /// The paths the last update reported as changed before their directory was watched.
     last_stale: FxHashSet<String>,
+    /// Wanted directories watched at their real path (spelled path, real path): the system cannot reach them by the
+    /// spelled one (a relative link inside a folder reached through a junction, `rbxts_project::links`).
+    aliases: FxHashMap<String, String>,
 }
 
 impl Subscriptions {
+    /// An event's path under an alias's real path, spelled as the build spells it.
+    fn spelled(&self, path: String) -> String {
+        if self.aliases.is_empty() {
+            return path;
+        }
+        let k = key(&path);
+        for (dir, real) in &self.aliases {
+            if is_under(&k, &key(real)) && path.len() >= real.len() {
+                return format!("{dir}{}", &path[real.len()..]);
+            }
+        }
+        path
+    }
+
     /// Watches what `watched` lists. Returns the paths in the directories it starts watching that changed since
     /// `since` (the build's start) and matter: a write between the program load and the new watch (a package
     /// folder filled during the build that its creation started, a `watch_dir` root) raised no event here, so
@@ -1034,7 +1051,15 @@ impl Subscriptions {
             .iter()
             .map(|d| (d.clone(), true))
             .chain(watched.flat.iter().map(|d| (d.clone(), false)))
-            .partition(|(d, _)| Path::new(d).is_dir());
+            .partition(|(d, _)| {
+                Path::new(d).is_dir() || {
+                    let real = linked_dir(d);
+                    if let Some(real) = &real {
+                        self.aliases.insert(d.clone(), real.clone());
+                    }
+                    real.is_some()
+                }
+            });
         // a directory the build found that is gone already (removed in between: its removal raised no event here)
         // starts a rebuild, once
         let missing: FxHashSet<String> = missing.into_iter().map(|(d, _)| d).collect();
@@ -1046,13 +1071,13 @@ impl Subscriptions {
         // update: a project whose plugin probes every program directory covers a thousand of them.
         let mut exists: FxHashMap<String, bool> = FxHashMap::default();
         let mut covered = |dir: &str| {
-            watched.covered.contains(dir) && *exists.entry(dir.to_owned()).or_insert_with(|| Path::new(dir).is_dir())
+            watched.covered.contains(dir) && *exists.entry(dir.to_owned()).or_insert_with(|| dir_exists(dir))
         };
         // every watch no longer wanted at all goes first: notify keeps one watch per path, so an unwatch after a new
         // watch of the same path would remove that one
         for watch @ (dir, recursive) in &self.active {
             if !wanted.contains(watch) && !(!recursive && covered(dir)) {
-                let _ = self.watcher.unwatch(Path::new(dir));
+                let _ = self.watcher.unwatch(Path::new(watch_path(&self.aliases, dir)));
             }
         }
         let mut active: FxHashSet<Watch> = FxHashSet::default();
@@ -1073,7 +1098,7 @@ impl Subscriptions {
                         }
                     } else if self.active.contains(&watch) && !roots.contains(&key(dir)) && covered(dir) {
                         // covered again by a recursive watch above it (one of the same path replaced it already)
-                        let _ = self.watcher.unwatch(Path::new(dir));
+                        let _ = self.watcher.unwatch(Path::new(watch_path(&self.aliases, dir)));
                     }
                 }
             }
@@ -1090,7 +1115,7 @@ impl Subscriptions {
                 // not, and again when a failed one is made at last (not at every failed retry: a read the disk
                 // contradicts for good, such as a folder that cannot be listed, would start a rebuild each time)
                 let retry = self.failed.contains(watch);
-                let made = match self.watcher.watch(Path::new(dir), mode) {
+                let made = match self.watcher.watch(Path::new(watch_path(&self.aliases, dir)), mode) {
                     Ok(()) => {
                         self.failed.remove(watch);
                         active.insert(watch.clone());
@@ -1114,6 +1139,8 @@ impl Subscriptions {
         }
         self.failed.retain(|w| wanted.contains(w));
         self.active = active;
+        let active = &self.active;
+        self.aliases.retain(|dir, _| active.contains(&(dir.clone(), true)) || active.contains(&(dir.clone(), false)));
         stale.sort();
         stale.dedup();
         // a path the last update reported, reported again with no event in between, is a read the disk contradicts
@@ -1202,7 +1229,7 @@ impl<'a> Scan<'a> {
             }
             return;
         }
-        let Ok(metadata) = std::fs::metadata(dir) else { return };
+        let Ok(metadata) = rbxts_project::links::metadata(dir) else { return };
         // the directory itself is new since the build started (not one the build made for its outputs)
         if metadata.created().is_ok_and(|t| t >= self.since) {
             if !holds_only_own(dir, self.own) {
@@ -1216,7 +1243,7 @@ impl<'a> Scan<'a> {
         // what the load read here: a file or directory there or not, as it was (a directory the build made for its
         // own outputs since, such as the include folder the load's Rojo setup found missing, is its own write)
         for (path, seen) in self.reads.get(&k).into_iter().flatten() {
-            let metadata = std::fs::metadata(path);
+            let metadata = rbxts_project::links::metadata(Path::new(path));
             let (is_file, is_dir) = metadata.map_or((false, false), |m| (m.is_file(), m.is_dir()));
             if seen.contradicted(is_file, is_dir) && !(is_dir && holds_only_own(Path::new(path), self.own)) {
                 stale.push((*path).to_owned());
@@ -1293,6 +1320,7 @@ fn watch(
         missing: FxHashSet::default(),
         failed: FxHashSet::default(),
         last_stale: FxHashSet::default(),
+        aliases: FxHashMap::default(),
     };
     let mut own: Own = FxHashMap::default();
     // a restarted watcher goes on from the last generation of the one before
@@ -1313,6 +1341,8 @@ fn watch(
         let mut burst = None;
         let mut paths: Vec<String> = if stale.is_empty() {
             let Some((events, first)) = collect(&receiver) else { return 0 };
+            let events: Vec<(String, bool)> =
+                events.into_iter().map(|(p, modify)| (subscriptions.spelled(p), modify)).collect();
             let filter = Instant::now();
             // a directory watched from now on is compared with the disk from here (the answers below read it)
             let since = SystemTime::now();
@@ -1419,6 +1449,22 @@ fn collect(receiver: &Receiver<notify::Result<Event>>) -> Option<(Vec<(String, b
 fn path_text(path: &Path) -> String {
     let text = path.to_string_lossy();
     text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned()
+}
+
+/// The path a wanted directory is watched at (its real path for an alias, [`Subscriptions::aliases`]).
+fn watch_path<'a>(aliases: &'a FxHashMap<String, String>, dir: &'a str) -> &'a str {
+    aliases.get(dir).map_or(dir, String::as_str)
+}
+
+/// Whether `dir` is a directory, a relative link reached through a junction followed (`rbxts_project::links`).
+fn dir_exists(dir: &str) -> bool {
+    Path::new(dir).is_dir() || linked_dir(dir).is_some()
+}
+
+/// The real path of a directory the system cannot reach by `dir` but `rbxts_project::links` can.
+fn linked_dir(dir: &str) -> Option<String> {
+    let real = rbxts_project::links::real_path(Path::new(dir)).ok()?;
+    real.is_dir().then(|| path_text(&real))
 }
 
 /// One build of the watch loop, with its report and events. A panic is reported, and the session starts over.
@@ -1619,6 +1665,7 @@ mod tests {
             missing: FxHashSet::default(),
             failed: FxHashSet::default(),
             last_stale: FxHashSet::default(),
+            aliases: FxHashMap::default(),
         };
         let mut watched = Watched::default();
         let watch = (path_text(&dir), false);
@@ -1674,6 +1721,7 @@ mod tests {
             missing: FxHashSet::default(),
             failed: FxHashSet::default(),
             last_stale: FxHashSet::default(),
+            aliases: FxHashMap::default(),
         };
         let mut watched = Watched::default();
         let tree = (path_text(&root), true);
