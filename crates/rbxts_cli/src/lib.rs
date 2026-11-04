@@ -96,7 +96,9 @@ pub struct Cli {
 pub struct BuildArgs {
     /// `-p` / `--project`: the tsconfig, or the directory holding it.
     pub project: String,
-    /// `--verbose`: roblox-ts's verbose log lines, and rbxts-rs's file counts.
+    /// `--verbose`: prints the plugins' messages and a closing count of files, files written and errors. roblox-ts's
+    /// own verbose lines (each build step and each file, with their times) are not printed; `--timings` gives phase
+    /// and plugin times.
     pub verbose: bool,
     /// `--timings`: the time each build phase took.
     pub timings: bool,
