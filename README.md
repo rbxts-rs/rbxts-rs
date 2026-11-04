@@ -4,10 +4,24 @@
 [tsrs](https://github.com/oxc-project/tsrs) (the Rust port of TypeScript 7), with plugins compiled in. `rbxtsc` is
 called as stock `rbxtsc` is and answers as it does; a project with plugins builds its own `rbxtsc` from a few lines of
 Rust that register them. Flamework's transformer is one such plugin: `flamework_rs` and its `rbxtsc-fw` binary live
-in their own repository, flamework-rs, which depends on this one by git rev.
+in their own repository, [flamework-rs](https://github.com/rbxts-rs/flamework-rs), which depends on this one by
+release tag.
 
-rbxts-rs is a base to fork, not a product: there are no releases, no semver and no support promises. Take it, pin a
-rev, and change what you need.
+rbxts-rs is a base to fork, not a product: there are no support promises. It has
+[releases](https://github.com/rbxts-rs/rbxts-rs/releases) with prebuilt Windows x64 binaries, and projects pin an exact
+version; take a release or a rev and change what you need.
+
+**Starting a new project:** [rbxts-rs/template](https://github.com/rbxts-rs/template) is a minimal game on rbxts-rs
+(TypeScript 7, Rojo) whose `compiler/` downloads the release binary; for Flamework,
+[rbxts-rs/flamework-template](https://github.com/rbxts-rs/flamework-template). `templates/compiler` in this repository
+is only the `compiler/` folder those templates copy. An existing roblox-ts project: "Upgrading a roblox-ts project to
+rbxts-rs (TypeScript 7.1)" below.
+
+**Performance** (v0.1.2, Windows x64 desktop, medians): a clean build of a real 656-file project takes 1.05 s against
+stock roblox-ts's 16.2 s, with a peak memory of 255 MiB against 630 MiB; a watch rebuild after an edit to its
+most-imported file takes 0.54 s against 9.65 s. With Flamework (`rbxtsc-fw` 0.1.1 against stock with the TS
+transformer): 1.29 s against 28.2 s, and 0.72 s against 13.9 s. Every release's tables: `bench/RESULTS.md`, "Per
+release".
 
 ## Status and what it promises
 

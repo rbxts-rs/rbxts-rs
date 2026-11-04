@@ -14,6 +14,22 @@ release step 6): clean builds (medians of 5 interleaved rounds; peak memory from
 and watch rebuilds (3 edits each of a leaf, a file no other imports, and of the most-imported file, the hub; time from
 the file write to the "Found 0 errors" line, debounce included). Default options (4 checkers).
 
+### flamework-rs v0.1.1 (rbxtsc-fw 0.1.1, on rbxts-rs v0.1.2), 2026-11-04
+
+The flamework-rs release zip's binary against stock with Flamework, the pipeline of v0.1.1 below; only the real
+project was run. Against rbxtsc-fw 0.1.0 the output differs in 64 files, all in Flamework's generated code (it is now
+built as Luau directly). Load not recorded.
+
+| project | build | wall | CPU | peak WS | peak commit | out files |
+| --- | --- | --- | --- | --- | --- | --- |
+| the real project (656 files) | stock, Flamework | 28.2 s (27.1-31.0) | 41.6 s | 1384 MiB | 1391 MiB | 667 |
+| the real project (656 files) | rbxtsc-fw | 1.29 s (1.15-1.40) | 3.39 s | 283 MiB | 589 MiB | 667 |
+
+| project | build | initial | leaf edit, median (range) | hub edit, median (range) |
+| --- | --- | --- | --- | --- |
+| the real project (hub: 87 importers) | stock, Flamework | 31.0 s | 2.35 s (2.22-2.37) | 13.9 s (12.4-14.0) |
+| the real project | rbxtsc-fw | 1.57 s | 228 ms (211-360) | 716 ms (666-723) |
+
 ### v0.1.2 (rbxtsc 0.1.2), 2026-11-03
 
 The release zip's binary; the projects and stock pipelines of v0.1.1 below. A patch release (relative links reached
