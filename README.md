@@ -17,9 +17,9 @@ version; take a release or a rev and change what you need.
 is only the `compiler/` folder those templates copy. An existing roblox-ts project: "Upgrading a roblox-ts project to
 rbxts-rs (TypeScript 7.1)" below.
 
-**Performance** (v0.1.2, Windows x64 desktop, medians): a clean build of a real 656-file project takes 1.05 s against
-stock roblox-ts's 16.2 s, with a peak memory of 255 MiB against 630 MiB; a watch rebuild after an edit to its
-most-imported file takes 0.54 s against 9.65 s. With Flamework (`rbxtsc-fw` 0.1.1 against stock with the TS
+**Performance** (v0.1.3, Windows x64 desktop, medians): a clean build of a real 656-file project takes 1.06 s against
+stock roblox-ts's 16.3 s, with a peak memory of 255 MiB against 626 MiB; a watch rebuild after an edit to its
+most-imported file takes 0.54 s against 10.1 s. With Flamework (`rbxtsc-fw` 0.1.1 against stock with the TS
 transformer): 1.29 s against 28.2 s, and 0.72 s against 13.9 s. Every release's tables: `bench/RESULTS.md`, "Per
 release".
 

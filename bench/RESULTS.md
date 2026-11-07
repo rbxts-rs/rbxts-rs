@@ -14,6 +14,23 @@ release step 6): clean builds (medians of 5 interleaved rounds; peak memory from
 and watch rebuilds (3 edits each of a leaf, a file no other imports, and of the most-imported file, the hub; time from
 the file write to the "Found 0 errors" line, debounce included). Default options (4 checkers).
 
+### v0.1.3 (rbxtsc 0.1.3, tsrs 0.23.0), 2026-11-08
+
+The release zip's binary; the projects and stock pipelines of v0.1.1 below. Output identical to 0.1.2 on both
+projects; the Flamework rows wait for the flamework-rs release on this rbxts-rs. Machine shared with another
+session's builds.
+
+| project | build | wall | CPU | peak WS | peak commit | out files |
+| --- | --- | --- | --- | --- | --- | --- |
+| the real project (656 files) | stock, no plugin | 16.3 s (16.1-19.7) | 24.3 s | 626 MiB | 617 MiB | 667 |
+| the real project (656 files) | rbxtsc, no plugin | 1.06 s (1.02-1.19) | 2.72 s | 255 MiB | 524 MiB | 667 |
+| rbxts-rs template (3 files) | rbxtsc | 70 ms (68-71) | 93 ms | 40 MiB | 116 MiB | 3 |
+
+| project | build | initial | leaf edit, median (range) | hub edit, median (range) |
+| --- | --- | --- | --- | --- |
+| the real project (hub: 87 importers) | stock, no plugin | 19.9 s | 2.71 s (2.65-2.74) | 10.1 s (9.12-10.2) |
+| the real project | rbxtsc, no plugin | 1.53 s | 213 ms (193-326) | 543 ms (535-557) |
+
 ### flamework-rs v0.1.1 (rbxtsc-fw 0.1.1, on rbxts-rs v0.1.2), 2026-11-04
 
 The flamework-rs release zip's binary against stock with Flamework, the pipeline of v0.1.1 below; only the real
