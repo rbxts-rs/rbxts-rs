@@ -126,19 +126,19 @@ folder you keep them in). Install an exact version, never a range: upgrading is 
 binary and puts it on the path:
 
 ```sh
-rokit add rbxts-rs/rbxts-rs@0.1.2 rbxtsc
+rokit add rbxts-rs/rbxts-rs@0.1.3 rbxtsc
 ```
 
-That adds `rbxtsc = "rbxts-rs/rbxts-rs@0.1.2"` to the `rokit.toml` (the project's, or with `--global` the user's):
+That adds `rbxtsc = "rbxts-rs/rbxts-rs@0.1.3"` to the `rokit.toml` (the project's, or with `--global` the user's):
 the key names the command, `rbxtsc build`. Name an exact version; moving to another is editing that line (or `rokit
 add` again) and `rokit install`. It is the plain `rbxtsc`, without plugins.
 
 **Windows x64: download a release.** Each [release](https://github.com/rbxts-rs/rbxts-rs/releases) has
 `rbxts-rs-<version>-windows-x64.zip` (`rbxtsc.exe`, the license files and this README) and its SHA-256 in the
-release notes. Unzip it into `<tools>/rbxtsc-<version>/bin/`, for example for 0.1.2:
+release notes. Unzip it into `<tools>/rbxtsc-<version>/bin/`, for example for 0.1.3:
 
 ```powershell
-$v = "0.1.2"; $zip = "rbxts-rs-$v-windows-x64.zip"
+$v = "0.1.3"; $zip = "rbxts-rs-$v-windows-x64.zip"
 Invoke-WebRequest "https://github.com/rbxts-rs/rbxts-rs/releases/download/v$v/$zip" -OutFile $zip
 (Get-FileHash $zip -Algorithm SHA256).Hash   # compare with the release notes
 Expand-Archive $zip -DestinationPath "<tools>/rbxtsc-$v/bin"
@@ -150,12 +150,12 @@ Expand-Archive $zip -DestinationPath "<tools>/rbxtsc-$v/bin"
 # once: the Rust version rbxts-rs pins (rust-toolchain.toml)
 rustup toolchain install 1.99.1 --profile minimal
 # plain rbxtsc (no plugins), from this repository
-cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/rbxts-rs --tag v0.1.2 rbxts_cli --root <tools>/rbxtsc-0.1.2
+cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/rbxts-rs --tag v0.1.3 rbxts_cli --root <tools>/rbxtsc-0.1.3
 # a plugin build, for example Flamework's rbxtsc-fw from flamework-rs, one folder per version
 cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/flamework-rs --tag v<version> rbxtsc_fw --root <tools>/fw-<version>
 ```
 
-That gives `<tools>/rbxtsc-0.1.2/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows); `--rev
+That gives `<tools>/rbxtsc-0.1.3/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows); `--rev
 <commit>` instead of `--tag` builds an unreleased commit.
 `+1.99.1` is the `channel` of the `rust-toolchain.toml` at the rev you install: `cargo install --git` builds with
 the toolchain of the folder it runs in, not the package's, so with an older default toolchain it fails with
@@ -173,7 +173,7 @@ afterwards.
   `--version` prints the roblox-ts version, as stock does.
 
 ```text
-rbxts-rs-version: 0.1.2
+rbxts-rs-version: 0.1.3
 rbxts-rs-commit: <the rbxts-rs commit it was built from, or unknown>
 rbxts-rs-dirty: <true when the tracked files it was built from had uncommitted changes, false, or unknown>
 tsrs-commit: <the tsrs fork commit>
