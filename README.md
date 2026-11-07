@@ -19,8 +19,8 @@ rbxts-rs (TypeScript 7.1)" below.
 
 **Performance** (v0.1.3, Windows x64 desktop, medians): a clean build of a real 656-file project takes 1.06 s against
 stock roblox-ts's 16.3 s, with a peak memory of 255 MiB against 626 MiB; a watch rebuild after an edit to its
-most-imported file takes 0.54 s against 10.1 s. With Flamework (`rbxtsc-fw` 0.1.1 against stock with the TS
-transformer): 1.29 s against 28.2 s, and 0.72 s against 13.9 s. Every release's tables: `bench/RESULTS.md`, "Per
+most-imported file takes 0.54 s against 10.1 s. With Flamework (`rbxtsc-fw` 0.1.2 against stock with the TS
+transformer): 1.44 s against 33.6 s, and 0.71 s against 19.5 s. Every release's tables: `bench/RESULTS.md`, "Per
 release".
 
 ## Status and what it promises
