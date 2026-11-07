@@ -140,14 +140,14 @@ lists none.
 | 04167a7c (3f13aed7, 107aad07) | `ConditionalType::root`, `ConditionalRoot::{node, check_type}` | `tsrs_checker/src/types.rs` | roblox-ts's `isMethod` (`util/is_method.rs`) |
 | 04167a7c (3f13aed7, 107aad07) | `TupleType::{min_length, combined_flags}`, `CountCell::get` | `tsrs_checker/src/types.rs` | for-of over tuples, Flamework's tuple guards and macros |
 | 04167a7c (3f13aed7, 107aad07) | `Checker::get_emit_resolver` | `tsrs_checker/src/checker_15.rs` | the transform state's emit resolver |
-| 17d1bb14 (c341f2b1, 92248ec5) | `diagnostic_file`, `diagnostic_pos`, `diagnostic_len`, `FileLike::file_name` | `tsrs_compiler/src/diagnosticwriter.rs` | nothing since rbxtsc prints TypeScript 7.1's layout (was rbxtsc's TypeScript 5 pretty printer) |
+| 17d1bb14 (c341f2b1, 92248ec5) | `diagnostic_pos`, `diagnostic_len` (and on 0.20.1 `diagnostic_file`, `FileLike::file_name`, public in 0.23.0) | `tsrs_compiler/src/diagnosticwriter.rs` | nothing since rbxtsc prints TypeScript 7.1's layout (was rbxtsc's TypeScript 5 pretty printer) |
 | f1d7be2d (de12dfb9, 77c97efa) | `Checker::value_symbol_links`, `SymbolArenaLinkStore::try_get`, `MappedSymbolLinks::key_type` | `tsrs_checker/src/checker.rs`, `links.rs`, `types.rs` | Flamework's serializer (flamework-rs): a mapped property's mapped type (`ValueSymbolLinks::containing_type`, TS5's `links.mappedType`) and key type (`links.keyType`), read only |
 | f2c98d5a (18638a0c) | `CheckerPoolImpl::checker_count` (the field), `PoolState::owner_of` | `tsrs_compiler/src/checkerpool.rs` | `Program::{checker_count, checker_index_of_file}`, removed: the transform groups and the failure explanation run each file on the checker that checked it (`rbxts_project::{checker_count, checker_index_of_file}`) |
 | 8a379263 (317d9524) | `Checker::error_type` (the field) | `tsrs_checker/src/checker.rs` | `get_error_type`, removed: TypeScript's `errorType` fallback of `getTypeOfSymbolAtLocation` and `getTypeOfAssignmentPattern` |
 | c136955d (7da04ddd) | `utilities::is_declaration_readonly` (public in 0.20.0, `pub(crate)` in 0.20.1) | `tsrs_checker/src/utilities.rs` | Flamework's macro types (`flamework_rs`): a property's readonly flag |
 | c136955d (7da04ddd) | `TupleElementInfo::flags` (the field; `tuple_element_flags()`, its getter, removed) | `tsrs_checker/src/types.rs` | Flamework's guards and serializer (`flamework_rs`): a tuple element's rest and optional flags |
 
-  The flips marked "nothing since" are unused. The `CallState` and checker-field ones share a commit (3f13aed7) with
+  The flips marked "nothing since" are unused. The `CallState` and checker-field ones share a commit (04167a7c, 3f13aed7 on 0.20.1) with
   used flips, so they stay until a later rebase drops them from it.
 
   The rest of what #813 removed has a public replacement or is small enough to copy: `get_type_only_alias_declaration`
@@ -296,18 +296,23 @@ value, or none, leaves it on. How each part of the preset meets rbxts-rs:
   replacements in "The fork" (above) stand in for it.
 - **#816, checker threads reused:** one set of threads serves every work group, and an idle thread exits after 1 s.
   Checked safe for rbxts-rs's thread-locals.
+- **#808, a `NoInfer` change reverted:** no effect on either corpus.
 
 ### What changed with tsrs 0.23.0
 The move from 0.20.1 to 0.23.0 (fork branch `rbxts-fork-0.23.0`) needed no change in rbxts-rs and changed no output.
-Most of its 43 commits are tsrs's new type-aware linter (`tsrs_lint`, `--lint`), which rbxts-rs does not use. The
-ones that reach the crates rbxts-rs uses:
+Most of its 43 commits are tsrs's new type-aware linter (`tsrs_lint`, `--lint`), which rbxts-rs does not use. Two
+others do not reach rbxts-rs: #895 (a full rebuild binds in per-build regions) applies only to a program made with
+`ProgramOptions::regions` or through `update_program`, which rbxts-rs does not use (it sets only `checker_regions`),
+and #900 changes `tsrs_incremental`, which rbxts-rs does not depend on. The ones that reach the crates rbxts-rs uses:
 - **#829:** a symbol table key that differs from the symbol's name is stored as a name proxy.
 - **#833, #859, #854:** checker allocations; key-property lookup; and, in the fast preset rbxts-rs turns on, lazy
   conditional-type simplification and a tuple literal-index shortcut.
-- **#895, #900:** a full program rebuild binds inside the program's per-build regions (watch mode); incremental
-  build info records interface files.
 - **Public API:** `Program::get_semantic_diagnostics_with_checker`, `diagnostic_file` and `FileLike::file_name`
   became public, so the fork dropped or narrowed the flips for them ("The fork", above).
+
+The fast-preset changes of #854 change how the checker reaches tuple and conditional types, which Flamework's
+guards, serializer and macros read; every check below ran with Flamework off, so flamework-rs checks its own output
+on 0.23.0.
 
 Checked unchanged on 0.23.0:
 - both parity corpora (the roblox-ts tests project: 69 identical and 3 known fixes; the real project with Flamework
@@ -321,7 +326,6 @@ Checked unchanged on 0.23.0:
 Performance (the real project, Flamework off, 7 interleaved clean builds of the `measure` profile on each): CPU time
 2.81 s against 2.89 s on 0.20.1, peak memory 255 MiB against 256 MiB. Wall times overlapped (1.07-1.76 s against
 1.07-2.20 s, the machine shared with other builds).
-- **#808, a `NoInfer` change reverted:** no effect on either corpus.
 
 ## TypeScript 5 behaviour rbxts-rs does not reproduce
 Known, accepted differences from stock roblox-ts on TypeScript 5, each inherent to TypeScript 7. A few make a build
