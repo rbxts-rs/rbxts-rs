@@ -249,7 +249,7 @@ them). The lock check then compares rbxts-rs's crates too: git packages on both 
 ## The tsrs fork
 
 rbxts-rs builds on a fork of tsrs whose commits only make tsrs functions public (visibility flips, no behaviour
-changes), <https://github.com/rbxts-rs/tsrs> (branch `rbxts-fork-0.20.1`), pinned by rev in the workspace `Cargo.toml`.
+changes), <https://github.com/rbxts-rs/tsrs> (branch `rbxts-fork-0.23.0`), pinned by rev in the workspace `Cargo.toml`.
 `docs/tsrs.md` covers the fork (its branch, its flips, how to move it to a new tsrs version) and what following
 TypeScript 7.1 means for projects.
 
