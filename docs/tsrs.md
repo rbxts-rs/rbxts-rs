@@ -108,16 +108,17 @@ lists none.
     entry in `Cargo.toml` at your fork's URL and the new head as `rev`, and regenerate `Cargo.lock`. A workspace that
     depends on rbxts-rs bumps its tsrs URL and `rev` to the same values in the same change.
 
-  The previous published branches stay: `rbxts-fork-7.1.0-beta.tsrs3` (head `b0a9e02e`), which rbxts-rs v0.1.4
-  pins, `rbxts-fork-0.23.0` (tsrs v0.23.0, head `c136955d`), which v0.1.3 pins, and `rbxts-fork-0.20.1` (tsrs v0.20.1, head `7da04ddd`), which v0.1.0 to v0.1.2 pin. The branches before
-  them, `rbxts-fork-0.20` (tsrs v0.20.0, head `77c97efa`) and `rbxts-fork` (tsrs v0.18.0), predate the public fork and
-  are not published. Rolling back means pinning an older published rev (and
-  reverting the adaptations since).
+  The previous published branches stay: `rbxts-fork-7.1.0-beta.tsrs3` (head `b0a9e02e`), which rbxts-rs v0.1.4 pins,
+  `rbxts-fork-0.23.0` (tsrs v0.23.0, head `c136955d`), which v0.1.3 pins, and `rbxts-fork-0.20.1` (tsrs v0.20.1, head
+  `7da04ddd`), which v0.1.0 to v0.1.2 pin. The branches before them, `rbxts-fork-0.20` (tsrs v0.20.0, head `77c97efa`)
+  and `rbxts-fork` (tsrs v0.18.0), predate the public fork and are not published. Rolling back means pinning an older
+  published rev (and reverting the adaptations since).
 - **What:** tsrs **v7.1.0-beta.tsrs4** (`fd57202e`, TypeScript 7.1 beta; tsrs numbers its releases after TypeScript
-  since tsrs3) plus commits that change only visibility, private or `pub(crate)` → `pub`. That is 45 lines in 12 files:
-  `rbxts-fork-7.1.0-beta.tsrs3`'s nine commits, cherry-picked onto the tag without a conflict and with the same
-  changes, as they were from `rbxts-fork-0.23.0` onto tsrs3 (the table gives the tsrs4 commit, then the tsrs3 one,
-  the 0.23.0 one, the 0.20.1 one and older ones in brackets). On `rbxts-fork-0.23.0` they were `rbxts-fork-0.20.1`'s commits, cherry-picked onto v0.23.0 without a conflict,
+  since 7.1.0-beta.tsrs1) plus commits that change only visibility, private or `pub(crate)` → `pub`. That is 45
+  lines in 12 files: `rbxts-fork-7.1.0-beta.tsrs3`'s nine commits, cherry-picked onto the tag without a conflict and
+  with the same changes, as they were from `rbxts-fork-0.23.0` onto tsrs3 (the table gives the tsrs4 commit, then the
+  tsrs3 one, the 0.23.0 one, the 0.20.1 one and older ones in brackets). On `rbxts-fork-0.23.0` they were
+  `rbxts-fork-0.20.1`'s commits, cherry-picked onto v0.23.0 without a conflict,
   except 24faf2f0 (`Program::get_semantic_diagnostics_with_checker`), dropped because v0.23.0 makes it public itself;
   v0.23.0 also makes `diagnostic_file` and `FileLike::file_name` public, so 17d1bb14 now flips only
   `diagnostic_pos` and `diagnostic_len`. On `rbxts-fork-0.20.1` the first seven were `rbxts-fork-0.20`'s,
@@ -150,8 +151,9 @@ lists none.
 | 6bc9775a (b0a9e02e, c136955d, 7da04ddd) | `utilities::is_declaration_readonly` (public in 0.20.0, `pub(crate)` in 0.20.1) | `tsrs_checker/src/utilities.rs` | Flamework's macro types (`flamework_rs`): a property's readonly flag |
 | 6bc9775a (b0a9e02e, c136955d, 7da04ddd) | `TupleElementInfo::flags` (the field; `tuple_element_flags()`, its getter, removed) | `tsrs_checker/src/types.rs` | Flamework's guards and serializer (`flamework_rs`): a tuple element's rest and optional flags |
 
-  The flips marked "nothing since" are unused. The `CallState` and checker-field ones share a commit (1afe8b67; 4da7e1d8 on tsrs3, 04167a7c on 0.23.0, 3f13aed7 on 0.20.1) with
-  used flips, so they stay until a later rebase drops them from it.
+  The flips marked "nothing since" are unused. The `CallState` and checker-field ones share a commit (1afe8b67;
+  4da7e1d8 on tsrs3, 04167a7c on 0.23.0, 3f13aed7 on 0.20.1) with used flips, so they stay until a later rebase drops
+  them from it.
 
   The rest of what #813 removed has a public replacement or is small enough to copy: `get_type_only_alias_declaration`
   (now public itself), `get_index_info_of_type_exported` for `get_index_type_of_type_exported`
@@ -356,16 +358,20 @@ of the `measure` profile on each): CPU time 3.17 s against 3.20 s on 0.23.0 with
 against 254 MiB.
 
 ### What changed with tsrs 7.1.0-beta.tsrs4
-The move from tsrs3 to v7.1.0-beta.tsrs4 (fork branch `rbxts-fork-7.1.0-beta.tsrs4`) needed no change in rbxts-rs's
-code, kept Rust 1.100.0 and changed no output. Its 20 commits are bug fixes plus `--showConfig` for tsrs's own CLI;
-the checker, parser, printer and scanner are untouched. What reaches rbxts-rs:
-- **Paths and module resolution:** triple-slash and reference paths go through `resolve_file` (#1057), drive roots
-  and type-root names ending in a separator no longer panic (#1007, #1008, #1048), directory-only candidates outside
-  the type roots follow Go (#1049), and a package's sub-module ID is set only for files inside it (#1038).
+The move from tsrs3 to v7.1.0-beta.tsrs4 (fork branch `rbxts-fork-7.1.0-beta.tsrs4`) needed one change in rbxts-rs's
+code (the triple-slash copy below), kept Rust 1.100.0 and changed no output. Its 20 commits are bug fixes plus
+`--showConfig` for tsrs's own CLI; the checker, parser, printer and scanner are untouched. What reaches rbxts-rs:
+- **Paths and module resolution:** triple-slash and reference paths go through `resolve_file` (#1057; rbxts-rs's
+  copy for the symlink cache, `util/symlink_cache.rs`, follows), drive roots and type-root names ending in a
+  separator no longer panic (#1007, #1008), wildcard type roots are listed through the compiler host (#1048, a panic
+  with project references), directory-only candidates outside the type roots follow Go (#1049), a package's
+  sub-module ID is set only for files inside it (#1038), and the module-specifier generator no longer panics on a
+  file named `index` directly in `node_modules` (#1037, reached through declaration emit).
 - **Program and file system:** the program compares paths with the file system's case sensitivity (#1053; Windows
   is case-insensitive either way), an include's base path keeps at least the root (#1052), a path that is not valid
   UTF-8 finds no file (#1051), and the build-info name strips the config extension after joining (#1040).
 - **Unix only:** the working directory keeps the shell's `$PWD` spelling through symlinks.
+- **New API:** `Program::get_declaration_diagnostics_with_checker` is public; rbxts-rs does not use it.
 
 Checked unchanged on tsrs4, against v0.1.4: both parity corpora (69 and 3; 590 and 15), `cargo test --workspace` (353
 tests, the watch fixtures included), the 169 `src/diagnostics` files built one at a time, and the real project's and
