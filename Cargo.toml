@@ -9,30 +9,30 @@ rust-version = "1.100"
 publish = false
 license = "MIT"
 
-# tsrs, pinned: the fork branch `rbxts-fork-7.1.0-beta.tsrs3` (v7.1.0-beta.tsrs3 plus visibility flips), as a git dependency pinned by rev so
+# tsrs, pinned: the fork branch `rbxts-fork-7.1.0-beta.tsrs4` (v7.1.0-beta.tsrs4 plus visibility flips), as a git dependency pinned by rev so
 # rbxts-rs builds the same tsrs as a dependency of another workspace (flamework-rs) as in its own. The fork is public at
 # https://github.com/rbxts-rs/tsrs; a local tsrs checkout can override it with `[patch]` (docs/tsrs.md).
 # Cargo.lock started as a copy of tsrs's lock file so the transitive versions match what tsrs tests with.
 [workspace.dependencies]
-tsrs_core = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_ast = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_vfs = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_tsoptions = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_compiler = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_diagnostics = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_checker = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_scanner = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_parser = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_printer = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_sourcemap = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
+tsrs_core = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_ast = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_vfs = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_tsoptions = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_compiler = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_diagnostics = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_checker = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_scanner = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_parser = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_printer = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_sourcemap = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
 mimalloc-safe = { version = "0.1.67", features = ["v3", "no_thp"] }
 rbxts_project = { path = "crates/rbxts_project" }
 rbxts_luau = { path = "crates/rbxts_luau" }
 rbxts_luau_check = { path = "crates/rbxts_luau_check" }
 # preserve_order: Rojo trees iterate children in file order, as JavaScript objects do.
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
-tsrs_module = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
-tsrs_contentmapper = { git = "https://github.com/rbxts-rs/tsrs", rev = "b0a9e02e92d82479a73d57aa94c1b84423226231" }
+tsrs_module = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
+tsrs_contentmapper = { git = "https://github.com/rbxts-rs/tsrs", rev = "6bc9775acc6dcd4c528c00e39c14c96c3f7e3a6f" }
 rbxts_transform = { path = "crates/rbxts_transform" }
 rbxts_plugin = { path = "crates/rbxts_plugin" }
 rbxts_test_plugins = { path = "crates/rbxts_test_plugins" }
