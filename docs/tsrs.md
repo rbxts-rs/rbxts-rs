@@ -367,9 +367,11 @@ the checker, parser, printer and scanner are untouched. What reaches rbxts-rs:
   UTF-8 finds no file (#1051), and the build-info name strips the config extension after joining (#1040).
 - **Unix only:** the working directory keeps the shell's `$PWD` spelling through symlinks.
 
-Checked unchanged on tsrs4, against v0.1.4: both parity corpora (69 and 3; 590 and 15), `cargo test --workspace`
-(353 tests, the watch fixtures included), the 169 `src/diagnostics` files built one at a time, and the real
-project's and the template's output trees.
+Checked unchanged on tsrs4, against v0.1.4: both parity corpora (69 and 3; 590 and 15), `cargo test --workspace` (353
+tests, the watch fixtures included), the 169 `src/diagnostics` files built one at a time, and the real project's and
+the template's output trees. Performance (the real project, Flamework off, 7 interleaved clean builds of the
+`measure` profile on each, on a machine shared with Roblox Studio): CPU time 3.50 s against 3.70 s on tsrs3, peak
+memory 255 MiB against 254 MiB.
 
 ## TypeScript 5 behaviour rbxts-rs does not reproduce
 Known, accepted differences from stock roblox-ts on TypeScript 5, each inherent to TypeScript 7. A few make a build
