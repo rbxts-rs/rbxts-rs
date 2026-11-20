@@ -148,18 +148,18 @@ Expand-Archive $zip -DestinationPath "<tools>/rbxtsc-$v/bin"
 
 ```sh
 # once: the Rust version rbxts-rs pins (rust-toolchain.toml)
-rustup toolchain install 1.99.1 --profile minimal
+rustup toolchain install 1.100.0 --profile minimal
 # plain rbxtsc (no plugins), from this repository
-cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/rbxts-rs --tag v0.1.3 rbxts_cli --root <tools>/rbxtsc-0.1.3
+cargo +1.100.0 install --locked --git https://github.com/rbxts-rs/rbxts-rs --tag v0.1.3 rbxts_cli --root <tools>/rbxtsc-0.1.3
 # a plugin build, for example Flamework's rbxtsc-fw from flamework-rs, one folder per version
-cargo +1.99.1 install --locked --git https://github.com/rbxts-rs/flamework-rs --tag v<version> rbxtsc_fw --root <tools>/fw-<version>
+cargo +1.100.0 install --locked --git https://github.com/rbxts-rs/flamework-rs --tag v<version> rbxtsc_fw --root <tools>/fw-<version>
 ```
 
 That gives `<tools>/rbxtsc-0.1.3/bin/rbxtsc` and `<tools>/fw-<version>/bin/rbxtsc-fw` (`.exe` on Windows); `--rev
 <commit>` instead of `--tag` builds an unreleased commit.
-`+1.99.1` is the `channel` of the `rust-toolchain.toml` at the rev you install: `cargo install --git` builds with
+`+1.100.0` is the `channel` of the `rust-toolchain.toml` at the rev you install: `cargo install --git` builds with
 the toolchain of the folder it runs in, not the package's, so with an older default toolchain it fails with
-"requires rustc 1.99 or newer".
+"requires rustc 1.100 or newer".
 `--locked` builds with the repository's `Cargo.lock` (without it, `cargo install` resolves the dependencies again).
 `cargo install` uses the `release` profile (fat LTO), so it builds slowly, in a temporary target directory removed
 afterwards.
