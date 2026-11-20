@@ -14,6 +14,26 @@ release step 6): clean builds (medians of 5 interleaved rounds; peak memory from
 and watch rebuilds (3 edits each of a leaf, a file no other imports, and of the most-imported file, the hub; time from
 the file write to the "Found 0 errors" line, debounce included). Default options (4 checkers).
 
+### v0.1.4 (rbxtsc 0.1.4, tsrs 7.1.0-beta.tsrs3, Rust 1.100.0), 2026-11-20
+
+The release zip's binary; the projects and stock pipelines of v0.1.1 below. Output identical to 0.1.3 on both
+projects. **The machine was loaded** (Studio and another session's test runs, CPU about 90% busy): stock itself ran
+47% slower than for v0.1.3 (23.9 s against 16.3 s), so these rows are not comparable with v0.1.3's. Measured like
+for like instead (7 interleaved clean builds of the `measure` profile, the real project, Flamework off), tsrs3 with
+Rust 1.100.0 took 3.17 s of CPU against 3.20 s for tsrs 0.23.0 with Rust 1.99.1, peak memory 255 MiB against
+254 MiB (`docs/tsrs.md`, "What changed with tsrs 7.1.0-beta.tsrs3").
+
+| project | build | wall | CPU | peak WS | peak commit | out files |
+| --- | --- | --- | --- | --- | --- | --- |
+| the real project (656 files) | stock, no plugin | 23.9 s (20.7-28.3) | 31.6 s | 621 MiB | 615 MiB | 667 |
+| the real project (656 files) | rbxtsc, no plugin | 1.42 s (1.34-1.60) | 3.28 s | 254 MiB | 532 MiB | 667 |
+| rbxts-rs template (3 files) | rbxtsc | 80 ms (76-92) | 109 ms | 39 MiB | 116 MiB | 3 |
+
+| project | build | initial | leaf edit, median (range) | hub edit, median (range) |
+| --- | --- | --- | --- | --- |
+| the real project (hub: 87 importers) | stock, no plugin | 22.6 s | 3.05 s (2.89-3.68) | 12.9 s (10.8-13.1) |
+| the real project | rbxtsc, no plugin | 1.59 s | 221 ms (204-365) | 816 ms (746-1022) |
+
 ### flamework-rs v0.1.2 (rbxtsc-fw 0.1.2, on rbxts-rs v0.1.3), 2026-11-08
 
 The flamework-rs release zip's binary against stock with Flamework, the pipeline of v0.1.1 below; only the real
